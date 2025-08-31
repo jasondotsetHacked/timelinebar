@@ -333,6 +333,8 @@ const ui = {
   },
   hideTips() { els.tipStart.style.display = els.tipEnd.style.display = els.tipCenter.style.display = 'none'; },
   openModal(range) {
+    // Opening a fresh modal for a new entry should not inherit edit state
+    state.editingId = null;
     state.pendingRange = range;
     els.startField.value = time.toLabel(range.startMin);
     els.endField.value = time.toLabel(range.endMin);
@@ -342,7 +344,12 @@ const ui = {
     els.modal.style.display = 'flex';
     els.caseField.focus();
   },
-  closeModal() { els.modal.style.display = 'none'; state.pendingRange = null; },
+  closeModal() {
+    // Closing the modal (Cancel/Escape/Close) should abandon any edit state
+    els.modal.style.display = 'none';
+    state.pendingRange = null;
+    state.editingId = null;
+  },
   toast(msg) { els.toast.textContent = msg; els.toast.style.display = 'block'; clearTimeout(els.toast._t); els.toast._t = setTimeout(()=> els.toast.style.display = 'none', 2400); }
 };
  
