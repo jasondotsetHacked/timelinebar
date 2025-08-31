@@ -146,6 +146,14 @@ tbody tr + tr td { border-top: 1px dashed rgba(255,255,255,.08); }
 td.note { color: var(--muted); }
 .empty { padding: 18px; text-align: center; color: var(--muted); }
 
+/* Table actions */
+.table-actions { white-space: nowrap; }
+.row-action { appearance: none; border: 0; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; margin-right: 6px; }
+.row-action.edit { background: rgba(255,255,255,.08); color: var(--text); }
+.row-action.delete { background: var(--danger); color: #091019; }
+tbody tr { cursor: pointer; }
+tbody tr .row-action { cursor: pointer; }
+
 /* Toast */
 .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #111b37; color: var(--text); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 10px 14px; font-size: 14px; display: none; z-index: 60; box-shadow: var(--shadow); }
  

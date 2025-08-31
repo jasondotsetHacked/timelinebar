@@ -288,12 +288,17 @@ const ui = {
     for (const p of sorted) {
       const tr = document.createElement('tr');
       const dur = p.end - p.start;
+      tr.dataset.id = p.id;
       tr.innerHTML = `
-        <td>${time.toLabel(p.start)}</td>
-        <td>${time.toLabel(p.end)}</td>
+        <td class="cell-start">${time.toLabel(p.start)}</td>
+        <td class="cell-end">${time.toLabel(p.end)}</td>
         <td>${time.durationLabel(dur)}</td>
         <td>${escapeHtml(p.caseNumber || '')}</td>
-        <td class="note">${escapeHtml(p.note || '')}</td>`;
+        <td class="note">${escapeHtml(p.note || '')}</td>
+        <td class="table-actions">
+          <button class="row-action edit" title="Edit" data-id="${p.id}">Edit</button>
+          <button class="row-action delete" title="Delete" data-id="${p.id}">Delete</button>
+        </td>`;
       els.rows.appendChild(tr);
     }
     els.empty.style.display = sorted.length ? 'none' : 'block';
@@ -333,6 +338,7 @@ const ui = {
     els.endField.value = time.toLabel(range.endMin);
     els.caseField.value = '';
     els.noteField.value = '';
+    if (els.modalTitle) els.modalTitle.textContent = 'New Time Block';
     els.modal.style.display = 'flex';
     els.caseField.focus();
   },
@@ -513,6 +519,37 @@ function attachEvents() {
   els.track.addEventListener('touchstart', startDrag, {passive:true});
   els.track.addEventListener('mousedown', startResize);
   els.track.addEventListener('touchstart', startResize, {passive:true});
+  // table actions: edit/delete and row click-to-edit
+  els.rows.addEventListener('click', async (e) => {
+    const delBtn = e.target.closest('.row-action.delete');
+    if (delBtn) {
+      const id = Number(delBtn.dataset.id);
+      if (!confirm('Delete this time entry?')) return;
+      await idb.remove(id);
+      state.punches = await idb.all();
+      ui.renderAll();
+      ui.toast('Deleted');
+      return;
+    }
+    const editBtn = e.target.closest('.row-action.edit');
+    const row = e.target.closest('tr');
+    if (editBtn || row) {
+      const id = Number((editBtn?.dataset.id) || (row?.dataset.id));
+      if (!id) return;
+      const p = state.punches.find(px => px.id === id);
+      if (!p) return;
+      state.editingId = id;
+      state.pendingRange = { startMin: p.start, endMin: p.end };
+      els.startField.value = time.toLabel(p.start);
+      els.endField.value = time.toLabel(p.end);
+      els.caseField.value = p.caseNumber || '';
+      els.noteField.value = p.note || '';
+      if (els.modalTitle) els.modalTitle.textContent = 'Edit Time Block';
+      els.modal.style.display = 'flex';
+      els.caseField.focus();
+      return;
+    }
+  });
   // delegate clicks on labels / controls inside the track
   els.track.addEventListener('click', async (e) => {
   const lbl = e.target.closest('.punch-label');
@@ -527,6 +564,7 @@ function attachEvents() {
       els.endField.value = time.toLabel(p.end);
       els.caseField.value = p.caseNumber || '';
       els.noteField.value = p.note || '';
+      if (els.modalTitle) els.modalTitle.textContent = 'Edit Time Block';
       els.modal.style.display = 'flex';
       els.caseField.focus();
       return;
@@ -542,6 +580,7 @@ function attachEvents() {
       els.endField.value = time.toLabel(p.end);
       els.caseField.value = p.caseNumber || '';
       els.noteField.value = p.note || '';
+      if (els.modalTitle) els.modalTitle.textContent = 'Edit Time Block';
       els.modal.style.display = 'flex';
       els.caseField.focus();
       return;
@@ -569,6 +608,7 @@ function attachEvents() {
       els.endField.value = time.toLabel(p.end);
       els.caseField.value = p.caseNumber || '';
       els.noteField.value = p.note || '';
+      if (els.modalTitle) els.modalTitle.textContent = 'Edit Time Block';
       els.modal.style.display = 'flex';
       els.caseField.focus();
       return;
