@@ -32,6 +32,7 @@ const nearestBounds = (forId) => {
 
 const startDrag = (e) => {
   if (e.target.closest('.handle')) return;
+  if (e.target.closest('.punch')) return; // don't start new-range drag when interacting with an existing block
   const raw = e.touches ? pxToMinutes(e.touches[0].clientX) : pxToMinutes(e.clientX);
   const snapped = time.snap(raw);
   state.dragging = { anchor: snapped, last: snapped };
@@ -111,7 +112,8 @@ const onResizeMove = (e) => {
   const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
   const el = els.track.querySelector(`.punch[data-id="${id}"]`);
   const leftPct = ((Math.max(newStart, VIEW_START_MIN) - VIEW_START_MIN) / VIEW_MINUTES) * 100;
-  const widthPct = ((Math.min(newEnd, VIEW_END_MIN) - Math.max(newStart, VIEW_START_MIN)) / VIEW_MINUTES) * 100;
+  const widthPctRaw = ((Math.min(newEnd, VIEW_END_MIN) - Math.max(newStart, VIEW_START_MIN)) / VIEW_MINUTES) * 100;
+  const widthPct = Math.max(0, widthPctRaw);
   el.style.left = leftPct + '%';
   el.style.width = widthPct + '%';
   el.classList.toggle('invalid', invalid);
@@ -134,6 +136,85 @@ const endResize = async () => {
   if (!preview || preview.invalid) {
     ui.renderTimeline();
     if (preview?.invalid) ui.toast('Adjust would overlap another block.');
+    return;
+  }
+  const idx = state.punches.findIndex((p) => p.id === id);
+  state.punches[idx] = { ...state.punches[idx], start: preview.newStart, end: preview.newEnd };
+  await idb.put(state.punches[idx]);
+  ui.renderAll();
+};
+
+// Move entire block by dragging anywhere on the block (excluding handles)
+const startMove = (e) => {
+  const handle = e.target.closest('.handle');
+  if (handle) return; // handled by startResize
+  const punchEl = e.target.closest('.punch');
+  if (!punchEl) return;
+  const id = Number(punchEl.dataset.id);
+  const p = state.punches.find((x) => x.id === id);
+  if (!p) return;
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const pointerMin = pxToMinutes(clientX);
+  const duration = p.end - p.start;
+  const offset = pointerMin - p.start;
+  state.moving = {
+    id,
+    duration,
+    offset,
+    startStart: p.start,
+    startEnd: p.end,
+    startClientX: clientX,
+    moved: false,
+  };
+  window.addEventListener('mousemove', onMoveMove);
+  window.addEventListener('touchmove', onMoveMove, { passive: false });
+  window.addEventListener('mouseup', endMove);
+  window.addEventListener('touchend', endMove);
+};
+
+const onMoveMove = (e) => {
+  if (!state.moving) return;
+  if (e.cancelable) e.preventDefault();
+  const { id, duration, offset, startClientX } = state.moving;
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  if (Math.abs(clientX - startClientX) > 3) state.moving.moved = true;
+  const m = time.snap(pxToMinutes(clientX));
+  let desiredStart = m - offset;
+  desiredStart = time.snap(desiredStart);
+  const desiredEnd = desiredStart + duration;
+  const bounds = nearestBounds(id);
+  const leftLimit = bounds.leftLimitAt(desiredStart);
+  const rightLimit = bounds.rightLimitAt(desiredEnd);
+  const minStart = leftLimit;
+  const maxStart = rightLimit - duration;
+  const clampedStart = Math.max(minStart, Math.min(maxStart, desiredStart));
+  const newStart = time.snap(clampedStart);
+  const newEnd = newStart + duration;
+  const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
+  const el = els.track.querySelector(`.punch[data-id="${id}"]`);
+  const leftPct = ((Math.max(newStart, VIEW_START_MIN) - VIEW_START_MIN) / VIEW_MINUTES) * 100;
+  const widthPct = ((Math.min(newEnd, VIEW_END_MIN) - Math.max(newStart, VIEW_START_MIN)) / VIEW_MINUTES) * 100;
+  el.style.left = leftPct + '%';
+  el.style.width = widthPct + '%';
+  el.classList.toggle('invalid', invalid);
+  state.moving.preview = { newStart, newEnd, invalid };
+  ui.showTips(newStart, newEnd);
+};
+
+const endMove = async () => {
+  if (!state.moving) return;
+  const { id, moved } = state.moving;
+  const preview = state.moving.preview;
+  state.moving = null;
+  window.removeEventListener('mousemove', onMoveMove);
+  window.removeEventListener('touchmove', onMoveMove);
+  window.removeEventListener('mouseup', endMove);
+  window.removeEventListener('touchend', endMove);
+  ui.hideTips();
+  if (!moved) return; // treat as click; don't change
+  if (!preview || preview.invalid) {
+    ui.renderTimeline();
+    if (preview?.invalid) ui.toast('Move would overlap another block.');
     return;
   }
   const idx = state.punches.findIndex((p) => p.id === id);
@@ -191,6 +272,8 @@ const closeModal = () => ui.closeModal();
 const attachEvents = () => {
   els.track.addEventListener('mousedown', startDrag);
   els.track.addEventListener('touchstart', startDrag, { passive: true });
+  els.track.addEventListener('mousedown', startMove);
+  els.track.addEventListener('touchstart', startMove, { passive: true });
   els.track.addEventListener('mousedown', startResize);
   els.track.addEventListener('touchstart', startResize, { passive: true });
 
@@ -348,4 +431,3 @@ const attachEvents = () => {
 export const actions = {
   attachEvents,
 };
-
