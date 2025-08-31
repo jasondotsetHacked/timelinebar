@@ -118,6 +118,13 @@ body {
 .punch .control-btn.delete { background: rgba(255,107,107,0.9); color: #091019; }
 .punch.invalid { outline: 2px solid var(--danger); }
 
+/* Remove in-block and popper controls entirely */
+.punch .controls, .label-popper .controls { display: none !important; }
+
+/* Hover highlight syncing between track blocks and table rows */
+.punch.is-hovered { outline: 2px solid rgba(255,255,255,.35); box-shadow: inset 0 0 0 1px rgba(255,255,255,.15), 0 8px 20px rgba(0,0,0,.5); }
+tbody tr.is-hovered { background: rgba(255,255,255,.06); }
+
 .help-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px 16px; border-top: 1px dashed rgba(255,255,255,.08); color: var(--muted); font-size: 13px; }
 
 /* Modal */

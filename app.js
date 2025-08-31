@@ -630,6 +630,45 @@ function attachEvents() {
   els.modalClose.addEventListener('click', closeModal);
   window.addEventListener('keydown', (e)=> { if(e.key==='Escape') closeModal(); });
   window.addEventListener('resize', () => ui.renderTimeline());
+
+  // Delegated hover highlighting between punches and table rows
+  els.track.addEventListener('mouseover', (e) => {
+    const punch = e.target.closest('.punch');
+    if (!punch) return;
+    punch.classList.add('is-hovered');
+    const id = Number(punch.dataset.id);
+    if (!id) return;
+    const row = els.rows.querySelector(`tr[data-id="${id}"]`);
+    if (row) row.classList.add('is-hovered');
+  });
+  els.track.addEventListener('mouseout', (e) => {
+    const punch = e.target.closest('.punch');
+    if (!punch) return;
+    punch.classList.remove('is-hovered');
+    const id = Number(punch.dataset.id);
+    if (!id) return;
+    const row = els.rows.querySelector(`tr[data-id="${id}"]`);
+    if (row) row.classList.remove('is-hovered');
+  });
+
+  els.rows.addEventListener('mouseover', (e) => {
+    const row = e.target.closest('tr[data-id]');
+    if (!row) return;
+    row.classList.add('is-hovered');
+    const id = Number(row.dataset.id);
+    if (!id) return;
+    const punch = els.track.querySelector(`.punch[data-id="${id}"]`);
+    if (punch) punch.classList.add('is-hovered');
+  });
+  els.rows.addEventListener('mouseout', (e) => {
+    const row = e.target.closest('tr[data-id]');
+    if (!row) return;
+    row.classList.remove('is-hovered');
+    const id = Number(row.dataset.id);
+    if (!id) return;
+    const punch = els.track.querySelector(`.punch[data-id="${id}"]`);
+    if (punch) punch.classList.remove('is-hovered');
+  });
 }
  
 async function init() {
