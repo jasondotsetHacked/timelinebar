@@ -166,12 +166,15 @@ const ui = {
     rightHandle.appendChild(rightBar);
     // anchor the visible bar explicitly to avoid CSS flipping issues
     try {
-      leftBar.style.right = '0px';
-      leftBar.style.borderTopRightRadius = '8px';
-      leftBar.style.borderBottomRightRadius = '8px';
-      rightBar.style.left = '0px';
-      rightBar.style.borderTopLeftRadius = '8px';
-      rightBar.style.borderBottomLeftRadius = '8px';
+      // flipped orientation: anchor bars to the opposite side
+      leftBar.style.left = '0px';
+      leftBar.style.right = '';
+      leftBar.style.borderTopLeftRadius = '8px';
+      leftBar.style.borderBottomLeftRadius = '8px';
+      rightBar.style.right = '0px';
+      rightBar.style.left = '';
+      rightBar.style.borderTopRightRadius = '8px';
+      rightBar.style.borderBottomRightRadius = '8px';
     } catch (err) { /* ignore */ }
     el.append(leftHandle, rightHandle);
   // optional debug visualization
@@ -181,8 +184,8 @@ const ui = {
         leftBar.style.outline = '1px solid rgba(255,0,0,0.35)';
         rightBar.style.background = 'rgba(0,255,0,0.12)';
         rightBar.style.outline = '1px solid rgba(0,255,0,0.35)';
-  leftBar.title = `Left handle (w=${edgeW}px) - anchored right`;
-  rightBar.title = `Right handle (w=${edgeW}px) - anchored left`;
+  leftBar.title = `Left handle (w=${edgeW}px) - anchored left`;
+  rightBar.title = `Right handle (w=${edgeW}px) - anchored right`;
         console.log('HANDLE_DEBUG', { id: p.id, pxWidth, edgeW, leftPct, widthPct });
       }
   } catch (err) { /* ignore in old browsers */ }
@@ -195,18 +198,15 @@ const ui = {
       const leftBarRect = leftBar.getBoundingClientRect();
       const rightBarRect = rightBar.getBoundingClientRect();
       const centerX = elRect.left + elRect.width / 2;
-      // if left bar is right of center, it's flipped — anchor to left instead
+      // if left bar somehow ended up on the right half, anchor it back left
       if (leftBarRect.left > centerX) {
         leftBar.style.left = '0px'; leftBar.style.right = '';
-        rightBar.style.right = '0px'; rightBar.style.left = '';
-        if (window.DEBUG_HANDLES) console.log('HANDLE_AUTOFLIP: corrected left/right for', p.id);
+        if (window.DEBUG_HANDLES) console.log('HANDLE_AUTOFLIP: corrected left (anchor left) for', p.id);
       }
-      // if right bar is left of center, it's flipped the other way
+      // if right bar somehow ended up on the left half, anchor it back right
       if (rightBarRect.right < centerX) {
         rightBar.style.right = '0px'; rightBar.style.left = '';
-        leftBar.style.left = '';
-        leftBar.style.right = '0px';
-        if (window.DEBUG_HANDLES) console.log('HANDLE_AUTOFLIP: corrected right/left for', p.id);
+        if (window.DEBUG_HANDLES) console.log('HANDLE_AUTOFLIP: corrected right (anchor right) for', p.id);
       }
     });
   } catch (err) { /* ignore */ }

@@ -72,9 +72,10 @@ body {
 .handle.right { right: 0; }
 
 /* visible inner bar on the handle (anchored to the inner edge) */
-.handle-bar { position: absolute; top: 0; bottom: 0; width: 6px; background: linear-gradient(90deg, rgba(0,0,0,0.22), rgba(0,0,0,0.08)); pointer-events: none; }
-.handle.left .handle-bar { right: 0; border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
-.handle.right .handle-bar { left: 0; border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+.handle-bar { position: absolute; top: 0; bottom: 0; width: 6px; background: linear-gradient(270deg, rgba(0,0,0,0.22), rgba(0,0,0,0.08)); pointer-events: none; }
+/* flipped orientation: round the edge facing the block center */
+.handle.left .handle-bar { left: 0; border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+.handle.right .handle-bar { right: 0; border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
 
 /* active glow for the edge being resized */
 .punch.resizing-left .handle.left .handle-bar,
