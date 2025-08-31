@@ -1,0 +1,25 @@
+const byId = (id) => document.getElementById(id);
+
+export const els = {
+  track: byId('track'),
+  ghost: byId('ghost'),
+  tipStart: byId('tipStart'),
+  tipEnd: byId('tipEnd'),
+  tipCenter: byId('tipCenter'),
+  ticks: byId('ticks'),
+  rows: byId('rows'),
+  empty: byId('empty'),
+  modal: byId('modal'),
+  startField: byId('startField'),
+  endField: byId('endField'),
+  caseField: byId('caseField'),
+  noteField: byId('noteField'),
+  modalForm: byId('modalForm'),
+  modalCancel: byId('modalCancel'),
+  modalClose: byId('modalClose'),
+  modalTitle: document.querySelector('.modal-title'),
+  modalFooter: document.querySelector('.modal-footer'),
+  total: byId('total'),
+  toast: byId('toast'),
+};
+
