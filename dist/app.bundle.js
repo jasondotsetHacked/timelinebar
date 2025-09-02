@@ -75,9 +75,53 @@
   };
   var time = { clamp, snap, toLabel, durationLabel, hourLabel };
 
+  // src/nowIndicator.js
+  function getView() {
+    const start = Math.max(0, Math.min(24 * 60, Number(state.viewStartMin)));
+    const end = Math.max(0, Math.min(24 * 60, Number(state.viewEndMin)));
+    const s = Math.min(start, end);
+    const e = Math.max(start, end);
+    const minutes = Math.max(1, e - s);
+    return { start: s, end: e, minutes };
+  }
+  function nowMinutes() {
+    const d = /* @__PURE__ */ new Date();
+    return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+  }
+  function ensureEl() {
+    let el = els.track.querySelector(".now-indicator");
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "now-indicator";
+      el.setAttribute("aria-hidden", "true");
+      els.track.appendChild(el);
+    }
+    return el;
+  }
+  function update() {
+    const el = ensureEl();
+    const view = getView();
+    const mins = nowMinutes();
+    if (mins < view.start || mins > view.end) {
+      el.style.display = "none";
+      return;
+    }
+    const pct = (mins - view.start) / view.minutes * 100;
+    el.style.left = pct + "%";
+    el.style.display = "block";
+  }
+  var _timer = null;
+  function init() {
+    ensureEl();
+    update();
+    if (_timer) clearInterval(_timer);
+    _timer = setInterval(update, 3e4);
+  }
+  var nowIndicator = { init, update };
+
   // src/ui.js
   var escapeHtml = (s) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
-  function getView() {
+  function getView2() {
     const start = Math.max(0, Math.min(24 * 60, Number(state.viewStartMin)));
     const end = Math.max(0, Math.min(24 * 60, Number(state.viewEndMin)));
     const s = Math.min(start, end);
@@ -87,7 +131,7 @@
   }
   function renderTicks() {
     els.ticks.innerHTML = "";
-    const view = getView();
+    const view = getView2();
     const firstHour = Math.ceil(view.start / 60);
     const lastHour = Math.floor(view.end / 60);
     for (let h = firstHour; h <= lastHour; h++) {
@@ -118,7 +162,7 @@
     const narrowItems = [];
     const rect = els.track.getBoundingClientRect();
     const trackWidth = rect.width || 1;
-    const view = getView();
+    const view = getView2();
     const sorted = [...state.punches].sort((a, b) => a.start - b.start);
     for (const p of sorted) {
       const startClamped = Math.max(p.start, view.start);
@@ -319,7 +363,7 @@
   }
   function showGhost(a, b) {
     const [start, end] = a < b ? [a, b] : [b, a];
-    const view = getView();
+    const view = getView2();
     const leftPct = (start - view.start) / view.minutes * 100;
     const widthPct = (end - view.start) / view.minutes * 100 - leftPct;
     Object.assign(els.ghost.style, { display: "block", left: leftPct + "%", width: widthPct + "%" });
@@ -330,7 +374,7 @@
     hideTips();
   }
   function showTips(start, end) {
-    const view = getView();
+    const view = getView2();
     const leftPct = (start - view.start) / view.minutes * 100;
     const rightPct = (end - view.start) / view.minutes * 100;
     const centerPct = ((start + end) / 2 - view.start) / view.minutes * 100;
@@ -376,6 +420,7 @@
     renderTimeline();
     renderTable();
     renderTotal();
+    nowIndicator.update();
   }
   var ui = {
     renderAll,
@@ -423,7 +468,7 @@
   var idb = { add, put, remove, all };
 
   // src/actions.js
-  var getView2 = () => {
+  var getView3 = () => {
     const start = Math.max(0, Math.min(24 * 60, state.viewStartMin | 0));
     const end = Math.max(0, Math.min(24 * 60, state.viewEndMin | 0));
     const s = Math.min(start, end);
@@ -435,7 +480,7 @@
     const rect = els.track.getBoundingClientRect();
     const x = clientX - rect.left;
     const pct = Math.min(1, Math.max(0, x / rect.width));
-    const view = getView2();
+    const view = getView3();
     const mins = view.start + pct * view.minutes;
     return Math.max(view.start, Math.min(view.end, Math.round(mins)));
   };
@@ -445,11 +490,11 @@
     return {
       leftLimitAt: (start) => {
         const leftNeighbor = [...sorted].filter((p) => p.end <= start).pop();
-        return leftNeighbor ? leftNeighbor.end : getView2().start;
+        return leftNeighbor ? leftNeighbor.end : getView3().start;
       },
       rightLimitAt: (end) => {
         const rightNeighbor = [...sorted].find((p) => p.start >= end);
-        return rightNeighbor ? rightNeighbor.start : getView2().end;
+        return rightNeighbor ? rightNeighbor.start : getView3().end;
       }
     };
   };
@@ -530,7 +575,7 @@
     }
     const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
     const el = els.track.querySelector(`.punch[data-id="${id}"]`);
-    const view = getView2();
+    const view = getView3();
     const leftPct = (Math.max(newStart, view.start) - view.start) / view.minutes * 100;
     const widthPctRaw = (Math.min(newEnd, view.end) - Math.max(newStart, view.start)) / view.minutes * 100;
     const widthPct = Math.max(0, widthPctRaw);
@@ -608,7 +653,7 @@
     const newEnd = newStart + duration;
     const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
     const el = els.track.querySelector(`.punch[data-id="${id}"]`);
-    const view = getView2();
+    const view = getView3();
     const leftPct = (Math.max(newStart, view.start) - view.start) / view.minutes * 100;
     const widthPct = (Math.min(newEnd, view.end) - Math.max(newStart, view.start)) / view.minutes * 100;
     el.style.left = leftPct + "%";
@@ -841,7 +886,7 @@
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeModal2();
     });
-    window.addEventListener("resize", () => ui.renderTimeline());
+    window.addEventListener("resize", () => ui.renderAll());
     window.addEventListener("click", (e) => {
       if (!e.target.closest(".status-wrap")) {
         els.rows.querySelectorAll(".status-wrap.open").forEach((w) => w.classList.remove("open"));
@@ -898,7 +943,7 @@
       if (!state.overTrack) return;
       e.preventDefault();
       const rect = els.track.getBoundingClientRect();
-      const view = getView2();
+      const view = getView3();
       const pointerX = e.clientX - rect.left;
       const pct = Math.min(1, Math.max(0, pointerX / Math.max(1, rect.width)));
       if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
@@ -946,7 +991,7 @@
   };
 
   // app.js
-  async function init() {
+  async function init2() {
     actions.attachEvents();
     if (typeof window.DEBUG_HANDLES === "undefined") {
       window.DEBUG_HANDLES = true;
@@ -954,6 +999,7 @@
     }
     state.punches = await idb.all();
     ui.renderAll();
+    nowIndicator.init();
   }
-  init();
+  init2();
 })();

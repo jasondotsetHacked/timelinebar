@@ -446,7 +446,7 @@ const attachEvents = () => {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
   });
-  window.addEventListener('resize', () => ui.renderTimeline());
+  window.addEventListener('resize', () => ui.renderAll());
 
   // Close any open status menus when clicking outside
   window.addEventListener('click', (e) => {

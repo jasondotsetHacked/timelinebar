@@ -1,6 +1,7 @@
 import { els } from './dom.js';
 import { state } from './state.js';
 import { time } from './time.js';
+import { nowIndicator } from './nowIndicator.js';
 // Viewport is now dynamic and sourced from state
 
 const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
@@ -340,6 +341,7 @@ function renderAll() {
   renderTimeline();
   renderTable();
   renderTotal();
+  nowIndicator.update();
 }
 
 export const ui = {

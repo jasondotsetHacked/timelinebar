@@ -2,6 +2,7 @@ import { actions } from './src/actions.js';
 import { idb } from './src/storage.js';
 import { state } from './src/state.js';
 import { ui } from './src/ui.js';
+import { nowIndicator } from './src/nowIndicator.js';
 
 async function init() {
   actions.attachEvents();
@@ -11,7 +12,7 @@ async function init() {
   }
   state.punches = await idb.all();
   ui.renderAll();
+  nowIndicator.init();
 }
 
 init();
-
