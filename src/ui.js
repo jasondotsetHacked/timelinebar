@@ -6,8 +6,8 @@ import { time } from './time.js';
 const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
 
 function getView() {
-  const start = Math.max(0, Math.min(24 * 60, state.viewStartMin | 0));
-  const end = Math.max(0, Math.min(24 * 60, state.viewEndMin | 0));
+  const start = Math.max(0, Math.min(24 * 60, Number(state.viewStartMin)));
+  const end = Math.max(0, Math.min(24 * 60, Number(state.viewEndMin)));
   const s = Math.min(start, end);
   const e = Math.max(start, end);
   const minutes = Math.max(1, e - s);
@@ -17,17 +17,28 @@ function getView() {
 function renderTicks() {
   els.ticks.innerHTML = '';
   const view = getView();
-  // update hours in view for background grid
-  els.track.style.setProperty('--view-hours', String(view.minutes / 60));
-  for (let h = view.startH; h <= view.endH; h++) {
+  // update grid spacing and offset so hour lines align despite fractional view
+  const hoursInView = view.minutes / 60; // may be fractional
+  const gridSizePct = (100 / hoursInView); // width per hour line
+  // offset from view start to next whole hour
+  const firstHour = Math.ceil(view.start / 60); // integer hour index
+  const lastHour = Math.floor(view.end / 60);
+  const offsetMin = firstHour * 60 - view.start; // 0..59
+  const offsetPct = (offsetMin / view.minutes) * 100;
+  els.track.style.setProperty('--grid-size', gridSizePct + '%');
+  els.track.style.setProperty('--grid-offset', offsetPct + '%');
+
+  // draw interior hour ticks
+  for (let h = firstHour; h <= lastHour; h++) {
     const tick = document.createElement('div');
     tick.className = 'tick';
     const minutes = h * 60;
     const pct = ((minutes - view.start) / view.minutes) * 100;
     tick.style.left = pct + '%';
     tick.textContent = time.hourLabel(h % 24);
-    if (h === view.startH) tick.dataset.edge = 'start';
-    if (h === view.endH) tick.dataset.edge = 'end';
+    // label alignment on exact edges
+    if (view.start % 60 === 0 && h === view.start / 60) tick.dataset.edge = 'start';
+    if (view.end % 60 === 0 && h === view.end / 60) tick.dataset.edge = 'end';
     els.ticks.appendChild(tick);
   }
 }

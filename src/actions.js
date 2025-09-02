@@ -521,7 +521,7 @@ const attachEvents = () => {
     if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
       // pan horizontally
       const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-      const panMin = (delta / 300) * view.minutes; // tuned sensitivity
+      const panMin = delta * 0.06; // ~6 minutes per 100 delta
       let newStart = view.start + panMin;
       let newEnd = view.end + panMin;
       const span = view.minutes;
@@ -540,8 +540,8 @@ const attachEvents = () => {
 
     // zoom in/out around pointer (also when Ctrl is held)
     const delta = e.ctrlKey ? e.deltaY : e.deltaY;
-    const factor = Math.exp(delta * 0.0012); // smooth zoom
-    const minSpan = 60; // 1 hour minimum
+    const factor = Math.exp(delta * 0.0007); // gentler zoom per tick
+    const minSpan = 45; // 45 min minimum for usability
     const maxSpan = 24 * 60; // full day
     let newSpan = Math.min(maxSpan, Math.max(minSpan, Math.round(view.minutes * factor)));
     const anchorMin = view.start + pct * view.minutes;
