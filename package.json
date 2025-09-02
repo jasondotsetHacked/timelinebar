@@ -1,0 +1,24 @@
+{
+  "name": "timelinebar",
+  "version": "1.0.0",
+  "description": "TimelineBar — Time Tracker (Single‑File App)",
+  "main": "app.js",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "test": "echo \"No tests\" && exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jasondotsetHacked/timelinebar.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jasondotsetHacked/timelinebar/issues"
+  },
+  "homepage": "https://github.com/jasondotsetHacked/timelinebar#readme",
+  "devDependencies": {
+    "esbuild": "^0.25.9"
+  }
+}

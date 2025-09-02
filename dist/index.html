@@ -1,0 +1,100 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Time Tracker — Single File</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div>
+        <div class="title">Time Tracker</div>
+        <div class="subtle">Click—drag to create • Resize with side handles • Snaps to 15m • Scroll to zoom • Shift+Scroll to pan</div>
+      </div>
+    </div>
+
+    <section class="card timeline">
+      <div class="track" id="track" aria-label="Timeline track" role="application">
+        <div class="ghost" id="ghost"></div>
+        <div class="tip" id="tipStart"></div>
+        <div class="tip" id="tipEnd"></div>
+        <div class="tip tip-center" id="tipCenter"></div>
+        <div class="tick-labels" id="ticks"></div>
+      </div>
+      <div class="help-row">
+        <div>
+          New: drag anywhere. Edit: drag a block's side handle.
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="viewDefault" class="btn ghost" title="Reset to 6am–6pm" style="padding:6px 10px; font-size:12px;">6–6</button>
+          <button id="view24" class="btn ghost" title="Show 24 hours" style="padding:6px 10px; font-size:12px;">24h</button>
+          <div id="total" class="subtle"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card table-card">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px"></th>
+            <th style="width:140px">Start</th>
+            <th style="width:140px">Stop</th>
+            <th style="width:150px">Duration</th>
+            <th style="width:180px">Case #</th>
+            <th>Note</th>
+            <th style="width:120px">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty" id="empty">No entries yet. Create your first by dragging on the timeline.</div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="modal">
+    <div class="card modal">
+      <div class="modal-header">
+        <div class="modal-title">New Time Block</div>
+        <button class="icon-btn" id="modalClose" aria-label="Close">✕</button>
+      </div>
+      <form id="modalForm">
+        <div class="body">
+          <div class="row">
+            <div>
+              <label>Start</label>
+              <input type="text" id="startField" readonly />
+            </div>
+            <div>
+              <label>End</label>
+              <input type="text" id="endField" readonly />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Case number</label>
+              <input type="text" id="caseField" placeholder="e.g. 23-1042" required />
+            </div>
+            <div>
+              <label>Note</label>
+              <input type="text" id="noteField" placeholder="Optional details" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn ghost" id="modalCancel">Cancel</button>
+          <button type="submit" class="btn primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.bundle.js"></script>
+</body>
+</html>
+ 

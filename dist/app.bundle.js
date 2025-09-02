@@ -1,0 +1,959 @@
+(() => {
+  // src/dom.js
+  var byId = (id) => document.getElementById(id);
+  var els = {
+    track: byId("track"),
+    ghost: byId("ghost"),
+    tipStart: byId("tipStart"),
+    tipEnd: byId("tipEnd"),
+    tipCenter: byId("tipCenter"),
+    ticks: byId("ticks"),
+    rows: byId("rows"),
+    empty: byId("empty"),
+    modal: byId("modal"),
+    startField: byId("startField"),
+    endField: byId("endField"),
+    caseField: byId("caseField"),
+    noteField: byId("noteField"),
+    modalForm: byId("modalForm"),
+    modalCancel: byId("modalCancel"),
+    modalClose: byId("modalClose"),
+    modalTitle: document.querySelector(".modal-title"),
+    modalFooter: document.querySelector(".modal-footer"),
+    total: byId("total"),
+    toast: byId("toast"),
+    view24: byId("view24"),
+    viewDefault: byId("viewDefault")
+  };
+
+  // src/state.js
+  var state = {
+    punches: [],
+    dragging: null,
+    resizing: null,
+    moving: null,
+    pendingRange: null,
+    editingId: null,
+    // Timeline viewport (minutes from start of day)
+    viewStartMin: 6 * 60,
+    // default 6:00am
+    viewEndMin: 18 * 60,
+    // default 6:00pm
+    // Hover flag used to route wheel events when over the track
+    overTrack: false
+  };
+
+  // src/config.js
+  var DAY_MIN = 24 * 60;
+  var SNAP_MIN = 15;
+  var VIEW_START_MIN = 6 * 60;
+  var VIEW_END_MIN = 18 * 60;
+  var VIEW_MINUTES = VIEW_END_MIN - VIEW_START_MIN;
+  var VIEW_START_H = VIEW_START_MIN / 60;
+  var VIEW_END_H = VIEW_END_MIN / 60;
+
+  // src/time.js
+  var clamp = (min) => Math.max(0, Math.min(DAY_MIN, Math.round(min)));
+  var snap = (min) => Math.max(0, Math.min(DAY_MIN, Math.round(min / SNAP_MIN) * SNAP_MIN));
+  var toLabel = (mins) => {
+    const m = clamp(mins);
+    const h24 = Math.floor(m / 60) % 24;
+    const mm = (m % 60).toString().padStart(2, "0");
+    const ampm = h24 >= 12 ? "pm" : "am";
+    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+    return `${h12}:${mm}${ampm}`;
+  };
+  var durationLabel = (mins) => {
+    const h = Math.floor(mins / 60).toString().padStart(2, "0");
+    const m = (mins % 60).toString().padStart(2, "0");
+    return `${h}h${m}m`;
+  };
+  var hourLabel = (h) => {
+    const ampm = h >= 12 ? "pm" : "am";
+    const display = h % 12 === 0 ? 12 : h % 12;
+    return `${display}${ampm}`;
+  };
+  var time = { clamp, snap, toLabel, durationLabel, hourLabel };
+
+  // src/ui.js
+  var escapeHtml = (s) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
+  function getView() {
+    const start = Math.max(0, Math.min(24 * 60, Number(state.viewStartMin)));
+    const end = Math.max(0, Math.min(24 * 60, Number(state.viewEndMin)));
+    const s = Math.min(start, end);
+    const e = Math.max(start, end);
+    const minutes = Math.max(1, e - s);
+    return { start: s, end: e, minutes, startH: Math.floor(s / 60), endH: Math.ceil(e / 60) };
+  }
+  function renderTicks() {
+    els.ticks.innerHTML = "";
+    const view = getView();
+    const firstHour = Math.ceil(view.start / 60);
+    const lastHour = Math.floor(view.end / 60);
+    for (let h = firstHour; h <= lastHour; h++) {
+      const minutes = h * 60;
+      const pct = (minutes - view.start) / view.minutes * 100;
+      const tick = document.createElement("div");
+      tick.className = "tick";
+      tick.style.left = pct + "%";
+      const line = document.createElement("div");
+      line.className = "tick-line";
+      const label = document.createElement("div");
+      label.className = "tick-label";
+      label.textContent = time.hourLabel(h % 24);
+      if (view.start % 60 === 0 && h === view.start / 60) tick.dataset.edge = "start";
+      if (view.end % 60 === 0 && h === view.end / 60) tick.dataset.edge = "end";
+      tick.appendChild(line);
+      tick.appendChild(label);
+      els.ticks.appendChild(tick);
+    }
+  }
+  function renderTimeline() {
+    var _a;
+    els.track.querySelectorAll(".punch").forEach((n) => n.remove());
+    const existingLayer = els.track.querySelector(".label-layer");
+    if (existingLayer) existingLayer.remove();
+    const labelLayer = document.createElement("div");
+    labelLayer.className = "label-layer";
+    const narrowItems = [];
+    const rect = els.track.getBoundingClientRect();
+    const trackWidth = rect.width || 1;
+    const view = getView();
+    const sorted = [...state.punches].sort((a, b) => a.start - b.start);
+    for (const p of sorted) {
+      const startClamped = Math.max(p.start, view.start);
+      const endClamped = Math.min(p.end, view.end);
+      if (endClamped <= startClamped) continue;
+      const leftPct = (startClamped - view.start) / view.minutes * 100;
+      const widthPct = (endClamped - startClamped) / view.minutes * 100;
+      const el = document.createElement("div");
+      el.className = "punch";
+      el.style.left = leftPct + "%";
+      el.style.width = widthPct + "%";
+      el.dataset.id = p.id;
+      const status = p.status || "default";
+      el.classList.add(`status-${status}`);
+      const leftHandle = document.createElement("div");
+      leftHandle.className = "handle left";
+      leftHandle.dataset.edge = "left";
+      leftHandle.tabIndex = 0;
+      leftHandle.setAttribute("aria-label", "Resize left edge");
+      const label = document.createElement("div");
+      label.className = "punch-label";
+      label.textContent = p.caseNumber || "(no case)";
+      label.dataset.id = p.id;
+      const rightHandle = document.createElement("div");
+      rightHandle.className = "handle right";
+      rightHandle.dataset.edge = "right";
+      rightHandle.tabIndex = 0;
+      rightHandle.setAttribute("aria-label", "Resize right edge");
+      const controls = document.createElement("div");
+      controls.className = "controls";
+      const editBtn = document.createElement("button");
+      editBtn.className = "control-btn edit";
+      editBtn.title = "Edit";
+      editBtn.textContent = "\u270E";
+      editBtn.dataset.id = p.id;
+      const delBtn = document.createElement("button");
+      delBtn.className = "control-btn delete";
+      delBtn.title = "Delete";
+      delBtn.textContent = "\u2715";
+      delBtn.dataset.id = p.id;
+      controls.append(editBtn, delBtn);
+      el.append(label, controls);
+      const pxWidth = widthPct / 100 * trackWidth;
+      let edgeW = 8;
+      if (pxWidth >= 48) edgeW = 16;
+      else if (pxWidth >= 28) edgeW = 14;
+      else if (pxWidth >= 18) edgeW = 12;
+      else {
+        edgeW = Math.max(6, Math.floor(pxWidth / 3));
+        const centerMin = 4;
+        if (edgeW * 2 > pxWidth - centerMin) edgeW = Math.max(4, Math.floor((pxWidth - centerMin) / 2));
+        edgeW = Math.max(4, Math.min(18, edgeW));
+      }
+      if (!Number.isFinite(edgeW) || edgeW <= 0) edgeW = 6;
+      leftHandle.style.width = edgeW + "px";
+      rightHandle.style.width = edgeW + "px";
+      leftHandle.style.left = "0px";
+      rightHandle.style.right = "0px";
+      const leftBar = document.createElement("div");
+      leftBar.className = "handle-bar";
+      const rightBar = document.createElement("div");
+      rightBar.className = "handle-bar";
+      leftHandle.appendChild(leftBar);
+      rightHandle.appendChild(rightBar);
+      try {
+        leftBar.style.left = "0px";
+        leftBar.style.right = "";
+        leftBar.style.borderTopLeftRadius = "8px";
+        leftBar.style.borderBottomLeftRadius = "8px";
+        rightBar.style.right = "0px";
+        rightBar.style.left = "";
+        rightBar.style.borderTopRightRadius = "8px";
+        rightBar.style.borderBottomRightRadius = "8px";
+      } catch (e) {
+      }
+      el.append(leftHandle, rightHandle);
+      try {
+        if (window.DEBUG_HANDLES) {
+          leftBar.style.background = "rgba(255,0,0,0.12)";
+          leftBar.style.outline = "1px solid rgba(255,0,0,0.35)";
+          rightBar.style.background = "rgba(0,255,0,0.12)";
+          rightBar.style.outline = "1px solid rgba(0,255,0,0.35)";
+          leftBar.title = `Left handle (w=${edgeW}px) - anchored left`;
+          rightBar.title = `Right handle (w=${edgeW}px) - anchored right`;
+          console.log("HANDLE_DEBUG", { id: p.id, pxWidth, edgeW, leftPct, widthPct });
+        }
+      } catch (e) {
+      }
+      els.track.appendChild(el);
+      try {
+        requestAnimationFrame(() => {
+          const elRect = el.getBoundingClientRect();
+          const leftBarRect = leftBar.getBoundingClientRect();
+          const rightBarRect = rightBar.getBoundingClientRect();
+          const centerX = elRect.left + elRect.width / 2;
+          if (leftBarRect.left > centerX) {
+            leftBar.style.left = "0px";
+            leftBar.style.right = "";
+            if (window.DEBUG_HANDLES) console.log("HANDLE_AUTOFLIP: corrected left (anchor left) for", p.id);
+          }
+          if (rightBarRect.right < centerX) {
+            rightBar.style.right = "0px";
+            rightBar.style.left = "";
+            if (window.DEBUG_HANDLES) console.log("HANDLE_AUTOFLIP: corrected right (anchor right) for", p.id);
+          }
+        });
+      } catch (e) {
+      }
+      if (widthPct < 6) el.classList.add("narrow");
+      else el.classList.remove("narrow");
+      if (widthPct < 6) {
+        const centerPct = leftPct + widthPct / 2;
+        narrowItems.push({ punch: p, leftPct, widthPct, centerPct });
+      }
+    }
+    const placed = [];
+    for (const it of narrowItems) {
+      const centerPx = it.centerPct / 100 * trackWidth;
+      let row = 0;
+      for (; ; row++) {
+        const conflict = (_a = placed[row]) == null ? void 0 : _a.some((px) => Math.abs(px - centerPx) < 120);
+        if (!conflict) break;
+      }
+      placed[row] = placed[row] || [];
+      placed[row].push(centerPx);
+      it.row = row;
+      it.centerPx = centerPx;
+    }
+    for (const it of narrowItems) {
+      const pop = document.createElement("div");
+      pop.className = "label-popper";
+      const pxLeft = Math.max(6, it.centerPx - 55);
+      pop.style.left = pxLeft + "px";
+      pop.style.top = 8 + it.row * 40 + "px";
+      pop.dataset.id = it.punch.id;
+      pop.innerHTML = `<div class="label-text">${escapeHtml(it.punch.caseNumber || "(no case)")}</div><div class="controls"><button class="control-btn edit" title="Edit">\u270E</button><button class="control-btn delete" title="Delete">\u2715</button></div>`;
+      pop.style.display = "none";
+      const conn = document.createElement("div");
+      conn.className = "label-connector";
+      conn.style.left = it.centerPx - 1 + "px";
+      conn.style.top = "0px";
+      conn.style.height = 16 + it.row * 40 + "px";
+      conn.style.display = "none";
+      labelLayer.appendChild(conn);
+      labelLayer.appendChild(pop);
+      it._pop = pop;
+      it._conn = conn;
+    }
+    if (narrowItems.length) els.track.appendChild(labelLayer);
+    for (const it of narrowItems) {
+      const id = it.punch.id;
+      const punchEl = els.track.querySelector(`.punch[data-id="${id}"]`);
+      if (!punchEl) continue;
+      const pop = it._pop;
+      const conn = it._conn;
+      punchEl.addEventListener("mouseenter", () => {
+        pop.style.display = "grid";
+        conn.style.display = "block";
+      });
+      punchEl.addEventListener("mouseleave", () => {
+        pop.style.display = "none";
+        conn.style.display = "none";
+      });
+    }
+  }
+  function renderTable() {
+    els.rows.innerHTML = "";
+    const sorted = [...state.punches].sort((a, b) => a.start - b.start);
+    for (const p of sorted) {
+      const tr = document.createElement("tr");
+      tr.dataset.id = p.id;
+      const dur = p.end - p.start;
+      const status = p.status || "default";
+      tr.innerHTML = `
+      <td class="status-cell"><div class="status-wrap"><button class="status-btn status-${status}" data-id="${p.id}" aria-label="Status"></button>
+        <div class="status-menu" data-id="${p.id}">
+          <div class="status-option" data-value="default" title="Default"></div>
+          <div class="status-option" data-value="green" title="Green"></div>
+          <div class="status-option" data-value="yellow" title="Yellow"></div>
+          <div class="status-option" data-value="red" title="Red"></div>
+        </div></div></td>
+      <td class="cell-start">${time.toLabel(p.start)}</td>
+      <td class="cell-end">${time.toLabel(p.end)}</td>
+      <td>${time.durationLabel(dur)}</td>
+      <td>${escapeHtml(p.caseNumber || "")}</td>
+      <td class="note">${escapeHtml(p.note || "")}</td>
+      <td class="table-actions">
+        <button class="row-action edit" title="Edit" data-id="${p.id}">Edit</button>
+        <button class="row-action delete" title="Delete" data-id="${p.id}">Delete</button>
+      </td>`;
+      els.rows.appendChild(tr);
+    }
+    els.empty.style.display = sorted.length ? "none" : "block";
+  }
+  function renderTotal() {
+    const totalMin = state.punches.reduce((s, p) => s + (p.end - p.start), 0);
+    els.total.textContent = totalMin ? `Total: ${time.durationLabel(totalMin)}` : "";
+  }
+  function showGhost(a, b) {
+    const [start, end] = a < b ? [a, b] : [b, a];
+    const view = getView();
+    const leftPct = (start - view.start) / view.minutes * 100;
+    const widthPct = (end - view.start) / view.minutes * 100 - leftPct;
+    Object.assign(els.ghost.style, { display: "block", left: leftPct + "%", width: widthPct + "%" });
+    showTips(start, end);
+  }
+  function hideGhost() {
+    els.ghost.style.display = "none";
+    hideTips();
+  }
+  function showTips(start, end) {
+    const view = getView();
+    const leftPct = (start - view.start) / view.minutes * 100;
+    const rightPct = (end - view.start) / view.minutes * 100;
+    const centerPct = ((start + end) / 2 - view.start) / view.minutes * 100;
+    els.tipStart.textContent = time.toLabel(start);
+    els.tipEnd.textContent = time.toLabel(end);
+    els.tipCenter.textContent = time.durationLabel(Math.max(0, end - start));
+    els.tipStart.style.left = leftPct + "%";
+    els.tipEnd.style.left = rightPct + "%";
+    els.tipCenter.style.left = centerPct + "%";
+    els.tipStart.style.display = "block";
+    els.tipEnd.style.display = "block";
+    els.tipCenter.style.display = "block";
+  }
+  function hideTips() {
+    els.tipStart.style.display = "none";
+    els.tipEnd.style.display = "none";
+    els.tipCenter.style.display = "none";
+  }
+  function openModal(range) {
+    state.editingId = null;
+    state.pendingRange = range;
+    els.startField.value = time.toLabel(range.startMin);
+    els.endField.value = time.toLabel(range.endMin);
+    els.caseField.value = "";
+    els.noteField.value = "";
+    if (els.modalTitle) els.modalTitle.textContent = "New Time Block";
+    els.modal.style.display = "flex";
+    els.caseField.focus();
+  }
+  function closeModal() {
+    els.modal.style.display = "none";
+    state.pendingRange = null;
+    state.editingId = null;
+  }
+  function toast(msg) {
+    els.toast.textContent = msg;
+    els.toast.style.display = "block";
+    clearTimeout(els.toast._t);
+    els.toast._t = setTimeout(() => els.toast.style.display = "none", 2400);
+  }
+  function renderAll() {
+    renderTicks();
+    renderTimeline();
+    renderTable();
+    renderTotal();
+  }
+  var ui = {
+    renderAll,
+    renderTicks,
+    renderTimeline,
+    renderTable,
+    renderTotal,
+    showGhost,
+    hideGhost,
+    showTips,
+    hideTips,
+    openModal,
+    closeModal,
+    toast
+  };
+
+  // src/storage.js
+  var openDb = () => new Promise((resolve, reject) => {
+    const req = indexedDB.open("timeTrackerDB", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("punches", { keyPath: "id", autoIncrement: true });
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  var withStore = (mode, fn) => openDb().then(
+    (db) => new Promise((resolve, reject) => {
+      const tx = db.transaction("punches", mode);
+      const store = tx.objectStore("punches");
+      fn(store);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    })
+  );
+  var add = (punch) => withStore("readwrite", (store) => store.add(punch));
+  var put = (punch) => withStore("readwrite", (store) => store.put(punch));
+  var remove = (id) => withStore("readwrite", (store) => store.delete(id));
+  var all = () => openDb().then(
+    (db) => new Promise((resolve, reject) => {
+      const tx = db.transaction("punches", "readonly");
+      const store = tx.objectStore("punches");
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    })
+  );
+  var idb = { add, put, remove, all };
+
+  // src/actions.js
+  var getView2 = () => {
+    const start = Math.max(0, Math.min(24 * 60, state.viewStartMin | 0));
+    const end = Math.max(0, Math.min(24 * 60, state.viewEndMin | 0));
+    const s = Math.min(start, end);
+    const e = Math.max(start, end);
+    const minutes = Math.max(1, e - s);
+    return { start: s, end: e, minutes };
+  };
+  var pxToMinutes = (clientX) => {
+    const rect = els.track.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const pct = Math.min(1, Math.max(0, x / rect.width));
+    const view = getView2();
+    const mins = view.start + pct * view.minutes;
+    return Math.max(view.start, Math.min(view.end, Math.round(mins)));
+  };
+  var overlapsAny = (start, end, excludeId = null) => state.punches.some((p) => p.id !== excludeId && start < p.end && end > p.start);
+  var nearestBounds = (forId) => {
+    const sorted = [...state.punches].filter((p) => p.id !== forId).sort((a, b) => a.start - b.start);
+    return {
+      leftLimitAt: (start) => {
+        const leftNeighbor = [...sorted].filter((p) => p.end <= start).pop();
+        return leftNeighbor ? leftNeighbor.end : getView2().start;
+      },
+      rightLimitAt: (end) => {
+        const rightNeighbor = [...sorted].find((p) => p.start >= end);
+        return rightNeighbor ? rightNeighbor.start : getView2().end;
+      }
+    };
+  };
+  var startDrag = (e) => {
+    if (e.target.closest(".handle")) return;
+    if (e.target.closest(".punch")) return;
+    const raw = e.touches ? pxToMinutes(e.touches[0].clientX) : pxToMinutes(e.clientX);
+    const snapped = time.snap(raw);
+    state.dragging = { anchor: snapped, last: snapped };
+    ui.showGhost(snapped, snapped);
+    window.addEventListener("mousemove", onDragMove);
+    window.addEventListener("touchmove", onDragMove, { passive: false });
+    window.addEventListener("mouseup", endDrag);
+    window.addEventListener("touchend", endDrag);
+  };
+  var onDragMove = (e) => {
+    if (!state.dragging) return;
+    if (e.cancelable) e.preventDefault();
+    const raw = e.touches ? pxToMinutes(e.touches[0].clientX) : pxToMinutes(e.clientX);
+    const snapped = time.snap(raw);
+    state.dragging.last = snapped;
+    ui.showGhost(state.dragging.anchor, snapped);
+  };
+  var endDrag = () => {
+    if (!state.dragging) return;
+    const a = state.dragging.anchor;
+    const b = state.dragging.last;
+    state.dragging = null;
+    ui.hideGhost();
+    const startMin = Math.min(a, b);
+    const endMin = Math.max(a, b);
+    if (endMin - startMin < 1) return;
+    if (overlapsAny(startMin, endMin)) {
+      ui.toast("That range overlaps another block.");
+      return;
+    }
+    ui.openModal({ startMin, endMin });
+    window.removeEventListener("mousemove", onDragMove);
+    window.removeEventListener("touchmove", onDragMove);
+    window.removeEventListener("mouseup", endDrag);
+    window.removeEventListener("touchend", endDrag);
+  };
+  var startResize = (e) => {
+    const handle = e.target.closest(".handle");
+    if (!handle) return;
+    const punchEl = handle.closest(".punch");
+    const id = Number(punchEl.dataset.id);
+    const p = state.punches.find((x) => x.id === id);
+    state.resizing = { id, edge: handle.dataset.edge, startStart: p.start, startEnd: p.end };
+    if (handle.dataset.edge === "left") punchEl.classList.add("resizing-left");
+    if (handle.dataset.edge === "right") punchEl.classList.add("resizing-right");
+    window.addEventListener("mousemove", onResizeMove);
+    window.addEventListener("touchmove", onResizeMove, { passive: false });
+    window.addEventListener("mouseup", endResize);
+    window.addEventListener("touchend", endResize);
+    e.stopPropagation();
+  };
+  var onResizeMove = (e) => {
+    if (!state.resizing) return;
+    if (e.cancelable) e.preventDefault();
+    const { id, edge, startStart, startEnd } = state.resizing;
+    const raw = e.touches ? pxToMinutes(e.touches[0].clientX) : pxToMinutes(e.clientX);
+    const m = time.snap(raw);
+    const bounds = nearestBounds(id);
+    let newStart = startStart;
+    let newEnd = startEnd;
+    if (edge === "left") {
+      const minL = bounds.leftLimitAt(startStart);
+      const maxL = startEnd - 1;
+      newStart = Math.min(maxL, Math.max(minL, m));
+      newStart = time.snap(newStart);
+    }
+    if (edge === "right") {
+      const minR = startStart + 1;
+      const maxR = bounds.rightLimitAt(startEnd);
+      newEnd = Math.max(minR, Math.min(maxR, m));
+      newEnd = time.snap(newEnd);
+    }
+    const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
+    const el = els.track.querySelector(`.punch[data-id="${id}"]`);
+    const view = getView2();
+    const leftPct = (Math.max(newStart, view.start) - view.start) / view.minutes * 100;
+    const widthPctRaw = (Math.min(newEnd, view.end) - Math.max(newStart, view.start)) / view.minutes * 100;
+    const widthPct = Math.max(0, widthPctRaw);
+    el.style.left = leftPct + "%";
+    el.style.width = widthPct + "%";
+    el.classList.toggle("invalid", invalid);
+    state.resizing.preview = { newStart, newEnd, invalid };
+    ui.showTips(newStart, newEnd);
+  };
+  var endResize = async () => {
+    if (!state.resizing) return;
+    const { id } = state.resizing;
+    const preview = state.resizing.preview;
+    const punchEl = els.track.querySelector(`.punch[data-id="${id}"]`);
+    if (punchEl) punchEl.classList.remove("resizing-left", "resizing-right");
+    state.resizing = null;
+    window.removeEventListener("mousemove", onResizeMove);
+    window.removeEventListener("touchmove", onResizeMove);
+    window.removeEventListener("mouseup", endResize);
+    window.removeEventListener("touchend", endResize);
+    ui.hideTips();
+    if (!preview || preview.invalid) {
+      ui.renderTimeline();
+      if (preview == null ? void 0 : preview.invalid) ui.toast("Adjust would overlap another block.");
+      return;
+    }
+    const idx = state.punches.findIndex((p) => p.id === id);
+    state.punches[idx] = { ...state.punches[idx], start: preview.newStart, end: preview.newEnd };
+    await idb.put(state.punches[idx]);
+    ui.renderAll();
+  };
+  var startMove = (e) => {
+    const handle = e.target.closest(".handle");
+    if (handle) return;
+    const punchEl = e.target.closest(".punch");
+    if (!punchEl) return;
+    const id = Number(punchEl.dataset.id);
+    const p = state.punches.find((x) => x.id === id);
+    if (!p) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const pointerMin = pxToMinutes(clientX);
+    const duration = p.end - p.start;
+    const offset = pointerMin - p.start;
+    state.moving = {
+      id,
+      duration,
+      offset,
+      startStart: p.start,
+      startEnd: p.end,
+      startClientX: clientX,
+      moved: false
+    };
+    window.addEventListener("mousemove", onMoveMove);
+    window.addEventListener("touchmove", onMoveMove, { passive: false });
+    window.addEventListener("mouseup", endMove);
+    window.addEventListener("touchend", endMove);
+  };
+  var onMoveMove = (e) => {
+    if (!state.moving) return;
+    if (e.cancelable) e.preventDefault();
+    const { id, duration, offset, startClientX } = state.moving;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    if (Math.abs(clientX - startClientX) > 3) state.moving.moved = true;
+    const m = time.snap(pxToMinutes(clientX));
+    let desiredStart = m - offset;
+    desiredStart = time.snap(desiredStart);
+    const desiredEnd = desiredStart + duration;
+    const bounds = nearestBounds(id);
+    const leftLimit = bounds.leftLimitAt(desiredStart);
+    const rightLimit = bounds.rightLimitAt(desiredEnd);
+    const minStart = leftLimit;
+    const maxStart = rightLimit - duration;
+    const clampedStart = Math.max(minStart, Math.min(maxStart, desiredStart));
+    const newStart = time.snap(clampedStart);
+    const newEnd = newStart + duration;
+    const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
+    const el = els.track.querySelector(`.punch[data-id="${id}"]`);
+    const view = getView2();
+    const leftPct = (Math.max(newStart, view.start) - view.start) / view.minutes * 100;
+    const widthPct = (Math.min(newEnd, view.end) - Math.max(newStart, view.start)) / view.minutes * 100;
+    el.style.left = leftPct + "%";
+    el.style.width = widthPct + "%";
+    el.classList.toggle("invalid", invalid);
+    state.moving.preview = { newStart, newEnd, invalid };
+    ui.showTips(newStart, newEnd);
+  };
+  var endMove = async () => {
+    if (!state.moving) return;
+    const { id, moved } = state.moving;
+    const preview = state.moving.preview;
+    state.moving = null;
+    window.removeEventListener("mousemove", onMoveMove);
+    window.removeEventListener("touchmove", onMoveMove);
+    window.removeEventListener("mouseup", endMove);
+    window.removeEventListener("touchend", endMove);
+    ui.hideTips();
+    if (!moved) return;
+    if (!preview || preview.invalid) {
+      ui.renderTimeline();
+      if (preview == null ? void 0 : preview.invalid) ui.toast("Move would overlap another block.");
+      return;
+    }
+    const idx = state.punches.findIndex((p) => p.id === id);
+    state.punches[idx] = { ...state.punches[idx], start: preview.newStart, end: preview.newEnd };
+    await idb.put(state.punches[idx]);
+    ui.renderAll();
+  };
+  var saveNewFromModal = async (e) => {
+    e.preventDefault();
+    if (!state.pendingRange) return;
+    const { startMin, endMin } = state.pendingRange;
+    const s = time.snap(startMin);
+    const eMin = time.snap(endMin);
+    if (eMin - s < 1) {
+      ui.closeModal();
+      return;
+    }
+    const payload = {
+      start: s,
+      end: eMin,
+      caseNumber: els.caseField.value.trim(),
+      note: els.noteField.value.trim()
+    };
+    if (state.editingId) {
+      const idx = state.punches.findIndex((p) => p.id === state.editingId);
+      if (idx === -1) {
+        ui.toast("Could not find item to update.");
+        ui.closeModal();
+        return;
+      }
+      const updated = { ...state.punches[idx], ...payload };
+      if (overlapsAny(updated.start, updated.end, updated.id)) {
+        ui.toast("That range overlaps another block.");
+        return;
+      }
+      state.punches[idx] = updated;
+      await idb.put(updated);
+    } else {
+      if (overlapsAny(payload.start, payload.end)) {
+        ui.toast("That range overlaps another block.");
+        return;
+      }
+      const toAdd = { ...payload, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
+      await idb.add(toAdd);
+    }
+    state.punches = await idb.all();
+    state.editingId = null;
+    ui.closeModal();
+    ui.renderAll();
+  };
+  var closeModal2 = () => ui.closeModal();
+  var attachEvents = () => {
+    var _a, _b;
+    els.track.addEventListener("mousedown", startDrag);
+    els.track.addEventListener("touchstart", startDrag, { passive: true });
+    els.track.addEventListener("mousedown", startMove);
+    els.track.addEventListener("touchstart", startMove, { passive: true });
+    els.track.addEventListener("mousedown", startResize);
+    els.track.addEventListener("touchstart", startResize, { passive: true });
+    els.rows.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".status-btn");
+      if (btn) {
+        const wrap = btn.closest(".status-wrap");
+        els.rows.querySelectorAll(".status-wrap.open").forEach((w) => {
+          if (w !== wrap) w.classList.remove("open");
+        });
+        const willOpen = !wrap.classList.contains("open");
+        wrap.classList.toggle("open");
+        wrap.classList.remove("up");
+        if (willOpen) {
+          const menu = wrap.querySelector(".status-menu");
+          if (menu) {
+            const prev = menu.style.display;
+            if (!wrap.classList.contains("open")) menu.style.display = "grid";
+            const menuRect = menu.getBoundingClientRect();
+            const wrapRect = wrap.getBoundingClientRect();
+            const tableCard = document.querySelector(".table-card");
+            const cardRect = tableCard ? tableCard.getBoundingClientRect() : { bottom: window.innerHeight };
+            const spaceBelow = cardRect.bottom - wrapRect.bottom;
+            const needed = menuRect.height + 12;
+            if (spaceBelow < needed) wrap.classList.add("up");
+            menu.style.display = prev;
+          }
+        }
+        e.stopPropagation();
+        return;
+      }
+      const opt = e.target.closest(".status-option");
+      if (opt) {
+        const tr = e.target.closest("tr[data-id]");
+        const id = Number(tr == null ? void 0 : tr.dataset.id);
+        if (!id) return;
+        const value = opt.dataset.value;
+        const idx = state.punches.findIndex((p) => p.id === id);
+        if (idx !== -1) {
+          const updated = { ...state.punches[idx] };
+          updated.status = value === "default" ? null : value;
+          state.punches[idx] = updated;
+          await idb.put(updated);
+          ui.renderAll();
+        }
+        return;
+      }
+      const delBtn = e.target.closest(".row-action.delete");
+      if (delBtn) {
+        const id = Number(delBtn.dataset.id);
+        if (!confirm("Delete this time entry?")) return;
+        await idb.remove(id);
+        state.punches = await idb.all();
+        ui.renderAll();
+        ui.toast("Deleted");
+        return;
+      }
+      const editBtn = e.target.closest(".row-action.edit");
+      const row = e.target.closest("tr");
+      if (editBtn || row) {
+        const id = Number((editBtn == null ? void 0 : editBtn.dataset.id) || (row == null ? void 0 : row.dataset.id));
+        if (!id) return;
+        const p = state.punches.find((px) => px.id === id);
+        if (!p) return;
+        state.editingId = id;
+        state.pendingRange = { startMin: p.start, endMin: p.end };
+        els.startField.value = time.toLabel(p.start);
+        els.endField.value = time.toLabel(p.end);
+        els.caseField.value = p.caseNumber || "";
+        els.noteField.value = p.note || "";
+        if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
+        els.modal.style.display = "flex";
+        els.caseField.focus();
+        return;
+      }
+    });
+    els.track.addEventListener("click", async (e) => {
+      const lbl = e.target.closest(".punch-label");
+      if (lbl) {
+        const id = Number(lbl.dataset.id);
+        const p = state.punches.find((px) => px.id === id);
+        if (!p) return;
+        state.editingId = id;
+        state.pendingRange = { startMin: p.start, endMin: p.end };
+        els.startField.value = time.toLabel(p.start);
+        els.endField.value = time.toLabel(p.end);
+        els.caseField.value = p.caseNumber || "";
+        els.noteField.value = p.note || "";
+        if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
+        els.modal.style.display = "flex";
+        els.caseField.focus();
+        return;
+      }
+      const editBtn = e.target.closest(".control-btn.edit");
+      if (editBtn) {
+        const id = Number(editBtn.dataset.id);
+        const p = state.punches.find((px) => px.id === id);
+        if (!p) return;
+        state.editingId = id;
+        state.pendingRange = { startMin: p.start, endMin: p.end };
+        els.startField.value = time.toLabel(p.start);
+        els.endField.value = time.toLabel(p.end);
+        els.caseField.value = p.caseNumber || "";
+        els.noteField.value = p.note || "";
+        if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
+        els.modal.style.display = "flex";
+        els.caseField.focus();
+        return;
+      }
+      const delBtn = e.target.closest(".control-btn.delete");
+      if (delBtn) {
+        const id = Number(delBtn.dataset.id);
+        if (!confirm("Delete this time entry?")) return;
+        await idb.remove(id);
+        state.punches = await idb.all();
+        ui.renderAll();
+        ui.toast("Deleted");
+        return;
+      }
+      const popEdit = e.target.closest(".label-popper .control-btn.edit");
+      if (popEdit) {
+        const pop = e.target.closest(".label-popper");
+        const id = Number(pop.dataset.id);
+        const p = state.punches.find((px) => px.id === id);
+        if (!p) return;
+        state.editingId = id;
+        state.pendingRange = { startMin: p.start, endMin: p.end };
+        els.startField.value = time.toLabel(p.start);
+        els.endField.value = time.toLabel(p.end);
+        els.caseField.value = p.caseNumber || "";
+        els.noteField.value = p.note || "";
+        if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
+        els.modal.style.display = "flex";
+        els.caseField.focus();
+        return;
+      }
+      const popDel = e.target.closest(".label-popper .control-btn.delete");
+      if (popDel) {
+        const pop = e.target.closest(".label-popper");
+        const id = Number(pop.dataset.id);
+        if (!confirm("Delete this time entry?")) return;
+        await idb.remove(id);
+        state.punches = await idb.all();
+        ui.renderAll();
+        ui.toast("Deleted");
+        return;
+      }
+    });
+    els.modalForm.addEventListener("submit", saveNewFromModal);
+    els.modalCancel.addEventListener("click", closeModal2);
+    els.modalClose.addEventListener("click", closeModal2);
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeModal2();
+    });
+    window.addEventListener("resize", () => ui.renderTimeline());
+    window.addEventListener("click", (e) => {
+      if (!e.target.closest(".status-wrap")) {
+        els.rows.querySelectorAll(".status-wrap.open").forEach((w) => w.classList.remove("open"));
+      }
+    });
+    els.track.addEventListener("mouseover", (e) => {
+      const punch = e.target.closest(".punch");
+      if (!punch) return;
+      punch.classList.add("is-hovered");
+      const id = Number(punch.dataset.id);
+      if (!id) return;
+      const row = els.rows.querySelector(`tr[data-id="${id}"]`);
+      if (row) row.classList.add("is-hovered");
+    });
+    els.track.addEventListener("mouseout", (e) => {
+      const punch = e.target.closest(".punch");
+      if (!punch) return;
+      punch.classList.remove("is-hovered");
+      const id = Number(punch.dataset.id);
+      if (!id) return;
+      const row = els.rows.querySelector(`tr[data-id="${id}"]`);
+      if (row) row.classList.remove("is-hovered");
+    });
+    els.rows.addEventListener("mouseover", (e) => {
+      const row = e.target.closest("tr[data-id]");
+      if (!row) return;
+      row.classList.add("is-hovered");
+      const id = Number(row.dataset.id);
+      if (!id) return;
+      const punch = els.track.querySelector(`.punch[data-id="${id}"]`);
+      if (punch) punch.classList.add("is-hovered");
+    });
+    els.rows.addEventListener("mouseout", (e) => {
+      const row = e.target.closest("tr[data-id]");
+      if (!row) return;
+      row.classList.remove("is-hovered");
+      const id = Number(row.dataset.id);
+      if (!id) return;
+      const punch = els.track.querySelector(`.punch[data-id="${id}"]`);
+      if (punch) punch.classList.remove("is-hovered");
+    });
+    const setView = (start, end) => {
+      const s = Math.max(0, Math.min(24 * 60, Math.floor(start)));
+      const e = Math.max(0, Math.min(24 * 60, Math.floor(end)));
+      state.viewStartMin = Math.min(s, e);
+      state.viewEndMin = Math.max(s, e);
+      ui.renderAll();
+    };
+    (_a = els.view24) == null ? void 0 : _a.addEventListener("click", () => setView(0, 24 * 60));
+    (_b = els.viewDefault) == null ? void 0 : _b.addEventListener("click", () => setView(6 * 60, 18 * 60));
+    els.track.addEventListener("mouseenter", () => state.overTrack = true);
+    els.track.addEventListener("mouseleave", () => state.overTrack = false);
+    const onWheel = (e) => {
+      if (!state.overTrack) return;
+      e.preventDefault();
+      const rect = els.track.getBoundingClientRect();
+      const view = getView2();
+      const pointerX = e.clientX - rect.left;
+      const pct = Math.min(1, Math.max(0, pointerX / Math.max(1, rect.width)));
+      if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        const delta2 = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+        const panMin = delta2 * 0.03;
+        let newStart2 = view.start + panMin;
+        let newEnd2 = view.end + panMin;
+        const span = view.minutes;
+        if (newStart2 < 0) {
+          newStart2 = 0;
+          newEnd2 = span;
+        } else if (newEnd2 > 24 * 60) {
+          newEnd2 = 24 * 60;
+          newStart2 = newEnd2 - span;
+        }
+        state.viewStartMin = Math.floor(newStart2);
+        state.viewEndMin = Math.floor(newEnd2);
+        ui.renderAll();
+        return;
+      }
+      const delta = e.ctrlKey ? e.deltaY : e.deltaY;
+      const factor = Math.exp(delta * 7e-4);
+      const minSpan = 45;
+      const maxSpan = 24 * 60;
+      let newSpan = Math.min(maxSpan, Math.max(minSpan, Math.round(view.minutes * factor)));
+      const anchorMin = view.start + pct * view.minutes;
+      let newStart = Math.round(anchorMin - pct * newSpan);
+      let newEnd = newStart + newSpan;
+      if (newStart < 0) {
+        newStart = 0;
+        newEnd = newSpan;
+      }
+      if (newEnd > 24 * 60) {
+        newEnd = 24 * 60;
+        newStart = newEnd - newSpan;
+      }
+      state.viewStartMin = newStart;
+      state.viewEndMin = newEnd;
+      ui.renderAll();
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });
+  };
+  var actions = {
+    attachEvents
+  };
+
+  // app.js
+  async function init() {
+    actions.attachEvents();
+    if (typeof window.DEBUG_HANDLES === "undefined") {
+      window.DEBUG_HANDLES = true;
+      console.info("DEBUG_HANDLES enabled \u2014 set window.DEBUG_HANDLES = false in console to disable");
+    }
+    state.punches = await idb.all();
+    ui.renderAll();
+  }
+  init();
+})();

@@ -11,6 +11,16 @@ A fast, local‑first timeline time tracker. Drag to create time blocks on a dai
 
 Tip: If you prefer a global install, `npm i -g http-server` then run `http-server`.
 
+**No-Server Build (open file://)**
+- Prerequisites: Node.js 16+.
+- Build a static bundle: `npm install && npm run build`.
+- Open `dist/index.html` directly in your browser (double-click). No `http-server` needed.
+
+Notes:
+- The build bundles ES modules into `dist/app.bundle.js` (IIFE), so browsers load it over `file://`.
+- `styles.css` is copied to `dist/`. Everything else is self-contained.
+- If you want a single self-contained HTML (inline JS/CSS), I can add that option.
+
 **Core Concepts**
 - Single-day timeline from 12:00am–11:59pm (adjustable viewport).
 - Time blocks snap to 15-minute increments and cannot overlap.
@@ -61,4 +71,3 @@ Keyboard tips:
 
 **License**
 TBD.
-
