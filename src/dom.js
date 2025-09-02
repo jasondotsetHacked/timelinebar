@@ -7,6 +7,7 @@ export const els = {
   tipEnd: byId('tipEnd'),
   tipCenter: byId('tipCenter'),
   ticks: byId('ticks'),
+  grid: byId('gridLines'),
   rows: byId('rows'),
   empty: byId('empty'),
   modal: byId('modal'),

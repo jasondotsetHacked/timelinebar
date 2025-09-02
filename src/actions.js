@@ -521,7 +521,7 @@ const attachEvents = () => {
     if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
       // pan horizontally
       const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-      const panMin = delta * 0.06; // ~6 minutes per 100 delta
+      const panMin = delta * 0.03; // ~3 minutes per 100 delta
       let newStart = view.start + panMin;
       let newEnd = view.end + panMin;
       const span = view.minutes;

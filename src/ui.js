@@ -16,17 +16,11 @@ function getView() {
 
 function renderTicks() {
   els.ticks.innerHTML = '';
+  if (els.grid) els.grid.innerHTML = '';
   const view = getView();
-  // update grid spacing and offset so hour lines align despite fractional view
-  const hoursInView = view.minutes / 60; // may be fractional
-  const gridSizePct = (100 / hoursInView); // width per hour line
-  // offset from view start to next whole hour
-  const firstHour = Math.ceil(view.start / 60); // integer hour index
+  // determine hours in view and build visual markers/lines
+  const firstHour = Math.ceil(view.start / 60);
   const lastHour = Math.floor(view.end / 60);
-  const offsetMin = firstHour * 60 - view.start; // 0..59
-  const offsetPct = (offsetMin / view.minutes) * 100;
-  els.track.style.setProperty('--grid-size', gridSizePct + '%');
-  els.track.style.setProperty('--grid-offset', offsetPct + '%');
 
   // draw interior hour ticks
   for (let h = firstHour; h <= lastHour; h++) {
@@ -40,6 +34,14 @@ function renderTicks() {
     if (view.start % 60 === 0 && h === view.start / 60) tick.dataset.edge = 'start';
     if (view.end % 60 === 0 && h === view.end / 60) tick.dataset.edge = 'end';
     els.ticks.appendChild(tick);
+
+    // full-height grid line aligned with this tick
+    if (els.grid) {
+      const line = document.createElement('div');
+      line.className = 'grid-line';
+      line.style.left = pct + '%';
+      els.grid.appendChild(line);
+    }
   }
 }
 

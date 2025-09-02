@@ -38,13 +38,7 @@ body {
 .track {
   position: relative;
   height: 92px;
-  /* grid: 1px line repeated every hour, shifted by --grid-offset */
-  background-image:
-    linear-gradient(to right, rgba(255,255,255,.10) 0, rgba(255,255,255,.10) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,.04));
-  background-size: var(--grid-size, 8.333%) 100%, 100% 100%;
-  background-position: var(--grid-offset, 0%) 0, 0 0;
-  background-repeat: repeat, no-repeat;
+  background: linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,.04));
   border: 1px solid rgba(255,255,255,.08);
   border-radius: 14px;
   /* allow tick labels positioned above the track to be visible */
@@ -61,6 +55,10 @@ body {
 .tick[data-edge="start"] { transform: translateX(0%); }
 .tick[data-edge="end"] { transform: translateX(-100%); }
 .tick::after { content: ""; position: absolute; left: 50%; transform: translateX(-50%); top: 26px; width: 1px; height: 14px; background: rgba(255,255,255,.22); }
+
+/* Full-height grid lines inside the track, aligned to ticks */
+.grid-lines { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.grid-line { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,.12); }
 
 .ghost { position: absolute; top: 0; bottom: 0; background: linear-gradient(180deg, rgba(90,162,255,.3), rgba(90,162,255,.18)); border-left: 2px dashed var(--brand-2); border-right: 2px dashed var(--brand-2); display: none; pointer-events: none; z-index: 1; }
 
