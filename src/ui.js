@@ -15,33 +15,34 @@ function getView() {
 }
 
 function renderTicks() {
+  // Single source of truth: each tick contains its own full-height line and label
   els.ticks.innerHTML = '';
-  if (els.grid) els.grid.innerHTML = '';
   const view = getView();
-  // determine hours in view and build visual markers/lines
   const firstHour = Math.ceil(view.start / 60);
   const lastHour = Math.floor(view.end / 60);
 
-  // draw interior hour ticks
   for (let h = firstHour; h <= lastHour; h++) {
-    const tick = document.createElement('div');
-    tick.className = 'tick';
     const minutes = h * 60;
     const pct = ((minutes - view.start) / view.minutes) * 100;
+
+    const tick = document.createElement('div');
+    tick.className = 'tick';
     tick.style.left = pct + '%';
-    tick.textContent = time.hourLabel(h % 24);
-    // label alignment on exact edges
+
+    const line = document.createElement('div');
+    line.className = 'tick-line';
+
+    const label = document.createElement('div');
+    label.className = 'tick-label';
+    label.textContent = time.hourLabel(h % 24);
+
+    // edge alignment on exact viewport edges
     if (view.start % 60 === 0 && h === view.start / 60) tick.dataset.edge = 'start';
     if (view.end % 60 === 0 && h === view.end / 60) tick.dataset.edge = 'end';
-    els.ticks.appendChild(tick);
 
-    // full-height grid line aligned with this tick
-    if (els.grid) {
-      const line = document.createElement('div');
-      line.className = 'grid-line';
-      line.style.left = pct + '%';
-      els.grid.appendChild(line);
-    }
+    tick.appendChild(line);
+    tick.appendChild(label);
+    els.ticks.appendChild(tick);
   }
 }
 
