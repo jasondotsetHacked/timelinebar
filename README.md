@@ -3,13 +3,10 @@ TimelineBar — Time Tracker (Single‑File App)
 A fast, local‑first timeline time tracker. Drag to create time blocks on a daily timeline, resize or move them with snapping, color‑code status, and see a table summary with totals. Everything saves in your browser via IndexedDB—no server required.
 
 **Quick Start**
-- Prerequisites: Node.js 16+ (for `npx`).
-- Clone and serve the static files locally:
+- Clone the repo:
   - `git clone https://github.com/jasondotsetHacked/timelinebar.git && cd timelinebar`
-  - `npx http-server`
-- Open the printed URL (typically `http://127.0.0.1:8080`).
-
-Tip: If you prefer a global install, `npm i -g http-server` then run `http-server`.
+- Open `dist/index.html` directly in your browser (double-click).
+- No server or Node.js required to try the app.
 
 **No-Server Build (open file://)**
 - Prerequisites: Node.js 16+.
