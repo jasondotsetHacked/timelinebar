@@ -5,7 +5,7 @@ A fast, local‑first timeline time tracker. Drag to create time blocks on a dai
 **Quick Start**
 - Prerequisites: Node.js 16+ (for `npx`).
 - Clone and serve the static files locally:
-  - `git clone <your-repo-url> && cd timelinebar`
+  - `git clone https://github.com/jasondotsetHacked/timelinebar.git && cd timelinebar`
   - `npx http-server`
 - Open the printed URL (typically `http://127.0.0.1:8080`).
 
