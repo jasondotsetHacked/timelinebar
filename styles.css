@@ -30,7 +30,7 @@ body {
 .title { font-size: clamp(22px, 3vw, 28px); font-weight: 700; letter-spacing: .2px; }
 .subtle { color: var(--muted); font-size: 13px; }
 
-.card { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid rgba(255,255,255,.06); border-radius: 16px; box-shadow: var(--shadow); }
+.card { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border: 1px solid rgba(255,255,255,.06); border-radius: 16px; box-shadow: var(--shadow); overflow: visible; }
 
 /* Timeline */
 .timeline { padding: 30px 20px; }
@@ -159,7 +159,7 @@ textarea { resize: vertical; min-height: 72px; }
 
 /* Table */
 /* Allow status dropdowns to overflow outside the card without clipping */
-.table-card { overflow: visible; }
+.table-card { overflow: visible; position: relative; z-index: 5; }
 table { width: 100%; border-collapse: collapse; }
 thead { background: rgba(255,255,255,.04); }
 th, td { text-align: left; padding: 12px 14px; font-size: 14px; }
@@ -176,7 +176,7 @@ td.status-cell, th.status-cell { padding-left: 10px; padding-right: 10px; width:
 .status-btn.status-red { background: #ff6b6b; border-color: rgba(255,107,107,0.9); }
 .status-btn.status-default { background: rgba(255,255,255,.06); }
 
-.status-menu { position: absolute; top: 24px; left: 0; background: #0b1227; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 6px; display: none; grid-template-columns: repeat(4, 20px); gap: 6px; box-shadow: var(--shadow); z-index: 30; }
+.status-menu { position: absolute; top: 24px; left: 0; background: #0b1227; border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 6px; display: none; grid-template-columns: repeat(4, 20px); gap: 6px; box-shadow: var(--shadow); z-index: 200; }
 .status-option { width: 18px; height: 18px; border-radius: 4px; border: 1px solid rgba(255,255,255,.18); cursor: pointer; }
 .status-option[data-value="green"] { background: #19c786; border-color: rgba(25,199,134,0.9); }
 .status-option[data-value="yellow"] { background: #ffd046; border-color: rgba(255,208,70,0.9); }
@@ -185,6 +185,8 @@ td.status-cell, th.status-cell { padding-left: 10px; padding-right: 10px; width:
 
 /* Open state */
 .status-wrap.open .status-menu { display: grid; }
+/* Open upwards modifier when near bottom */
+.status-wrap.up .status-menu { top: auto; bottom: 24px; }
 
 /* Table actions */
 .table-actions { white-space: nowrap; }

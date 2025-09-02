@@ -298,7 +298,26 @@ const attachEvents = () => {
       els.rows.querySelectorAll('.status-wrap.open').forEach((w) => {
         if (w !== wrap) w.classList.remove('open');
       });
+      const willOpen = !wrap.classList.contains('open');
       wrap.classList.toggle('open');
+      wrap.classList.remove('up');
+      if (willOpen) {
+        // if not enough space below, open upward
+        const menu = wrap.querySelector('.status-menu');
+        if (menu) {
+          // Ensure we can measure height
+          const prev = menu.style.display;
+          if (!wrap.classList.contains('open')) menu.style.display = 'grid';
+          const menuRect = menu.getBoundingClientRect();
+          const wrapRect = wrap.getBoundingClientRect();
+          const tableCard = document.querySelector('.table-card');
+          const cardRect = tableCard ? tableCard.getBoundingClientRect() : { bottom: window.innerHeight };
+          const spaceBelow = cardRect.bottom - wrapRect.bottom;
+          const needed = menuRect.height + 12; // small margin
+          if (spaceBelow < needed) wrap.classList.add('up');
+          menu.style.display = prev; // restore inline style
+        }
+      }
       e.stopPropagation();
       return;
     }
@@ -486,8 +505,12 @@ const attachEvents = () => {
   els.view24?.addEventListener('click', () => setView(0, 24 * 60));
   els.viewDefault?.addEventListener('click', () => setView(6 * 60, 18 * 60));
 
-  // Zoom/Pan with wheel
-  els.track.addEventListener('wheel', (e) => {
+  // Track hover marker
+  els.track.addEventListener('mouseenter', () => (state.overTrack = true));
+  els.track.addEventListener('mouseleave', () => (state.overTrack = false));
+
+  const onWheel = (e) => {
+    if (!state.overTrack) return; // only handle when hovering the track
     // prevent page scroll while interacting
     e.preventDefault();
     const rect = els.track.getBoundingClientRect();
@@ -515,8 +538,8 @@ const attachEvents = () => {
       return;
     }
 
-    // zoom in/out around pointer
-    const delta = e.deltaY;
+    // zoom in/out around pointer (also when Ctrl is held)
+    const delta = e.ctrlKey ? e.deltaY : e.deltaY;
     const factor = Math.exp(delta * 0.0012); // smooth zoom
     const minSpan = 60; // 1 hour minimum
     const maxSpan = 24 * 60; // full day
@@ -535,7 +558,10 @@ const attachEvents = () => {
     state.viewStartMin = newStart;
     state.viewEndMin = newEnd;
     ui.renderAll();
-  }, { passive: false });
+  };
+
+  // Attach wheel handler on window for robustness
+  window.addEventListener('wheel', onWheel, { passive: false });
 };
 
 export const actions = {

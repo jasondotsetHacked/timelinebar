@@ -26,8 +26,8 @@ function renderTicks() {
     const pct = ((minutes - view.start) / view.minutes) * 100;
     tick.style.left = pct + '%';
     tick.textContent = time.hourLabel(h % 24);
-    if (h === view.start / 60) tick.dataset.edge = 'start';
-    if (h === view.end / 60) tick.dataset.edge = 'end';
+    if (h === view.startH) tick.dataset.edge = 'start';
+    if (h === view.endH) tick.dataset.edge = 'end';
     els.ticks.appendChild(tick);
   }
 }
