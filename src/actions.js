@@ -278,6 +278,34 @@ const attachEvents = () => {
   els.track.addEventListener('touchstart', startResize, { passive: true });
 
   els.rows.addEventListener('click', async (e) => {
+    // Status swatch open/close
+    const btn = e.target.closest('.status-btn');
+    if (btn) {
+      const wrap = btn.closest('.status-wrap');
+      // close others
+      els.rows.querySelectorAll('.status-wrap.open').forEach((w) => {
+        if (w !== wrap) w.classList.remove('open');
+      });
+      wrap.classList.toggle('open');
+      e.stopPropagation();
+      return;
+    }
+    const opt = e.target.closest('.status-option');
+    if (opt) {
+      const tr = e.target.closest('tr[data-id]');
+      const id = Number(tr?.dataset.id);
+      if (!id) return;
+      const value = opt.dataset.value; // default | green | yellow | red
+      const idx = state.punches.findIndex((p) => p.id === id);
+      if (idx !== -1) {
+        const updated = { ...state.punches[idx] };
+        updated.status = value === 'default' ? null : value;
+        state.punches[idx] = updated;
+        await idb.put(updated);
+        ui.renderAll();
+      }
+      return;
+    }
     const delBtn = e.target.closest('.row-action.delete');
     if (delBtn) {
       const id = Number(delBtn.dataset.id);
@@ -388,6 +416,13 @@ const attachEvents = () => {
     if (e.key === 'Escape') closeModal();
   });
   window.addEventListener('resize', () => ui.renderTimeline());
+
+  // Close any open status menus when clicking outside
+  window.addEventListener('click', (e) => {
+    if (!e.target.closest('.status-wrap')) {
+      els.rows.querySelectorAll('.status-wrap.open').forEach((w) => w.classList.remove('open'));
+    }
+  });
 
   els.track.addEventListener('mouseover', (e) => {
     const punch = e.target.closest('.punch');

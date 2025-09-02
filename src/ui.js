@@ -44,6 +44,8 @@ function renderTimeline() {
     el.style.left = leftPct + '%';
     el.style.width = widthPct + '%';
     el.dataset.id = p.id;
+    const status = p.status || 'default';
+    el.classList.add(`status-${status}`);
 
     const leftHandle = document.createElement('div');
     leftHandle.className = 'handle left';
@@ -217,7 +219,15 @@ function renderTable() {
     const tr = document.createElement('tr');
     tr.dataset.id = p.id;
     const dur = p.end - p.start;
+    const status = p.status || 'default';
     tr.innerHTML = `
+      <td class="status-cell"><div class="status-wrap"><button class="status-btn status-${status}" data-id="${p.id}" aria-label="Status"></button>
+        <div class="status-menu" data-id="${p.id}">
+          <div class="status-option" data-value="default" title="Default"></div>
+          <div class="status-option" data-value="green" title="Green"></div>
+          <div class="status-option" data-value="yellow" title="Yellow"></div>
+          <div class="status-option" data-value="red" title="Red"></div>
+        </div></div></td>
       <td class="cell-start">${time.toLabel(p.start)}</td>
       <td class="cell-end">${time.toLabel(p.end)}</td>
       <td>${time.durationLabel(dur)}</td>
@@ -317,4 +327,3 @@ export const ui = {
   closeModal,
   toast,
 };
-
