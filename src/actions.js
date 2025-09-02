@@ -3,14 +3,24 @@ import { state } from './state.js';
 import { time } from './time.js';
 import { ui } from './ui.js';
 import { idb } from './storage.js';
-import { VIEW_START_MIN, VIEW_END_MIN, VIEW_MINUTES } from './config.js';
+// View is dynamic; use state.viewStartMin / state.viewEndMin
+
+const getView = () => {
+  const start = Math.max(0, Math.min(24 * 60, state.viewStartMin | 0));
+  const end = Math.max(0, Math.min(24 * 60, state.viewEndMin | 0));
+  const s = Math.min(start, end);
+  const e = Math.max(start, end);
+  const minutes = Math.max(1, e - s);
+  return { start: s, end: e, minutes };
+};
 
 const pxToMinutes = (clientX) => {
   const rect = els.track.getBoundingClientRect();
   const x = clientX - rect.left;
   const pct = Math.min(1, Math.max(0, x / rect.width));
-  const mins = VIEW_START_MIN + pct * VIEW_MINUTES;
-  return Math.max(VIEW_START_MIN, Math.min(VIEW_END_MIN, Math.round(mins)));
+  const view = getView();
+  const mins = view.start + pct * view.minutes;
+  return Math.max(view.start, Math.min(view.end, Math.round(mins)));
 };
 
 const overlapsAny = (start, end, excludeId = null) =>
@@ -21,11 +31,11 @@ const nearestBounds = (forId) => {
   return {
     leftLimitAt: (start) => {
       const leftNeighbor = [...sorted].filter((p) => p.end <= start).pop();
-      return leftNeighbor ? leftNeighbor.end : VIEW_START_MIN;
+      return leftNeighbor ? leftNeighbor.end : getView().start;
     },
     rightLimitAt: (end) => {
       const rightNeighbor = [...sorted].find((p) => p.start >= end);
-      return rightNeighbor ? rightNeighbor.start : VIEW_END_MIN;
+      return rightNeighbor ? rightNeighbor.start : getView().end;
     },
   };
 };
@@ -111,8 +121,9 @@ const onResizeMove = (e) => {
   }
   const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
   const el = els.track.querySelector(`.punch[data-id="${id}"]`);
-  const leftPct = ((Math.max(newStart, VIEW_START_MIN) - VIEW_START_MIN) / VIEW_MINUTES) * 100;
-  const widthPctRaw = ((Math.min(newEnd, VIEW_END_MIN) - Math.max(newStart, VIEW_START_MIN)) / VIEW_MINUTES) * 100;
+  const view = getView();
+  const leftPct = ((Math.max(newStart, view.start) - view.start) / view.minutes) * 100;
+  const widthPctRaw = ((Math.min(newEnd, view.end) - Math.max(newStart, view.start)) / view.minutes) * 100;
   const widthPct = Math.max(0, widthPctRaw);
   el.style.left = leftPct + '%';
   el.style.width = widthPct + '%';
@@ -192,8 +203,9 @@ const onMoveMove = (e) => {
   const newEnd = newStart + duration;
   const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
   const el = els.track.querySelector(`.punch[data-id="${id}"]`);
-  const leftPct = ((Math.max(newStart, VIEW_START_MIN) - VIEW_START_MIN) / VIEW_MINUTES) * 100;
-  const widthPct = ((Math.min(newEnd, VIEW_END_MIN) - Math.max(newStart, VIEW_START_MIN)) / VIEW_MINUTES) * 100;
+  const view = getView();
+  const leftPct = ((Math.max(newStart, view.start) - view.start) / view.minutes) * 100;
+  const widthPct = ((Math.min(newEnd, view.end) - Math.max(newStart, view.start)) / view.minutes) * 100;
   el.style.left = leftPct + '%';
   el.style.width = widthPct + '%';
   el.classList.toggle('invalid', invalid);
@@ -461,6 +473,69 @@ const attachEvents = () => {
     const punch = els.track.querySelector(`.punch[data-id="${id}"]`);
     if (punch) punch.classList.remove('is-hovered');
   });
+
+  // View controls
+  const setView = (start, end) => {
+    const s = Math.max(0, Math.min(24 * 60, Math.floor(start)));
+    const e = Math.max(0, Math.min(24 * 60, Math.floor(end)));
+    state.viewStartMin = Math.min(s, e);
+    state.viewEndMin = Math.max(s, e);
+    ui.renderAll();
+  };
+
+  els.view24?.addEventListener('click', () => setView(0, 24 * 60));
+  els.viewDefault?.addEventListener('click', () => setView(6 * 60, 18 * 60));
+
+  // Zoom/Pan with wheel
+  els.track.addEventListener('wheel', (e) => {
+    // prevent page scroll while interacting
+    e.preventDefault();
+    const rect = els.track.getBoundingClientRect();
+    const view = getView();
+    const pointerX = e.clientX - rect.left;
+    const pct = Math.min(1, Math.max(0, pointerX / Math.max(1, rect.width)));
+
+    if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      // pan horizontally
+      const delta = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+      const panMin = (delta / 300) * view.minutes; // tuned sensitivity
+      let newStart = view.start + panMin;
+      let newEnd = view.end + panMin;
+      const span = view.minutes;
+      if (newStart < 0) {
+        newStart = 0;
+        newEnd = span;
+      } else if (newEnd > 24 * 60) {
+        newEnd = 24 * 60;
+        newStart = newEnd - span;
+      }
+      state.viewStartMin = Math.floor(newStart);
+      state.viewEndMin = Math.floor(newEnd);
+      ui.renderAll();
+      return;
+    }
+
+    // zoom in/out around pointer
+    const delta = e.deltaY;
+    const factor = Math.exp(delta * 0.0012); // smooth zoom
+    const minSpan = 60; // 1 hour minimum
+    const maxSpan = 24 * 60; // full day
+    let newSpan = Math.min(maxSpan, Math.max(minSpan, Math.round(view.minutes * factor)));
+    const anchorMin = view.start + pct * view.minutes;
+    let newStart = Math.round(anchorMin - pct * newSpan);
+    let newEnd = newStart + newSpan;
+    if (newStart < 0) {
+      newStart = 0;
+      newEnd = newSpan;
+    }
+    if (newEnd > 24 * 60) {
+      newEnd = 24 * 60;
+      newStart = newEnd - newSpan;
+    }
+    state.viewStartMin = newStart;
+    state.viewEndMin = newEnd;
+    ui.renderAll();
+  }, { passive: false });
 };
 
 export const actions = {

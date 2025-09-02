@@ -12,7 +12,7 @@
     <div class="header">
       <div>
         <div class="title">Time Tracker</div>
-        <div class="subtle">Click–drag to create • Resize with side handles • Snaps to 15m • 1h guide lines</div>
+        <div class="subtle">Click—drag to create • Resize with side handles • Snaps to 15m • Scroll to zoom • Shift+Scroll to pan</div>
       </div>
     </div>
 
@@ -25,8 +25,14 @@
         <div class="tick-labels" id="ticks"></div>
       </div>
       <div class="help-row">
-        <div>New: drag anywhere. Edit: drag a block's side handle.</div>
-        <div id="total" class="subtle"></div>
+        <div>
+          New: drag anywhere. Edit: drag a block's side handle.
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="viewDefault" class="btn ghost" title="Reset to 6am–6pm" style="padding:6px 10px; font-size:12px;">6–6</button>
+          <button id="view24" class="btn ghost" title="Show 24 hours" style="padding:6px 10px; font-size:12px;">24h</button>
+          <div id="total" class="subtle"></div>
+        </div>
       </div>
     </section>
 

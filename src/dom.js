@@ -21,5 +21,6 @@ export const els = {
   modalFooter: document.querySelector('.modal-footer'),
   total: byId('total'),
   toast: byId('toast'),
+  view24: byId('view24'),
+  viewDefault: byId('viewDefault'),
 };
-

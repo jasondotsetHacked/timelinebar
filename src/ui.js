@@ -1,21 +1,33 @@
 import { els } from './dom.js';
 import { state } from './state.js';
 import { time } from './time.js';
-import { VIEW_START_MIN, VIEW_END_MIN, VIEW_MINUTES, VIEW_START_H, VIEW_END_H } from './config.js';
+// Viewport is now dynamic and sourced from state
 
 const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
 
+function getView() {
+  const start = Math.max(0, Math.min(24 * 60, state.viewStartMin | 0));
+  const end = Math.max(0, Math.min(24 * 60, state.viewEndMin | 0));
+  const s = Math.min(start, end);
+  const e = Math.max(start, end);
+  const minutes = Math.max(1, e - s);
+  return { start: s, end: e, minutes, startH: Math.floor(s / 60), endH: Math.ceil(e / 60) };
+}
+
 function renderTicks() {
   els.ticks.innerHTML = '';
-  for (let h = VIEW_START_H; h <= VIEW_END_H; h++) {
+  const view = getView();
+  // update hours in view for background grid
+  els.track.style.setProperty('--view-hours', String(view.minutes / 60));
+  for (let h = view.startH; h <= view.endH; h++) {
     const tick = document.createElement('div');
     tick.className = 'tick';
     const minutes = h * 60;
-    const pct = ((minutes - VIEW_START_MIN) / VIEW_MINUTES) * 100;
+    const pct = ((minutes - view.start) / view.minutes) * 100;
     tick.style.left = pct + '%';
     tick.textContent = time.hourLabel(h % 24);
-    if (h === VIEW_START_H) tick.dataset.edge = 'start';
-    if (h === VIEW_END_H) tick.dataset.edge = 'end';
+    if (h === view.start / 60) tick.dataset.edge = 'start';
+    if (h === view.end / 60) tick.dataset.edge = 'end';
     els.ticks.appendChild(tick);
   }
 }
@@ -31,13 +43,14 @@ function renderTimeline() {
   const rect = els.track.getBoundingClientRect();
   const trackWidth = rect.width || 1;
 
+  const view = getView();
   const sorted = [...state.punches].sort((a, b) => a.start - b.start);
   for (const p of sorted) {
-    const startClamped = Math.max(p.start, VIEW_START_MIN);
-    const endClamped = Math.min(p.end, VIEW_END_MIN);
+    const startClamped = Math.max(p.start, view.start);
+    const endClamped = Math.min(p.end, view.end);
     if (endClamped <= startClamped) continue;
-    const leftPct = ((startClamped - VIEW_START_MIN) / VIEW_MINUTES) * 100;
-    const widthPct = ((endClamped - startClamped) / VIEW_MINUTES) * 100;
+    const leftPct = ((startClamped - view.start) / view.minutes) * 100;
+    const widthPct = ((endClamped - startClamped) / view.minutes) * 100;
 
     const el = document.createElement('div');
     el.className = 'punch';
@@ -249,8 +262,9 @@ function renderTotal() {
 
 function showGhost(a, b) {
   const [start, end] = a < b ? [a, b] : [b, a];
-  const leftPct = ((start - VIEW_START_MIN) / VIEW_MINUTES) * 100;
-  const widthPct = ((end - VIEW_START_MIN) / VIEW_MINUTES) * 100 - leftPct;
+  const view = getView();
+  const leftPct = ((start - view.start) / view.minutes) * 100;
+  const widthPct = ((end - view.start) / view.minutes) * 100 - leftPct;
   Object.assign(els.ghost.style, { display: 'block', left: leftPct + '%', width: widthPct + '%' });
   showTips(start, end);
 }
@@ -261,9 +275,10 @@ function hideGhost() {
 }
 
 function showTips(start, end) {
-  const leftPct = ((start - VIEW_START_MIN) / VIEW_MINUTES) * 100;
-  const rightPct = ((end - VIEW_START_MIN) / VIEW_MINUTES) * 100;
-  const centerPct = (((start + end) / 2 - VIEW_START_MIN) / VIEW_MINUTES) * 100;
+  const view = getView();
+  const leftPct = ((start - view.start) / view.minutes) * 100;
+  const rightPct = ((end - view.start) / view.minutes) * 100;
+  const centerPct = (((start + end) / 2 - view.start) / view.minutes) * 100;
   els.tipStart.textContent = time.toLabel(start);
   els.tipEnd.textContent = time.toLabel(end);
   els.tipCenter.textContent = time.durationLabel(Math.max(0, end - start));
