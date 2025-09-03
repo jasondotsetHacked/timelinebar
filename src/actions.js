@@ -317,6 +317,19 @@ const attachEvents = () => {
       toggleCalendarView();
     });
   }
+  // Click the day label to open calendar (go up a view)
+  if (els.dayLabel) {
+    els.dayLabel.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (state.viewMode !== 'calendar') toggleCalendarView();
+    });
+    els.dayLabel.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (state.viewMode !== 'calendar') toggleCalendarView();
+      }
+    });
+  }
   if (els.btnCalendarFab) {
     els.btnCalendarFab.addEventListener('click', (e) => {
       e.preventDefault();
@@ -370,13 +383,16 @@ const attachEvents = () => {
         state.calendarMode = 'years';
         state.yearGridStart = Math.floor(state.calendarYear / 12) * 12;
         calendar.renderCalendar();
+        ui.updateHelpText();
       } else if (what === 'month') {
         state.calendarMode = 'months';
         calendar.renderCalendar();
+        ui.updateHelpText();
       }
     });
   }
   window.addEventListener('calendar:daySelected', () => ui.updateViewMode());
+  window.addEventListener('calendar:modeChanged', () => ui.updateHelpText());
 
   els.rows.addEventListener('click', async (e) => {
     // Status swatch open/close

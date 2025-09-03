@@ -21,6 +21,7 @@ export const els = {
   modalFooter: document.querySelector('.modal-footer'),
   total: byId('total'),
   toast: byId('toast'),
+  viewHelp: byId('viewHelp'),
   view24: byId('view24'),
   viewDefault: byId('viewDefault'),
   // Calendar / header controls

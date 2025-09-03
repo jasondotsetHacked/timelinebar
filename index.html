@@ -11,12 +11,12 @@
     <div class="header">
       <div>
         <div class="title">Time Tracker</div>
-        <div class="subtle">Click-drag to create — Resize with side handles — Snaps to 15m — Scroll to zoom — Shift+Scroll to pan</div>
+        <div id="viewHelp" class="subtle"></div>
       </div>
     </div>
 
     <div class="top-controls" id="topControls" style="display:flex; justify-content: space-between; align-items:center; gap:8px;">
-      <div id="dayLabel" class="subtle"></div>
+      <div id="dayLabel" class="subtle" title="Open calendar" tabindex="0" role="button"></div>
       <button id="btnCalendar" class="btn ghost" title="Open calendar">Calendar</button>
     </div>
 
@@ -117,8 +117,7 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <!-- Floating calendar toggle -->
-  <button id="btnCalendarFab" class="btn fab" title="Toggle calendar">Calendar</button>
+  <!-- Floating calendar toggle removed: click the day label or use header controls -->
 
   <script type="module" src="app.js"></script>
   

@@ -22,6 +22,7 @@
     modalFooter: document.querySelector(".modal-footer"),
     total: byId("total"),
     toast: byId("toast"),
+    viewHelp: byId("viewHelp"),
     view24: byId("view24"),
     viewDefault: byId("viewDefault"),
     // Calendar / header controls
@@ -170,7 +171,10 @@
     for (const p of state.punches) {
       const d = getPunchDate(p);
       const prev = map.get(d) || { count: 0, totalMin: 0 };
-      map.set(d, { count: prev.count + 1, totalMin: prev.totalMin + Math.max(0, (p.end || 0) - (p.start || 0)) });
+      map.set(d, {
+        count: prev.count + 1,
+        totalMin: prev.totalMin + Math.max(0, (p.end || 0) - (p.start || 0))
+      });
     }
     return map;
   }
@@ -219,6 +223,10 @@
             state.calendarYear = y;
             state.calendarMonth = i;
             state.calendarMode = "days";
+            try {
+              window.dispatchEvent(new Event("calendar:modeChanged"));
+            } catch (e) {
+            }
             renderCalendar();
           });
           els.calendarGrid.appendChild(cell);
@@ -251,6 +259,10 @@
         cell.addEventListener("click", () => {
           state.calendarYear = yy;
           state.calendarMode = "months";
+          try {
+            window.dispatchEvent(new Event("calendar:modeChanged"));
+          } catch (e) {
+          }
           renderCalendar();
         });
         els.calendarGrid.appendChild(cell);
@@ -305,8 +317,12 @@
       cell.addEventListener("click", () => {
         state.currentDate = ds;
         state.viewMode = "day";
-        const ev = new CustomEvent("calendar:daySelected");
-        window.dispatchEvent(ev);
+        try {
+          const ev = new CustomEvent("calendar:daySelected");
+          window.dispatchEvent(ev);
+        } catch (e) {
+          window.dispatchEvent(new Event("calendar:daySelected"));
+        }
       });
       els.calendarGrid.appendChild(cell);
     }
@@ -593,10 +609,38 @@
   }
   function renderDayLabel() {
     if (!els.dayLabel) return;
+    if (state.viewMode === "calendar") {
+      els.dayLabel.style.display = "none";
+      try {
+        els.dayLabel.classList.remove("clickable");
+      } catch (e) {
+      }
+      return;
+    }
+    els.dayLabel.style.display = "";
+    try {
+      els.dayLabel.classList.add("clickable");
+    } catch (e) {
+    }
     const day = currentDay();
     const d = parseDate(day) || /* @__PURE__ */ new Date();
     const label = d.toLocaleDateString(void 0, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
     els.dayLabel.textContent = `Day: ${label}`;
+  }
+  function updateHelpText() {
+    if (!els.viewHelp) return;
+    if (state.viewMode === "calendar") {
+      const mode = state.calendarMode || "days";
+      if (mode === "days") {
+        els.viewHelp.textContent = "Calendar: click a day to open \xB7 Use Prev/Next to change month \xB7 Click month/year to change mode";
+      } else if (mode === "months") {
+        els.viewHelp.textContent = "Months: click a month to view days \xB7 Use Prev/Next to change year \xB7 Click year to pick year range";
+      } else {
+        els.viewHelp.textContent = "Years: click a year to view months \xB7 Use Prev/Next to change 12-year range";
+      }
+      return;
+    }
+    els.viewHelp.textContent = "Drag to create \xB7 Resize with side handles \xB7 Snaps to 15m \xB7 Scroll to zoom \xB7 Shift+Scroll to pan \xB7 Click the day title to open calendar";
   }
   function updateViewMode() {
     const timelineCard = document.querySelector(".timeline");
@@ -624,6 +668,7 @@
       nowIndicator.update();
     }
     renderDayLabel();
+    updateHelpText();
   }
   function showGhost(a, b) {
     const [start, end] = a < b ? [a, b] : [b, a];
@@ -696,7 +741,8 @@
     closeModal,
     toast,
     renderDayLabel,
-    updateViewMode
+    updateViewMode,
+    updateHelpText
   };
 
   // src/storage.js
@@ -1020,6 +1066,18 @@
         toggleCalendarView();
       });
     }
+    if (els.dayLabel) {
+      els.dayLabel.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (state.viewMode !== "calendar") toggleCalendarView();
+      });
+      els.dayLabel.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (state.viewMode !== "calendar") toggleCalendarView();
+        }
+      });
+    }
     if (els.btnCalendarFab) {
       els.btnCalendarFab.addEventListener("click", (e) => {
         e.preventDefault();
@@ -1071,13 +1129,16 @@
           state.calendarMode = "years";
           state.yearGridStart = Math.floor(state.calendarYear / 12) * 12;
           calendar.renderCalendar();
+          ui.updateHelpText();
         } else if (what === "month") {
           state.calendarMode = "months";
           calendar.renderCalendar();
+          ui.updateHelpText();
         }
       });
     }
     window.addEventListener("calendar:daySelected", () => ui.updateViewMode());
+    window.addEventListener("calendar:modeChanged", () => ui.updateHelpText());
     els.rows.addEventListener("click", async (e) => {
       const btn = e.target.closest(".status-btn");
       if (btn) {

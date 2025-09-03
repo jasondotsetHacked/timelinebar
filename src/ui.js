@@ -292,10 +292,35 @@ function renderTotal() {
 
 function renderDayLabel() {
   if (!els.dayLabel) return;
+  if (state.viewMode === 'calendar') {
+    // Hide the day label in calendar view (calendar has its own header)
+    els.dayLabel.style.display = 'none';
+    try { els.dayLabel.classList.remove('clickable'); } catch {}
+    return;
+  }
+  els.dayLabel.style.display = '';
+  try { els.dayLabel.classList.add('clickable'); } catch {}
   const day = currentDay();
   const d = parseDate(day) || new Date();
   const label = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
   els.dayLabel.textContent = `Day: ${label}`;
+}
+
+function updateHelpText() {
+  if (!els.viewHelp) return;
+  if (state.viewMode === 'calendar') {
+    const mode = state.calendarMode || 'days';
+    if (mode === 'days') {
+      els.viewHelp.textContent = 'Calendar: click a day to open · Use Prev/Next to change month · Click month/year to change mode';
+    } else if (mode === 'months') {
+      els.viewHelp.textContent = 'Months: click a month to view days · Use Prev/Next to change year · Click year to pick year range';
+    } else {
+      els.viewHelp.textContent = 'Years: click a year to view months · Use Prev/Next to change 12-year range';
+    }
+    return;
+  }
+  // Day (timeline) view
+  els.viewHelp.textContent = 'Drag to create · Resize with side handles · Snaps to 15m · Scroll to zoom · Shift+Scroll to pan · Click the day title to open calendar';
 }
 
 function updateViewMode() {
@@ -325,6 +350,7 @@ function updateViewMode() {
     nowIndicator.update();
   }
   renderDayLabel();
+  updateHelpText();
 }
 
 function showGhost(a, b) {
@@ -407,4 +433,5 @@ export const ui = {
   toast,
   renderDayLabel,
   updateViewMode,
+  updateHelpText,
 };
