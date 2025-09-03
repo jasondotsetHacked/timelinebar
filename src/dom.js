@@ -23,4 +23,12 @@ export const els = {
   toast: byId('toast'),
   view24: byId('view24'),
   viewDefault: byId('viewDefault'),
+  // Calendar / header controls
+  btnCalendar: byId('btnCalendar'),
+  dayLabel: byId('dayLabel'),
+  calendarCard: byId('calendarCard'),
+  calendarGrid: byId('calendarGrid'),
+  calMonthLabel: byId('calMonthLabel'),
+  calPrev: byId('calPrev'),
+  calNext: byId('calNext'),
 };

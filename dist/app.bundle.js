@@ -23,7 +23,15 @@
     total: byId("total"),
     toast: byId("toast"),
     view24: byId("view24"),
-    viewDefault: byId("viewDefault")
+    viewDefault: byId("viewDefault"),
+    // Calendar / header controls
+    btnCalendar: byId("btnCalendar"),
+    dayLabel: byId("dayLabel"),
+    calendarCard: byId("calendarCard"),
+    calendarGrid: byId("calendarGrid"),
+    calMonthLabel: byId("calMonthLabel"),
+    calPrev: byId("calPrev"),
+    calNext: byId("calNext")
   };
 
   // src/state.js
@@ -40,7 +48,15 @@
     viewEndMin: 18 * 60,
     // default 6:00pm
     // Hover flag used to route wheel events when over the track
-    overTrack: false
+    overTrack: false,
+    // Date/calendar state
+    currentDate: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
+    // YYYY-MM-DD selected day
+    viewMode: "day",
+    // 'day' | 'calendar'
+    calendarYear: (/* @__PURE__ */ new Date()).getFullYear(),
+    calendarMonth: (/* @__PURE__ */ new Date()).getMonth()
+    // 0-11
   };
 
   // src/config.js
@@ -119,6 +135,117 @@
   }
   var nowIndicator = { init, update };
 
+  // src/dates.js
+  function pad(n) {
+    return String(n).padStart(2, "0");
+  }
+  function todayStr() {
+    const d = /* @__PURE__ */ new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  function toDateStr(d) {
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  function monthLabel(year, monthIndex) {
+    const d = new Date(year, monthIndex, 1);
+    return d.toLocaleString(void 0, { month: "long", year: "numeric" });
+  }
+  function parseDate(str) {
+    const [y, m, day] = (str || "").split("-").map((x) => Number(x));
+    if (!y || !m || !day) return null;
+    return new Date(y, m - 1, day);
+  }
+  function getPunchDate(p) {
+    if (p.date) return p.date;
+    if (p.createdAt) return (p.createdAt + "").slice(0, 10);
+    return todayStr();
+  }
+
+  // src/calendar.js
+  function summarizeByDate() {
+    const map = /* @__PURE__ */ new Map();
+    for (const p of state.punches) {
+      const d = getPunchDate(p);
+      const prev = map.get(d) || { count: 0, totalMin: 0 };
+      map.set(d, { count: prev.count + 1, totalMin: prev.totalMin + Math.max(0, (p.end || 0) - (p.start || 0)) });
+    }
+    return map;
+  }
+  function buildMonthGrid(year, monthIndex) {
+    const first = new Date(year, monthIndex, 1);
+    const start = new Date(first);
+    const firstDow = first.getDay();
+    start.setDate(first.getDate() - firstDow);
+    const days = [];
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }
+  function renderCalendar() {
+    if (!els.calendarGrid || !els.calMonthLabel) return;
+    const y = state.calendarYear;
+    const m = state.calendarMonth;
+    els.calMonthLabel.textContent = monthLabel(y, m);
+    const days = buildMonthGrid(y, m);
+    const summaries = summarizeByDate();
+    const selected = state.currentDate || todayStr();
+    els.calendarGrid.innerHTML = "";
+    for (const d of days) {
+      const ds = toDateStr(d);
+      const cell = document.createElement("div");
+      cell.className = "cal-day";
+      cell.tabIndex = 0;
+      const inMonth = d.getMonth() === m;
+      if (!inMonth) cell.classList.add("other-month");
+      if (ds === selected) cell.classList.add("selected");
+      const sum = summaries.get(ds);
+      if (sum && sum.count) cell.classList.add("has-items");
+      const num = document.createElement("div");
+      num.className = "cal-num";
+      num.textContent = String(d.getDate());
+      cell.appendChild(num);
+      if (sum && sum.totalMin) {
+        const meta = document.createElement("div");
+        meta.className = "cal-meta";
+        meta.textContent = `${sum.count} \u2022 ${time.durationLabel(sum.totalMin)}`;
+        cell.appendChild(meta);
+      }
+      cell.addEventListener("click", () => {
+        state.currentDate = ds;
+        state.viewMode = "day";
+        const ev = new CustomEvent("calendar:daySelected");
+        window.dispatchEvent(ev);
+      });
+      els.calendarGrid.appendChild(cell);
+    }
+  }
+  function nextMonth() {
+    let y = state.calendarYear;
+    let m = state.calendarMonth + 1;
+    if (m > 11) {
+      m = 0;
+      y += 1;
+    }
+    state.calendarYear = y;
+    state.calendarMonth = m;
+    renderCalendar();
+  }
+  function prevMonth() {
+    let y = state.calendarYear;
+    let m = state.calendarMonth - 1;
+    if (m < 0) {
+      m = 11;
+      y -= 1;
+    }
+    state.calendarYear = y;
+    state.calendarMonth = m;
+    renderCalendar();
+  }
+  var calendar = { renderCalendar, nextMonth, prevMonth };
+
   // src/ui.js
   var escapeHtml = (s) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
   function getView2() {
@@ -152,6 +279,9 @@
       els.ticks.appendChild(tick);
     }
   }
+  function currentDay() {
+    return state.currentDate || todayStr();
+  }
   function renderTimeline() {
     var _a;
     els.track.querySelectorAll(".punch").forEach((n) => n.remove());
@@ -163,7 +293,8 @@
     const rect = els.track.getBoundingClientRect();
     const trackWidth = rect.width || 1;
     const view = getView2();
-    const sorted = [...state.punches].sort((a, b) => a.start - b.start);
+    const day = currentDay();
+    const sorted = [...state.punches].filter((p) => getPunchDate(p) === day).sort((a, b) => a.start - b.start);
     for (const p of sorted) {
       const startClamped = Math.max(p.start, view.start);
       const endClamped = Math.min(p.end, view.end);
@@ -330,7 +461,8 @@
   }
   function renderTable() {
     els.rows.innerHTML = "";
-    const sorted = [...state.punches].sort((a, b) => a.start - b.start);
+    const day = currentDay();
+    const sorted = [...state.punches].filter((p) => getPunchDate(p) === day).sort((a, b) => a.start - b.start);
     for (const p of sorted) {
       const tr = document.createElement("tr");
       tr.dataset.id = p.id;
@@ -358,8 +490,43 @@
     els.empty.style.display = sorted.length ? "none" : "block";
   }
   function renderTotal() {
-    const totalMin = state.punches.reduce((s, p) => s + (p.end - p.start), 0);
+    const day = currentDay();
+    const totalMin = state.punches.filter((p) => getPunchDate(p) === day).reduce((s, p) => s + (p.end - p.start), 0);
     els.total.textContent = totalMin ? `Total: ${time.durationLabel(totalMin)}` : "";
+  }
+  function renderDayLabel() {
+    if (!els.dayLabel) return;
+    const day = currentDay();
+    const d = parseDate(day) || /* @__PURE__ */ new Date();
+    const label = d.toLocaleDateString(void 0, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+    els.dayLabel.textContent = `Day: ${label}`;
+  }
+  function updateViewMode() {
+    const timelineCard = document.querySelector(".timeline");
+    const tableCard = document.querySelector(".table-card");
+    if (state.viewMode === "calendar") {
+      const d = parseDate(currentDay());
+      if (d) {
+        state.calendarYear = d.getFullYear();
+        state.calendarMonth = d.getMonth();
+      }
+      if (timelineCard) timelineCard.style.display = "none";
+      if (tableCard) tableCard.style.display = "none";
+      if (els.calendarCard) els.calendarCard.style.display = "block";
+      if (els.btnCalendar) els.btnCalendar.textContent = "Back to Day";
+      calendar.renderCalendar();
+    } else {
+      if (timelineCard) timelineCard.style.display = "";
+      if (tableCard) tableCard.style.display = "";
+      if (els.calendarCard) els.calendarCard.style.display = "none";
+      if (els.btnCalendar) els.btnCalendar.textContent = "Calendar";
+      renderTicks();
+      renderTimeline();
+      renderTable();
+      renderTotal();
+      nowIndicator.update();
+    }
+    renderDayLabel();
   }
   function showGhost(a, b) {
     const [start, end] = a < b ? [a, b] : [b, a];
@@ -416,11 +583,7 @@
     els.toast._t = setTimeout(() => els.toast.style.display = "none", 2400);
   }
   function renderAll() {
-    renderTicks();
-    renderTimeline();
-    renderTable();
-    renderTotal();
-    nowIndicator.update();
+    updateViewMode();
   }
   var ui = {
     renderAll,
@@ -434,7 +597,9 @@
     hideTips,
     openModal,
     closeModal,
-    toast
+    toast,
+    renderDayLabel,
+    updateViewMode
   };
 
   // src/storage.js
@@ -484,9 +649,13 @@
     const mins = view.start + pct * view.minutes;
     return Math.max(view.start, Math.min(view.end, Math.round(mins)));
   };
-  var overlapsAny = (start, end, excludeId = null) => state.punches.some((p) => p.id !== excludeId && start < p.end && end > p.start);
+  var overlapsAny = (start, end, excludeId = null) => {
+    const day = state.currentDate || todayStr();
+    return state.punches.some((p) => p.id !== excludeId && getPunchDate(p) === day && start < p.end && end > p.start);
+  };
   var nearestBounds = (forId) => {
-    const sorted = [...state.punches].filter((p) => p.id !== forId).sort((a, b) => a.start - b.start);
+    const day = state.currentDate || todayStr();
+    const sorted = [...state.punches].filter((p) => p.id !== forId && getPunchDate(p) === day).sort((a, b) => a.start - b.start);
     return {
       leftLimitAt: (start) => {
         const leftNeighbor = [...sorted].filter((p) => p.end <= start).pop();
@@ -697,7 +866,8 @@
       start: s,
       end: eMin,
       caseNumber: els.caseField.value.trim(),
-      note: els.noteField.value.trim()
+      note: els.noteField.value.trim(),
+      date: state.currentDate || todayStr()
     };
     if (state.editingId) {
       const idx = state.punches.findIndex((p) => p.id === state.editingId);
@@ -735,6 +905,15 @@
     els.track.addEventListener("touchstart", startMove, { passive: true });
     els.track.addEventListener("mousedown", startResize);
     els.track.addEventListener("touchstart", startResize, { passive: true });
+    if (els.btnCalendar) {
+      els.btnCalendar.addEventListener("click", () => {
+        state.viewMode = state.viewMode === "calendar" ? "day" : "calendar";
+        ui.updateViewMode();
+      });
+    }
+    if (els.calPrev) els.calPrev.addEventListener("click", () => calendar.prevMonth());
+    if (els.calNext) els.calNext.addEventListener("click", () => calendar.nextMonth());
+    window.addEventListener("calendar:daySelected", () => ui.updateViewMode());
     els.rows.addEventListener("click", async (e) => {
       const btn = e.target.closest(".status-btn");
       if (btn) {
@@ -998,6 +1177,17 @@
       console.info("DEBUG_HANDLES enabled \u2014 set window.DEBUG_HANDLES = false in console to disable");
     }
     state.punches = await idb.all();
+    const updates = [];
+    for (const p of state.punches) {
+      if (!p.date) {
+        const d = p.createdAt && String(p.createdAt).slice(0, 10) || todayStr();
+        updates.push({ ...p, date: d });
+      }
+    }
+    if (updates.length) {
+      for (const up of updates) await idb.put(up);
+      state.punches = await idb.all();
+    }
     ui.renderAll();
     nowIndicator.init();
   }

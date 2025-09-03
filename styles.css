@@ -192,4 +192,15 @@ tbody tr .row-action { cursor: pointer; }
 
 /* Toast */
 .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #111b37; color: var(--text); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 10px 14px; font-size: 14px; display: none; z-index: 60; box-shadow: var(--shadow); }
- 
+
+/* Calendar */
+.calendar { overflow: visible; }
+.calendar-weekdays .cal-weekday { text-align: center; font-size: 12px; color: var(--muted); padding: 6px 4px; }
+.calendar-grid { user-select: none; }
+.cal-day { position: relative; min-height: 72px; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 8px; background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.02)); cursor: pointer; }
+.cal-day:hover { border-color: rgba(255,255,255,.16); box-shadow: 0 2px 8px rgba(0,0,0,.25) inset; }
+.cal-day.other-month { opacity: .5; }
+.cal-day.selected { outline: 2px solid var(--brand-2); outline-offset: 2px; }
+.cal-day.has-items { border-color: rgba(90,162,255,0.35); }
+.cal-num { font-weight: 700; font-size: 12px; color: var(--muted); }
+.cal-meta { position: absolute; right: 8px; bottom: 6px; font-size: 11px; color: var(--muted); }

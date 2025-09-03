@@ -3,6 +3,8 @@ import { state } from './state.js';
 import { time } from './time.js';
 import { ui } from './ui.js';
 import { idb } from './storage.js';
+import { todayStr, getPunchDate } from './dates.js';
+import { calendar } from './calendar.js';
 // View is dynamic; use state.viewStartMin / state.viewEndMin
 
 const getView = () => {
@@ -23,11 +25,16 @@ const pxToMinutes = (clientX) => {
   return Math.max(view.start, Math.min(view.end, Math.round(mins)));
 };
 
-const overlapsAny = (start, end, excludeId = null) =>
-  state.punches.some((p) => p.id !== excludeId && start < p.end && end > p.start);
+const overlapsAny = (start, end, excludeId = null) => {
+  const day = state.currentDate || todayStr();
+  return state.punches.some((p) => p.id !== excludeId && getPunchDate(p) === day && start < p.end && end > p.start);
+};
 
 const nearestBounds = (forId) => {
-  const sorted = [...state.punches].filter((p) => p.id !== forId).sort((a, b) => a.start - b.start);
+  const day = state.currentDate || todayStr();
+  const sorted = [...state.punches]
+    .filter((p) => p.id !== forId && getPunchDate(p) === day)
+    .sort((a, b) => a.start - b.start);
   return {
     leftLimitAt: (start) => {
       const leftNeighbor = [...sorted].filter((p) => p.end <= start).pop();
@@ -250,6 +257,7 @@ const saveNewFromModal = async (e) => {
     end: eMin,
     caseNumber: els.caseField.value.trim(),
     note: els.noteField.value.trim(),
+    date: state.currentDate || todayStr(),
   };
   if (state.editingId) {
     const idx = state.punches.findIndex((p) => p.id === state.editingId);
@@ -288,6 +296,17 @@ const attachEvents = () => {
   els.track.addEventListener('touchstart', startMove, { passive: true });
   els.track.addEventListener('mousedown', startResize);
   els.track.addEventListener('touchstart', startResize, { passive: true });
+
+  // Calendar / header controls
+  if (els.btnCalendar) {
+    els.btnCalendar.addEventListener('click', () => {
+      state.viewMode = state.viewMode === 'calendar' ? 'day' : 'calendar';
+      ui.updateViewMode();
+    });
+  }
+  if (els.calPrev) els.calPrev.addEventListener('click', () => calendar.prevMonth());
+  if (els.calNext) els.calNext.addEventListener('click', () => calendar.nextMonth());
+  window.addEventListener('calendar:daySelected', () => ui.updateViewMode());
 
   els.rows.addEventListener('click', async (e) => {
     // Status swatch open/close

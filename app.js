@@ -3,6 +3,7 @@ import { idb } from './src/storage.js';
 import { state } from './src/state.js';
 import { ui } from './src/ui.js';
 import { nowIndicator } from './src/nowIndicator.js';
+import { todayStr } from './src/dates.js';
 
 async function init() {
   actions.attachEvents();
@@ -11,6 +12,18 @@ async function init() {
     console.info('DEBUG_HANDLES enabled — set window.DEBUG_HANDLES = false in console to disable');
   }
   state.punches = await idb.all();
+  // Migration: ensure each punch has a date (YYYY-MM-DD)
+  const updates = [];
+  for (const p of state.punches) {
+    if (!p.date) {
+      const d = (p.createdAt && String(p.createdAt).slice(0, 10)) || todayStr();
+      updates.push({ ...p, date: d });
+    }
+  }
+  if (updates.length) {
+    for (const up of updates) await idb.put(up);
+    state.punches = await idb.all();
+  }
   ui.renderAll();
   nowIndicator.init();
 }

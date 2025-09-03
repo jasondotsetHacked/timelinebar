@@ -2,6 +2,8 @@ import { els } from './dom.js';
 import { state } from './state.js';
 import { time } from './time.js';
 import { nowIndicator } from './nowIndicator.js';
+import { getPunchDate, todayStr, parseDate } from './dates.js';
+import { calendar } from './calendar.js';
 // Viewport is now dynamic and sourced from state
 
 const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
@@ -47,6 +49,10 @@ function renderTicks() {
   }
 }
 
+function currentDay() {
+  return state.currentDate || todayStr();
+}
+
 function renderTimeline() {
   els.track.querySelectorAll('.punch').forEach((n) => n.remove());
   const existingLayer = els.track.querySelector('.label-layer');
@@ -59,7 +65,10 @@ function renderTimeline() {
   const trackWidth = rect.width || 1;
 
   const view = getView();
-  const sorted = [...state.punches].sort((a, b) => a.start - b.start);
+  const day = currentDay();
+  const sorted = [...state.punches]
+    .filter((p) => getPunchDate(p) === day)
+    .sort((a, b) => a.start - b.start);
   for (const p of sorted) {
     const startClamped = Math.max(p.start, view.start);
     const endClamped = Math.min(p.end, view.end);
@@ -242,7 +251,10 @@ function renderTimeline() {
 
 function renderTable() {
   els.rows.innerHTML = '';
-  const sorted = [...state.punches].sort((a, b) => a.start - b.start);
+  const day = currentDay();
+  const sorted = [...state.punches]
+    .filter((p) => getPunchDate(p) === day)
+    .sort((a, b) => a.start - b.start);
   for (const p of sorted) {
     const tr = document.createElement('tr');
     tr.dataset.id = p.id;
@@ -271,8 +283,48 @@ function renderTable() {
 }
 
 function renderTotal() {
-  const totalMin = state.punches.reduce((s, p) => s + (p.end - p.start), 0);
+  const day = currentDay();
+  const totalMin = state.punches
+    .filter((p) => getPunchDate(p) === day)
+    .reduce((s, p) => s + (p.end - p.start), 0);
   els.total.textContent = totalMin ? `Total: ${time.durationLabel(totalMin)}` : '';
+}
+
+function renderDayLabel() {
+  if (!els.dayLabel) return;
+  const day = currentDay();
+  const d = parseDate(day) || new Date();
+  const label = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  els.dayLabel.textContent = `Day: ${label}`;
+}
+
+function updateViewMode() {
+  const timelineCard = document.querySelector('.timeline');
+  const tableCard = document.querySelector('.table-card');
+  if (state.viewMode === 'calendar') {
+    // Ensure calendar focuses the selected day month
+    const d = parseDate(currentDay());
+    if (d) {
+      state.calendarYear = d.getFullYear();
+      state.calendarMonth = d.getMonth();
+    }
+    if (timelineCard) timelineCard.style.display = 'none';
+    if (tableCard) tableCard.style.display = 'none';
+    if (els.calendarCard) els.calendarCard.style.display = 'block';
+    if (els.btnCalendar) els.btnCalendar.textContent = 'Back to Day';
+    calendar.renderCalendar();
+  } else {
+    if (timelineCard) timelineCard.style.display = '';
+    if (tableCard) tableCard.style.display = '';
+    if (els.calendarCard) els.calendarCard.style.display = 'none';
+    if (els.btnCalendar) els.btnCalendar.textContent = 'Calendar';
+    renderTicks();
+    renderTimeline();
+    renderTable();
+    renderTotal();
+    nowIndicator.update();
+  }
+  renderDayLabel();
 }
 
 function showGhost(a, b) {
@@ -337,11 +389,7 @@ function toast(msg) {
 }
 
 function renderAll() {
-  renderTicks();
-  renderTimeline();
-  renderTable();
-  renderTotal();
-  nowIndicator.update();
+  updateViewMode();
 }
 
 export const ui = {
@@ -357,4 +405,6 @@ export const ui = {
   openModal,
   closeModal,
   toast,
+  renderDayLabel,
+  updateViewMode,
 };
