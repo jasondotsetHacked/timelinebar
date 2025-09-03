@@ -769,20 +769,48 @@
       fn(store);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
-    })
+    }).finally(() => db.close())
   );
-  var add = (punch) => withStore("readwrite", (store) => store.add(punch));
-  var put = (punch) => withStore("readwrite", (store) => store.put(punch));
-  var remove = (id) => withStore("readwrite", (store) => store.delete(id));
-  var all = () => openDb().then(
-    (db) => new Promise((resolve, reject) => {
-      const tx = db.transaction("punches", "readonly");
-      const store = tx.objectStore("punches");
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
-    })
-  );
+  var add = async (punch) => {
+    try {
+      await withStore("readwrite", (store) => store.add(punch));
+    } catch (err) {
+      ui.toast("Storage request failed");
+      throw err;
+    }
+  };
+  var put = async (punch) => {
+    try {
+      await withStore("readwrite", (store) => store.put(punch));
+    } catch (err) {
+      ui.toast("Storage request failed");
+      throw err;
+    }
+  };
+  var remove = async (id) => {
+    try {
+      await withStore("readwrite", (store) => store.delete(id));
+    } catch (err) {
+      ui.toast("Storage request failed");
+      throw err;
+    }
+  };
+  var all = async () => {
+    try {
+      return await openDb().then(
+        (db) => new Promise((resolve, reject) => {
+          const tx = db.transaction("punches", "readonly");
+          const store = tx.objectStore("punches");
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        }).finally(() => db.close())
+      );
+    } catch (err) {
+      ui.toast("Storage request failed");
+      throw err;
+    }
+  };
   var idb = { add, put, remove, all };
 
   // src/actions.js
