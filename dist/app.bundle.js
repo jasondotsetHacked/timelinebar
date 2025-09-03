@@ -26,6 +26,8 @@
     viewDefault: byId("viewDefault"),
     // Calendar / header controls
     btnCalendar: byId("btnCalendar"),
+    btnCalendar2: byId("btnCalendar2"),
+    btnCalendarFab: byId("btnCalendarFab"),
     dayLabel: byId("dayLabel"),
     calendarCard: byId("calendarCard"),
     calendarGrid: byId("calendarGrid"),
@@ -897,6 +899,10 @@
     ui.renderAll();
   };
   var closeModal2 = () => ui.closeModal();
+  var toggleCalendarView = () => {
+    state.viewMode = state.viewMode === "calendar" ? "day" : "calendar";
+    ui.updateViewMode();
+  };
   var attachEvents = () => {
     var _a, _b;
     els.track.addEventListener("mousedown", startDrag);
@@ -906,11 +912,35 @@
     els.track.addEventListener("mousedown", startResize);
     els.track.addEventListener("touchstart", startResize, { passive: true });
     if (els.btnCalendar) {
-      els.btnCalendar.addEventListener("click", () => {
-        state.viewMode = state.viewMode === "calendar" ? "day" : "calendar";
-        ui.updateViewMode();
+      els.btnCalendar.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleCalendarView();
       });
     }
+    if (els.btnCalendar2) {
+      els.btnCalendar2.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleCalendarView();
+      });
+    }
+    if (els.btnCalendarFab) {
+      els.btnCalendarFab.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleCalendarView();
+      });
+    }
+    document.addEventListener("click", (e) => {
+      var _a2;
+      const id = (_a2 = e.target) == null ? void 0 : _a2.id;
+      if (id === "btnCalendar" || id === "btnCalendar2" || id === "btnCalendarFab") {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleCalendarView();
+      }
+    });
     if (els.calPrev) els.calPrev.addEventListener("click", () => calendar.prevMonth());
     if (els.calNext) els.calNext.addEventListener("click", () => calendar.nextMonth());
     window.addEventListener("calendar:daySelected", () => ui.updateViewMode());
@@ -1164,6 +1194,11 @@
       ui.renderAll();
     };
     window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("keydown", (e) => {
+      if (e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        toggleCalendarView();
+      }
+    });
   };
   var actions = {
     attachEvents

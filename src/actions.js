@@ -289,6 +289,11 @@ const saveNewFromModal = async (e) => {
 
 const closeModal = () => ui.closeModal();
 
+const toggleCalendarView = () => {
+  state.viewMode = state.viewMode === 'calendar' ? 'day' : 'calendar';
+  ui.updateViewMode();
+};
+
 const attachEvents = () => {
   els.track.addEventListener('mousedown', startDrag);
   els.track.addEventListener('touchstart', startDrag, { passive: true });
@@ -299,11 +304,35 @@ const attachEvents = () => {
 
   // Calendar / header controls
   if (els.btnCalendar) {
-    els.btnCalendar.addEventListener('click', () => {
-      state.viewMode = state.viewMode === 'calendar' ? 'day' : 'calendar';
-      ui.updateViewMode();
+    els.btnCalendar.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleCalendarView();
     });
   }
+  if (els.btnCalendar2) {
+    els.btnCalendar2.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleCalendarView();
+    });
+  }
+  if (els.btnCalendarFab) {
+    els.btnCalendarFab.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleCalendarView();
+    });
+  }
+  // Safety net: delegate in case elements are replaced dynamically
+  document.addEventListener('click', (e) => {
+    const id = e.target?.id;
+    if (id === 'btnCalendar' || id === 'btnCalendar2' || id === 'btnCalendarFab') {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleCalendarView();
+    }
+  });
   if (els.calPrev) els.calPrev.addEventListener('click', () => calendar.prevMonth());
   if (els.calNext) els.calNext.addEventListener('click', () => calendar.nextMonth());
   window.addEventListener('calendar:daySelected', () => ui.updateViewMode());
@@ -581,6 +610,13 @@ const attachEvents = () => {
 
   // Attach wheel handler on window for robustness
   window.addEventListener('wheel', onWheel, { passive: false });
+
+  // Keyboard shortcut: C toggles calendar
+  window.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 'c' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      toggleCalendarView();
+    }
+  });
 };
 
 export const actions = {

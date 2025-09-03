@@ -25,6 +25,8 @@ export const els = {
   viewDefault: byId('viewDefault'),
   // Calendar / header controls
   btnCalendar: byId('btnCalendar'),
+  btnCalendar2: byId('btnCalendar2'),
+  btnCalendarFab: byId('btnCalendarFab'),
   dayLabel: byId('dayLabel'),
   calendarCard: byId('calendarCard'),
   calendarGrid: byId('calendarGrid'),

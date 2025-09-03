@@ -53,6 +53,7 @@
         <div style="display:flex; gap:8px; align-items:center;">
           <button id="viewDefault" class="btn ghost" title="Reset to 6am–6pm" style="padding:6px 10px; font-size:12px;">6–6</button>
           <button id="view24" class="btn ghost" title="Show 24 hours" style="padding:6px 10px; font-size:12px;">24h</button>
+          <button id="btnCalendar2" class="btn ghost" title="Open calendar" style="padding:6px 10px; font-size:12px;">Calendar</button>
           <div id="total" class="subtle"></div>
         </div>
       </div>
@@ -115,6 +116,9 @@
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Floating calendar toggle -->
+  <button id="btnCalendarFab" class="btn fab" title="Toggle calendar">Calendar</button>
 
   <script src="app.bundle.js"></script>
   
