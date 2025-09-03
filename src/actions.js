@@ -1,4 +1,4 @@
-import { els } from './dom.js';
+﻿import { els } from './dom.js';
 import { state } from './state.js';
 import { time } from './time.js';
 import { ui } from './ui.js';
@@ -255,7 +255,7 @@ const saveNewFromModal = async (e) => {
   const payload = {
     start: s,
     end: eMin,
-    caseNumber: els.caseField.value.trim(),
+    bucket: els.bucketField.value.trim(),
     note: els.noteField.value.trim(),
     date: state.currentDate || todayStr(),
   };
@@ -376,18 +376,40 @@ const attachEvents = () => {
   // Month/Year label clicks to switch modes
   if (els.calMonthLabel) {
     els.calMonthLabel.addEventListener('click', (e) => {
+      // Mode switches (clickable parts of the label)
       const t = e.target.closest('[data-cal-click]');
-      if (!t) return;
-      const what = t.dataset.calClick;
-      if (what === 'year') {
-        state.calendarMode = 'years';
-        state.yearGridStart = Math.floor(state.calendarYear / 12) * 12;
-        calendar.renderCalendar();
-        ui.updateHelpText();
-      } else if (what === 'month') {
-        state.calendarMode = 'months';
-        calendar.renderCalendar();
-        ui.updateHelpText();
+      if (t) {
+        const what = t.dataset.calClick;
+        if (what === 'year') {
+          state.calendarMode = 'years';
+          state.yearGridStart = Math.floor(state.calendarYear / 12) * 12;
+          calendar.renderCalendar();
+          ui.updateHelpText();
+          return;
+        } else if (what === 'month') {
+          state.calendarMode = 'months';
+          calendar.renderCalendar();
+          ui.updateHelpText();
+          return;
+        }
+      }
+
+      // Inline prev/next controls inside the label (months/years views)
+      const nav = e.target.closest('[data-cal-nav]');
+      if (nav) {
+        const dir = nav.dataset.calNav; // 'prev' | 'next'
+        const delta = dir === 'prev' ? -1 : 1;
+        if (state.calendarMode === 'days') {
+          // For completeness: left/right in days mode flips month
+          if (delta === -1) calendar.prevMonth();
+          else calendar.nextMonth();
+        } else if (state.calendarMode === 'months') {
+          state.calendarYear += delta;
+          calendar.renderCalendar();
+        } else {
+          state.yearGridStart += delta * 12;
+          calendar.renderCalendar();
+        }
       }
     });
   }
@@ -463,11 +485,11 @@ const attachEvents = () => {
       state.pendingRange = { startMin: p.start, endMin: p.end };
       els.startField.value = time.toLabel(p.start);
       els.endField.value = time.toLabel(p.end);
-      els.caseField.value = p.caseNumber || '';
+      els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
       if (els.modalTitle) els.modalTitle.textContent = 'Edit Time Block';
       els.modal.style.display = 'flex';
-      els.caseField.focus();
+      els.bucketField.focus();
       return;
     }
   });
@@ -482,11 +504,11 @@ const attachEvents = () => {
       state.pendingRange = { startMin: p.start, endMin: p.end };
       els.startField.value = time.toLabel(p.start);
       els.endField.value = time.toLabel(p.end);
-      els.caseField.value = p.caseNumber || '';
+      els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
       if (els.modalTitle) els.modalTitle.textContent = 'Edit Time Block';
       els.modal.style.display = 'flex';
-      els.caseField.focus();
+      els.bucketField.focus();
       return;
     }
     const editBtn = e.target.closest('.control-btn.edit');
@@ -498,11 +520,11 @@ const attachEvents = () => {
       state.pendingRange = { startMin: p.start, endMin: p.end };
       els.startField.value = time.toLabel(p.start);
       els.endField.value = time.toLabel(p.end);
-      els.caseField.value = p.caseNumber || '';
+      els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
       if (els.modalTitle) els.modalTitle.textContent = 'Edit Time Block';
       els.modal.style.display = 'flex';
-      els.caseField.focus();
+      els.bucketField.focus();
       return;
     }
     const delBtn = e.target.closest('.control-btn.delete');
@@ -525,11 +547,11 @@ const attachEvents = () => {
       state.pendingRange = { startMin: p.start, endMin: p.end };
       els.startField.value = time.toLabel(p.start);
       els.endField.value = time.toLabel(p.end);
-      els.caseField.value = p.caseNumber || '';
+      els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
       if (els.modalTitle) els.modalTitle.textContent = 'Edit Time Block';
       els.modal.style.display = 'flex';
-      els.caseField.focus();
+      els.bucketField.focus();
       return;
     }
     const popDel = e.target.closest('.label-popper .control-btn.delete');
@@ -672,3 +694,4 @@ const attachEvents = () => {
 export const actions = {
   attachEvents,
 };
+

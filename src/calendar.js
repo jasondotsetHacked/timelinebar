@@ -49,8 +49,11 @@ function renderCalendar() {
     els.calendarGrid.innerHTML = '';
 
     if (mode === 'months') {
-      // Month picker for the selected year
-      els.calMonthLabel.innerHTML = `<span class="cal-link" data-cal-click="year" title="Select year">${y}</span>`;
+      // Month picker for the selected year with inline prev/next year controls
+      els.calMonthLabel.innerHTML = `
+        <span class="cal-nav" data-cal-nav="prev" title="Previous year">\u2039</span>
+        <span class="cal-link" data-cal-click="year" title="Select year">${y}</span>
+        <span class="cal-nav" data-cal-nav="next" title="Next year">\u203A</span>`;
       els.calendarGrid.style.gridTemplateColumns = 'repeat(4, 1fr)';
 
       const today = new Date();
@@ -91,7 +94,11 @@ function renderCalendar() {
     const start = state.yearGridStart || Math.floor(state.calendarYear / 12) * 12;
     state.yearGridStart = start;
     const end = start + 11;
-    els.calMonthLabel.innerHTML = `<span class="cal-range">${start}\u2013${end}</span>`;
+    // Years range with inline prev/next 12-year controls
+    els.calMonthLabel.innerHTML = `
+      <span class="cal-nav" data-cal-nav="prev" title="Previous 12 years">\u2039</span>
+      <span class="cal-range">${start}\u2013${end}</span>
+      <span class="cal-nav" data-cal-nav="next" title="Next 12 years">\u203A</span>`;
     els.calendarGrid.style.gridTemplateColumns = 'repeat(4, 1fr)';
 
     const today = new Date();
@@ -131,7 +138,11 @@ function renderCalendar() {
   els.calMonthLabel.innerHTML = (() => {
     const d = new Date(y, m, 1);
     const monthName = d.toLocaleString(undefined, { month: 'long' });
-    return `<span class="cal-link" data-cal-click="month" title="Select month">${monthName}</span> <span class="cal-link" data-cal-click="year" title="Select year">${y}</span>`;
+    return `
+      <span class="cal-nav" data-cal-nav="prev" title="Previous month">\u2039</span>
+      <span class="cal-link" data-cal-click="month" title="Select month">${monthName}</span>
+      <span class="cal-link" data-cal-click="year" title="Select year">${y}</span>
+      <span class="cal-nav" data-cal-nav="next" title="Next month">\u203A</span>`;
   })();
 
   els.calendarGrid.style.gridTemplateColumns = 'repeat(7, 1fr)';
@@ -222,4 +233,3 @@ function prevYear() {
 }
 
 export const calendar = { renderCalendar, nextMonth, prevMonth, nextYear, prevYear };
-

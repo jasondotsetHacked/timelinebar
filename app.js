@@ -12,12 +12,17 @@ async function init() {
     console.info('DEBUG_HANDLES enabled — set window.DEBUG_HANDLES = false in console to disable');
   }
   state.punches = await idb.all();
-  // Migration: ensure each punch has a date (YYYY-MM-DD)
+  // Migration: ensure each punch has a date (YYYY-MM-DD) and rename caseNumber -> bucket
   const updates = [];
   for (const p of state.punches) {
     if (!p.date) {
       const d = (p.createdAt && String(p.createdAt).slice(0, 10)) || todayStr();
       updates.push({ ...p, date: d });
+    }
+    // Rename caseNumber to bucket for existing records
+    if (p.caseNumber && !p.bucket) {
+      const { caseNumber, ...rest } = p;
+      updates.push({ ...rest, bucket: caseNumber });
     }
   }
   if (updates.length) {

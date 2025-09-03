@@ -13,7 +13,7 @@
     modal: byId("modal"),
     startField: byId("startField"),
     endField: byId("endField"),
-    caseField: byId("caseField"),
+    bucketField: byId("bucketField"),
     noteField: byId("noteField"),
     modalForm: byId("modalForm"),
     modalCancel: byId("modalCancel"),
@@ -204,7 +204,10 @@
       if (els.calWeekdays) els.calWeekdays.style.display = "none";
       els.calendarGrid.innerHTML = "";
       if (mode === "months") {
-        els.calMonthLabel.innerHTML = `<span class="cal-link" data-cal-click="year" title="Select year">${y}</span>`;
+        els.calMonthLabel.innerHTML = `
+        <span class="cal-nav" data-cal-nav="prev" title="Previous year">\u2039</span>
+        <span class="cal-link" data-cal-click="year" title="Select year">${y}</span>
+        <span class="cal-nav" data-cal-nav="next" title="Next year">\u203A</span>`;
         els.calendarGrid.style.gridTemplateColumns = "repeat(4, 1fr)";
         const today3 = /* @__PURE__ */ new Date();
         const currentMonth = today3.getMonth();
@@ -242,7 +245,10 @@
       const start = state.yearGridStart || Math.floor(state.calendarYear / 12) * 12;
       state.yearGridStart = start;
       const end = start + 11;
-      els.calMonthLabel.innerHTML = `<span class="cal-range">${start}\u2013${end}</span>`;
+      els.calMonthLabel.innerHTML = `
+      <span class="cal-nav" data-cal-nav="prev" title="Previous 12 years">\u2039</span>
+      <span class="cal-range">${start}\u2013${end}</span>
+      <span class="cal-nav" data-cal-nav="next" title="Next 12 years">\u203A</span>`;
       els.calendarGrid.style.gridTemplateColumns = "repeat(4, 1fr)";
       const today2 = /* @__PURE__ */ new Date();
       const currentYear = today2.getFullYear();
@@ -279,7 +285,11 @@
     els.calMonthLabel.innerHTML = (() => {
       const d = new Date(y, m, 1);
       const monthName = d.toLocaleString(void 0, { month: "long" });
-      return `<span class="cal-link" data-cal-click="month" title="Select month">${monthName}</span> <span class="cal-link" data-cal-click="year" title="Select year">${y}</span>`;
+      return `
+      <span class="cal-nav" data-cal-nav="prev" title="Previous month">\u2039</span>
+      <span class="cal-link" data-cal-click="month" title="Select month">${monthName}</span>
+      <span class="cal-link" data-cal-click="year" title="Select year">${y}</span>
+      <span class="cal-nav" data-cal-nav="next" title="Next month">\u203A</span>`;
     })();
     els.calendarGrid.style.gridTemplateColumns = "repeat(7, 1fr)";
     requestAnimationFrame(() => {
@@ -428,7 +438,7 @@
       leftHandle.setAttribute("aria-label", "Resize left edge");
       const label = document.createElement("div");
       label.className = "punch-label";
-      label.textContent = p.caseNumber || "(no case)";
+      label.textContent = p.bucket || "(no bucket)";
       label.dataset.id = p.id;
       const rightHandle = document.createElement("div");
       rightHandle.className = "handle right";
@@ -542,7 +552,7 @@
       pop.style.left = pxLeft + "px";
       pop.style.top = 8 + it.row * 40 + "px";
       pop.dataset.id = it.punch.id;
-      pop.innerHTML = `<div class="label-text">${escapeHtml(it.punch.caseNumber || "(no case)")}</div><div class="controls"><button class="control-btn edit" title="Edit">\u270E</button><button class="control-btn delete" title="Delete">\u2715</button></div>`;
+      pop.innerHTML = `<div class="label-text">${escapeHtml(it.punch.bucket || "(no bucket)")}</div><div class="controls"><button class="control-btn edit" title="Edit">\u270E</button><button class="control-btn delete" title="Delete">\u2715</button></div>`;
       pop.style.display = "none";
       const conn = document.createElement("div");
       conn.className = "label-connector";
@@ -592,7 +602,7 @@
       <td class="cell-start">${time.toLabel(p.start)}</td>
       <td class="cell-end">${time.toLabel(p.end)}</td>
       <td>${time.durationLabel(dur)}</td>
-      <td>${escapeHtml(p.caseNumber || "")}</td>
+      <td>${escapeHtml(p.bucket || "")}</td>
       <td class="note">${escapeHtml(p.note || "")}</td>
       <td class="table-actions">
         <button class="row-action edit" title="Edit" data-id="${p.id}">Edit</button>
@@ -707,11 +717,11 @@
     state.pendingRange = range;
     els.startField.value = time.toLabel(range.startMin);
     els.endField.value = time.toLabel(range.endMin);
-    els.caseField.value = "";
+    els.bucketField.value = "";
     els.noteField.value = "";
     if (els.modalTitle) els.modalTitle.textContent = "New Time Block";
     els.modal.style.display = "flex";
-    els.caseField.focus();
+    els.bucketField.focus();
   }
   function closeModal() {
     els.modal.style.display = "none";
@@ -1008,7 +1018,7 @@
     const payload = {
       start: s,
       end: eMin,
-      caseNumber: els.caseField.value.trim(),
+      bucket: els.bucketField.value.trim(),
       note: els.noteField.value.trim(),
       date: state.currentDate || todayStr()
     };
@@ -1123,17 +1133,35 @@
     if (els.calMonthLabel) {
       els.calMonthLabel.addEventListener("click", (e) => {
         const t = e.target.closest("[data-cal-click]");
-        if (!t) return;
-        const what = t.dataset.calClick;
-        if (what === "year") {
-          state.calendarMode = "years";
-          state.yearGridStart = Math.floor(state.calendarYear / 12) * 12;
-          calendar.renderCalendar();
-          ui.updateHelpText();
-        } else if (what === "month") {
-          state.calendarMode = "months";
-          calendar.renderCalendar();
-          ui.updateHelpText();
+        if (t) {
+          const what = t.dataset.calClick;
+          if (what === "year") {
+            state.calendarMode = "years";
+            state.yearGridStart = Math.floor(state.calendarYear / 12) * 12;
+            calendar.renderCalendar();
+            ui.updateHelpText();
+            return;
+          } else if (what === "month") {
+            state.calendarMode = "months";
+            calendar.renderCalendar();
+            ui.updateHelpText();
+            return;
+          }
+        }
+        const nav = e.target.closest("[data-cal-nav]");
+        if (nav) {
+          const dir = nav.dataset.calNav;
+          const delta = dir === "prev" ? -1 : 1;
+          if (state.calendarMode === "days") {
+            if (delta === -1) calendar.prevMonth();
+            else calendar.nextMonth();
+          } else if (state.calendarMode === "months") {
+            state.calendarYear += delta;
+            calendar.renderCalendar();
+          } else {
+            state.yearGridStart += delta * 12;
+            calendar.renderCalendar();
+          }
         }
       });
     }
@@ -1204,11 +1232,11 @@
         state.pendingRange = { startMin: p.start, endMin: p.end };
         els.startField.value = time.toLabel(p.start);
         els.endField.value = time.toLabel(p.end);
-        els.caseField.value = p.caseNumber || "";
+        els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
         if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
         els.modal.style.display = "flex";
-        els.caseField.focus();
+        els.bucketField.focus();
         return;
       }
     });
@@ -1222,11 +1250,11 @@
         state.pendingRange = { startMin: p.start, endMin: p.end };
         els.startField.value = time.toLabel(p.start);
         els.endField.value = time.toLabel(p.end);
-        els.caseField.value = p.caseNumber || "";
+        els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
         if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
         els.modal.style.display = "flex";
-        els.caseField.focus();
+        els.bucketField.focus();
         return;
       }
       const editBtn = e.target.closest(".control-btn.edit");
@@ -1238,11 +1266,11 @@
         state.pendingRange = { startMin: p.start, endMin: p.end };
         els.startField.value = time.toLabel(p.start);
         els.endField.value = time.toLabel(p.end);
-        els.caseField.value = p.caseNumber || "";
+        els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
         if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
         els.modal.style.display = "flex";
-        els.caseField.focus();
+        els.bucketField.focus();
         return;
       }
       const delBtn = e.target.closest(".control-btn.delete");
@@ -1265,11 +1293,11 @@
         state.pendingRange = { startMin: p.start, endMin: p.end };
         els.startField.value = time.toLabel(p.start);
         els.endField.value = time.toLabel(p.end);
-        els.caseField.value = p.caseNumber || "";
+        els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
         if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
         els.modal.style.display = "flex";
-        els.caseField.focus();
+        els.bucketField.focus();
         return;
       }
       const popDel = e.target.closest(".label-popper .control-btn.delete");
@@ -1407,6 +1435,10 @@
       if (!p.date) {
         const d = p.createdAt && String(p.createdAt).slice(0, 10) || todayStr();
         updates.push({ ...p, date: d });
+      }
+      if (p.caseNumber && !p.bucket) {
+        const { caseNumber, ...rest } = p;
+        updates.push({ ...rest, bucket: caseNumber });
       }
     }
     if (updates.length) {

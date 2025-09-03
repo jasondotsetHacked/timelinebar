@@ -92,7 +92,7 @@ function renderTimeline() {
 
     const label = document.createElement('div');
     label.className = 'punch-label';
-    label.textContent = p.caseNumber || '(no case)';
+    label.textContent = p.bucket || '(no bucket)';
     label.dataset.id = p.id;
 
     const rightHandle = document.createElement('div');
@@ -214,7 +214,7 @@ function renderTimeline() {
     pop.style.left = pxLeft + 'px';
     pop.style.top = 8 + it.row * 40 + 'px';
     pop.dataset.id = it.punch.id;
-    pop.innerHTML = `<div class="label-text">${escapeHtml(it.punch.caseNumber || '(no case)')}</div><div class="controls"><button class="control-btn edit" title="Edit">\u270E</button><button class="control-btn delete" title="Delete">\u2715</button></div>`;
+    pop.innerHTML = `<div class="label-text">${escapeHtml(it.punch.bucket || '(no bucket)')}</div><div class="controls"><button class="control-btn edit" title="Edit">\u270E</button><button class="control-btn delete" title="Delete">\u2715</button></div>`;
     pop.style.display = 'none';
 
     const conn = document.createElement('div');
@@ -271,7 +271,7 @@ function renderTable() {
       <td class="cell-start">${time.toLabel(p.start)}</td>
       <td class="cell-end">${time.toLabel(p.end)}</td>
       <td>${time.durationLabel(dur)}</td>
-      <td>${escapeHtml(p.caseNumber || '')}</td>
+      <td>${escapeHtml(p.bucket || '')}</td>
       <td class="note">${escapeHtml(p.note || '')}</td>
       <td class="table-actions">
         <button class="row-action edit" title="Edit" data-id="${p.id}">Edit</button>
@@ -394,11 +394,11 @@ function openModal(range) {
   state.pendingRange = range;
   els.startField.value = time.toLabel(range.startMin);
   els.endField.value = time.toLabel(range.endMin);
-  els.caseField.value = '';
+  els.bucketField.value = '';
   els.noteField.value = '';
   if (els.modalTitle) els.modalTitle.textContent = 'New Time Block';
   els.modal.style.display = 'flex';
-  els.caseField.focus();
+  els.bucketField.focus();
 }
 
 function closeModal() {

@@ -12,7 +12,7 @@ export const els = {
   modal: byId('modal'),
   startField: byId('startField'),
   endField: byId('endField'),
-  caseField: byId('caseField'),
+  bucketField: byId('bucketField'),
   noteField: byId('noteField'),
   modalForm: byId('modalForm'),
   modalCancel: byId('modalCancel'),

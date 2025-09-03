@@ -25,7 +25,7 @@ Core Concepts
 
 How To Use
 - Calendar: Click the Calendar button to open the month view. Navigate months with ‹ and ›. Click any date to switch to that day’s timeline.
-- Create: Click-drag anywhere on the timeline to select a range, then fill in Case # and Note.
+- Create: Click-drag anywhere on the timeline to select a range, then fill in Bucket and Note.
 - Edit: Click the block label or the Edit button in the block or table row.
 - Resize: Drag a block’s left/right edge handles. Snaps to 15 minutes and respects neighbors.
 - Move: Drag the middle of a block to shift it; it will not overlap other blocks for the same day.
@@ -42,7 +42,7 @@ Keyboard tips:
 
 Data & Privacy
 - Storage: IndexedDB database `timeTrackerDB`, store `punches`.
-- Fields: date (YYYY‑MM‑DD), start (min), end (min), caseNumber, note, optional status, createdAt.
+- Fields: date (YYYY‑MM‑DD), start (min), end (min), bucket, note, optional status, createdAt.
 - Existing data is auto-migrated on load to include `date`, derived from `createdAt` (or today if missing).
 - Clear data: Clear site data in your browser (Application/Storage tools) to reset.
 
