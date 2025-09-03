@@ -1,4 +1,4 @@
-import { actions } from './src/actions.js';
+import { actions } from './src/actions/index.js';
 import { idb } from './src/storage.js';
 import { state } from './src/state.js';
 import { ui } from './src/ui.js';
