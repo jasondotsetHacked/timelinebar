@@ -30,6 +30,7 @@ export const els = {
   dayLabel: byId('dayLabel'),
   calendarCard: byId('calendarCard'),
   calendarGrid: byId('calendarGrid'),
+  calWeekdays: byId('calWeekdays'),
   calMonthLabel: byId('calMonthLabel'),
   calPrev: byId('calPrev'),
   calNext: byId('calNext'),

@@ -12,7 +12,11 @@ export const state = {
   overTrack: false,
   // Date/calendar state
   currentDate: new Date().toISOString().slice(0, 10), // YYYY-MM-DD selected day
-  viewMode: 'day', // 'day' | 'calendar'
+  viewMode: 'calendar', // 'day' | 'calendar'
   calendarYear: new Date().getFullYear(),
   calendarMonth: new Date().getMonth(), // 0-11
+  // Calendar sub-view: 'days' | 'months' | 'years'
+  calendarMode: 'days',
+  // Start year for the visible year grid (in 'years' mode). Initialized to a 12-year block containing today.
+  yearGridStart: Math.floor(new Date().getFullYear() / 12) * 12,
 };

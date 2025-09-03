@@ -333,8 +333,49 @@ const attachEvents = () => {
       toggleCalendarView();
     }
   });
-  if (els.calPrev) els.calPrev.addEventListener('click', () => calendar.prevMonth());
-  if (els.calNext) els.calNext.addEventListener('click', () => calendar.nextMonth());
+  if (els.calPrev) {
+    els.calPrev.addEventListener('click', () => {
+      if (state.calendarMode === 'days') {
+        calendar.prevMonth();
+      } else if (state.calendarMode === 'months') {
+        state.calendarYear -= 1;
+        calendar.renderCalendar();
+      } else {
+        state.yearGridStart -= 12;
+        calendar.renderCalendar();
+      }
+    });
+  }
+  if (els.calNext) {
+    els.calNext.addEventListener('click', () => {
+      if (state.calendarMode === 'days') {
+        calendar.nextMonth();
+      } else if (state.calendarMode === 'months') {
+        state.calendarYear += 1;
+        calendar.renderCalendar();
+      } else {
+        state.yearGridStart += 12;
+        calendar.renderCalendar();
+      }
+    });
+  }
+
+  // Month/Year label clicks to switch modes
+  if (els.calMonthLabel) {
+    els.calMonthLabel.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-cal-click]');
+      if (!t) return;
+      const what = t.dataset.calClick;
+      if (what === 'year') {
+        state.calendarMode = 'years';
+        state.yearGridStart = Math.floor(state.calendarYear / 12) * 12;
+        calendar.renderCalendar();
+      } else if (what === 'month') {
+        state.calendarMode = 'months';
+        calendar.renderCalendar();
+      }
+    });
+  }
   window.addEventListener('calendar:daySelected', () => ui.updateViewMode());
 
   els.rows.addEventListener('click', async (e) => {
@@ -610,13 +651,6 @@ const attachEvents = () => {
 
   // Attach wheel handler on window for robustness
   window.addEventListener('wheel', onWheel, { passive: false });
-
-  // Keyboard shortcut: C toggles calendar
-  window.addEventListener('keydown', (e) => {
-    if (e.key.toLowerCase() === 'c' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-      toggleCalendarView();
-    }
-  });
 };
 
 export const actions = {

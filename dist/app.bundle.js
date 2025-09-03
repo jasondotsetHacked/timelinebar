@@ -31,6 +31,7 @@
     dayLabel: byId("dayLabel"),
     calendarCard: byId("calendarCard"),
     calendarGrid: byId("calendarGrid"),
+    calWeekdays: byId("calWeekdays"),
     calMonthLabel: byId("calMonthLabel"),
     calPrev: byId("calPrev"),
     calNext: byId("calNext")
@@ -54,11 +55,15 @@
     // Date/calendar state
     currentDate: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
     // YYYY-MM-DD selected day
-    viewMode: "day",
+    viewMode: "calendar",
     // 'day' | 'calendar'
     calendarYear: (/* @__PURE__ */ new Date()).getFullYear(),
-    calendarMonth: (/* @__PURE__ */ new Date()).getMonth()
+    calendarMonth: (/* @__PURE__ */ new Date()).getMonth(),
     // 0-11
+    // Calendar sub-view: 'days' | 'months' | 'years'
+    calendarMode: "days",
+    // Start year for the visible year grid (in 'years' mode). Initialized to a 12-year block containing today.
+    yearGridStart: Math.floor((/* @__PURE__ */ new Date()).getFullYear() / 12) * 12
   };
 
   // src/config.js
@@ -148,10 +153,6 @@
   function toDateStr(d) {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
-  function monthLabel(year, monthIndex) {
-    const d = new Date(year, monthIndex, 1);
-    return d.toLocaleString(void 0, { month: "long", year: "numeric" });
-  }
   function parseDate(str) {
     const [y, m, day] = (str || "").split("-").map((x) => Number(x));
     if (!y || !m || !day) return null;
@@ -188,12 +189,97 @@
   }
   function renderCalendar() {
     if (!els.calendarGrid || !els.calMonthLabel) return;
+    try {
+      els.calendarGrid.style.opacity = "0";
+    } catch (e) {
+    }
     const y = state.calendarYear;
     const m = state.calendarMonth;
-    els.calMonthLabel.textContent = monthLabel(y, m);
+    const mode = state.calendarMode || "days";
+    if (mode !== "days") {
+      if (els.calWeekdays) els.calWeekdays.style.display = "none";
+      els.calendarGrid.innerHTML = "";
+      if (mode === "months") {
+        els.calMonthLabel.innerHTML = `<span class="cal-link" data-cal-click="year" title="Select year">${y}</span>`;
+        els.calendarGrid.style.gridTemplateColumns = "repeat(4, 1fr)";
+        const today3 = /* @__PURE__ */ new Date();
+        const currentMonth = today3.getMonth();
+        const currentYear2 = today3.getFullYear();
+        for (let i = 0; i < 12; i++) {
+          const cell = document.createElement("div");
+          cell.className = "cal-day";
+          const label = new Date(y, i, 1).toLocaleString(void 0, { month: "short" });
+          const num = document.createElement("div");
+          num.className = "cal-num";
+          num.textContent = label;
+          cell.appendChild(num);
+          if (y === currentYear2 && i === currentMonth) cell.classList.add("today");
+          if (i === state.calendarMonth && y === state.calendarYear) cell.classList.add("selected");
+          cell.addEventListener("click", () => {
+            state.calendarYear = y;
+            state.calendarMonth = i;
+            state.calendarMode = "days";
+            renderCalendar();
+          });
+          els.calendarGrid.appendChild(cell);
+        }
+        requestAnimationFrame(() => {
+          try {
+            els.calendarGrid.style.opacity = "1";
+          } catch (e) {
+          }
+        });
+        return;
+      }
+      const start = state.yearGridStart || Math.floor(state.calendarYear / 12) * 12;
+      state.yearGridStart = start;
+      const end = start + 11;
+      els.calMonthLabel.innerHTML = `<span class="cal-range">${start}\u2013${end}</span>`;
+      els.calendarGrid.style.gridTemplateColumns = "repeat(4, 1fr)";
+      const today2 = /* @__PURE__ */ new Date();
+      const currentYear = today2.getFullYear();
+      for (let i = 0; i < 12; i++) {
+        const yy = start + i;
+        const cell = document.createElement("div");
+        cell.className = "cal-day";
+        const num = document.createElement("div");
+        num.className = "cal-num";
+        num.textContent = String(yy);
+        cell.appendChild(num);
+        if (yy === currentYear) cell.classList.add("today");
+        if (yy === state.calendarYear) cell.classList.add("selected");
+        cell.addEventListener("click", () => {
+          state.calendarYear = yy;
+          state.calendarMode = "months";
+          renderCalendar();
+        });
+        els.calendarGrid.appendChild(cell);
+      }
+      requestAnimationFrame(() => {
+        try {
+          els.calendarGrid.style.opacity = "1";
+        } catch (e) {
+        }
+      });
+      return;
+    }
+    if (els.calWeekdays) els.calWeekdays.style.display = "grid";
+    els.calMonthLabel.innerHTML = (() => {
+      const d = new Date(y, m, 1);
+      const monthName = d.toLocaleString(void 0, { month: "long" });
+      return `<span class="cal-link" data-cal-click="month" title="Select month">${monthName}</span> <span class="cal-link" data-cal-click="year" title="Select year">${y}</span>`;
+    })();
+    els.calendarGrid.style.gridTemplateColumns = "repeat(7, 1fr)";
+    requestAnimationFrame(() => {
+      try {
+        els.calendarGrid.style.opacity = "1";
+      } catch (e) {
+      }
+    });
     const days = buildMonthGrid(y, m);
     const summaries = summarizeByDate();
     const selected = state.currentDate || todayStr();
+    const today = todayStr();
     els.calendarGrid.innerHTML = "";
     for (const d of days) {
       const ds = toDateStr(d);
@@ -203,6 +289,7 @@
       const inMonth = d.getMonth() === m;
       if (!inMonth) cell.classList.add("other-month");
       if (ds === selected) cell.classList.add("selected");
+      if (ds === today && d.getMonth() === m && d.getFullYear() === y) cell.classList.add("today");
       const sum = summaries.get(ds);
       if (sum && sum.count) cell.classList.add("has-items");
       const num = document.createElement("div");
@@ -246,7 +333,15 @@
     state.calendarMonth = m;
     renderCalendar();
   }
-  var calendar = { renderCalendar, nextMonth, prevMonth };
+  function nextYear() {
+    state.calendarYear = state.calendarYear + 1;
+    renderCalendar();
+  }
+  function prevYear() {
+    state.calendarYear = state.calendarYear - 1;
+    renderCalendar();
+  }
+  var calendar = { renderCalendar, nextMonth, prevMonth, nextYear, prevYear };
 
   // src/ui.js
   var escapeHtml = (s) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
@@ -941,8 +1036,47 @@
         toggleCalendarView();
       }
     });
-    if (els.calPrev) els.calPrev.addEventListener("click", () => calendar.prevMonth());
-    if (els.calNext) els.calNext.addEventListener("click", () => calendar.nextMonth());
+    if (els.calPrev) {
+      els.calPrev.addEventListener("click", () => {
+        if (state.calendarMode === "days") {
+          calendar.prevMonth();
+        } else if (state.calendarMode === "months") {
+          state.calendarYear -= 1;
+          calendar.renderCalendar();
+        } else {
+          state.yearGridStart -= 12;
+          calendar.renderCalendar();
+        }
+      });
+    }
+    if (els.calNext) {
+      els.calNext.addEventListener("click", () => {
+        if (state.calendarMode === "days") {
+          calendar.nextMonth();
+        } else if (state.calendarMode === "months") {
+          state.calendarYear += 1;
+          calendar.renderCalendar();
+        } else {
+          state.yearGridStart += 12;
+          calendar.renderCalendar();
+        }
+      });
+    }
+    if (els.calMonthLabel) {
+      els.calMonthLabel.addEventListener("click", (e) => {
+        const t = e.target.closest("[data-cal-click]");
+        if (!t) return;
+        const what = t.dataset.calClick;
+        if (what === "year") {
+          state.calendarMode = "years";
+          state.yearGridStart = Math.floor(state.calendarYear / 12) * 12;
+          calendar.renderCalendar();
+        } else if (what === "month") {
+          state.calendarMode = "months";
+          calendar.renderCalendar();
+        }
+      });
+    }
     window.addEventListener("calendar:daySelected", () => ui.updateViewMode());
     els.rows.addEventListener("click", async (e) => {
       const btn = e.target.closest(".status-btn");
@@ -1194,11 +1328,6 @@
       ui.renderAll();
     };
     window.addEventListener("wheel", onWheel, { passive: false });
-    window.addEventListener("keydown", (e) => {
-      if (e.key.toLowerCase() === "c" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        toggleCalendarView();
-      }
-    });
   };
   var actions = {
     attachEvents
