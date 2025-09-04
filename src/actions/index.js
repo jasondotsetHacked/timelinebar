@@ -602,7 +602,13 @@ const attachEvents = () => {
     els.modalStatusWrap?.classList.remove('open');
   });
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Escape') {
+      // Close modal if open; otherwise, exit Bucket View for a quick way back
+      let modalOpen = false;
+      try { modalOpen = !!(els.modal && getComputedStyle(els.modal).display !== 'none'); } catch {}
+      if (modalOpen) { closeModal(); return; }
+      if (state.viewMode === 'bucket') { state.viewMode = state.lastViewMode || 'day'; ui.renderAll(); return; }
+    }
   });
   window.addEventListener('resize', () => ui.renderAll());
 

@@ -2737,7 +2737,22 @@
       (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.remove("open");
     });
     window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeModal2();
+      if (e.key === "Escape") {
+        let modalOpen = false;
+        try {
+          modalOpen = !!(els.modal && getComputedStyle(els.modal).display !== "none");
+        } catch (e2) {
+        }
+        if (modalOpen) {
+          closeModal2();
+          return;
+        }
+        if (state.viewMode === "bucket") {
+          state.viewMode = state.lastViewMode || "day";
+          ui.renderAll();
+          return;
+        }
+      }
     });
     window.addEventListener("resize", () => ui.renderAll());
     window.addEventListener("click", (e) => {
