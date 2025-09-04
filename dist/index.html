@@ -49,6 +49,14 @@
         <div class="tip tip-center" id="tipCenter"></div>
         <div class="tick-labels" id="ticks"></div>
       </div>
+      <!-- Mobile: timeline zoom/pan controls -->
+      <div class="mobile-controls" id="mobileControls">
+        <button id="mobileZoomOut" class="btn ghost mobile-zoom" title="Zoom out" aria-label="Zoom out">&#8722;</button>
+        <div id="mobileScrollbar" class="mobile-scrollbar" aria-label="Timeline viewport">
+          <div id="mobileWindow" class="mobile-window" role="slider" aria-valuemin="0" aria-valuemax="1440" aria-valuenow="0" aria-label="Visible time window"></div>
+        </div>
+        <button id="mobileZoomIn" class="btn ghost mobile-zoom" title="Zoom in" aria-label="Zoom in">&#43;</button>
+      </div>
       <div class="help-row">
         <div>
           New: drag anywhere. Edit: drag a block's side handle.

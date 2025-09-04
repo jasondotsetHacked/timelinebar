@@ -599,6 +599,82 @@ const attachEvents = () => {
     ui.renderAll();
   };
 
+  // Mobile timeline controls: zoom and pan via scrollbar
+  const totalMin = 24 * 60;
+  const minSpan = 45;
+  const getSpan = () => Math.max(1, Math.abs((state.viewEndMin | 0) - (state.viewStartMin | 0)));
+  const getStart = () => Math.min(state.viewStartMin | 0, state.viewEndMin | 0);
+  const clampStartForSpan = (start, span) => Math.max(0, Math.min(totalMin - span, start));
+
+  const minutesFromScrollbar = (clientX) => {
+    const rect = els.mobileScrollbar.getBoundingClientRect();
+    const x = Math.min(Math.max(0, clientX - rect.left), Math.max(1, rect.width));
+    return Math.round((x / Math.max(1, rect.width)) * totalMin);
+  };
+
+  // Click on scrollbar background to center view
+  const onScrollbarDown = (e) => {
+    if (!els.mobileScrollbar) return;
+    if (e.target === els.mobileWindow || e.target.closest('#mobileWindow')) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const span = getSpan();
+    const m = minutesFromScrollbar(clientX);
+    let start = clampStartForSpan(Math.round(m - span / 2), span);
+    setView(start, start + span);
+    if (e.cancelable) e.preventDefault();
+  };
+
+  let dragWin = null;
+  const onWindowDown = (e) => {
+    if (!els.mobileScrollbar || !els.mobileWindow) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const rect = els.mobileScrollbar.getBoundingClientRect();
+    const span = getSpan();
+    const start = getStart();
+    const leftPx = (start / totalMin) * rect.width;
+    const x = clientX - rect.left;
+    dragWin = { offsetPx: x - leftPx, rectW: Math.max(1, rect.width), span };
+    window.addEventListener('mousemove', onWindowMove);
+    window.addEventListener('touchmove', onWindowMove, { passive: false });
+    window.addEventListener('mouseup', onWindowUp);
+    window.addEventListener('touchend', onWindowUp);
+    if (e.cancelable) e.preventDefault();
+  };
+  const onWindowMove = (e) => {
+    if (!dragWin || !els.mobileScrollbar) return;
+    if (e.cancelable) e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const rect = els.mobileScrollbar.getBoundingClientRect();
+    let startPx = (clientX - rect.left) - dragWin.offsetPx;
+    const maxStartPx = rect.width - (dragWin.span / totalMin) * rect.width;
+    startPx = Math.max(0, Math.min(maxStartPx, startPx));
+    const startMin = Math.round((startPx / Math.max(1, rect.width)) * totalMin);
+    setView(startMin, startMin + dragWin.span);
+  };
+  const onWindowUp = () => {
+    dragWin = null;
+    window.removeEventListener('mousemove', onWindowMove);
+    window.removeEventListener('touchmove', onWindowMove);
+    window.removeEventListener('mouseup', onWindowUp);
+    window.removeEventListener('touchend', onWindowUp);
+  };
+
+  els.mobileScrollbar?.addEventListener('mousedown', onScrollbarDown);
+  els.mobileScrollbar?.addEventListener('touchstart', onScrollbarDown, { passive: false });
+  els.mobileWindow?.addEventListener('mousedown', onWindowDown);
+  els.mobileWindow?.addEventListener('touchstart', onWindowDown, { passive: false });
+
+  const zoomBy = (factor) => {
+    const span = getSpan();
+    const center = getStart() + span / 2;
+    const newSpan = Math.min(totalMin, Math.max(minSpan, Math.round(span * factor)));
+    let newStart = Math.round(center - newSpan / 2);
+    newStart = clampStartForSpan(newStart, newSpan);
+    setView(newStart, newStart + newSpan);
+  };
+  els.mobileZoomIn?.addEventListener('click', () => zoomBy(0.8));
+  els.mobileZoomOut?.addEventListener('click', () => zoomBy(1.25));
+
   els.view24?.addEventListener('click', () => setView(0, 24 * 60));
   els.viewDefault?.addEventListener('click', () => setView(6 * 60, 18 * 60));
 

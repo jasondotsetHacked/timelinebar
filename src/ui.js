@@ -78,6 +78,18 @@ function getView() {
   return { start: s, end: e, minutes, startH: Math.floor(s / 60), endH: Math.ceil(e / 60) };
 }
 
+// Update the mobile scrollbar window to reflect current view
+function renderMobileControls() {
+  if (!els.mobileWindow || !els.mobileScrollbar) return;
+  const view = getView();
+  const total = 24 * 60;
+  const leftPct = (view.start / total) * 100;
+  const widthPct = (view.minutes / total) * 100;
+  els.mobileWindow.style.left = leftPct + '%';
+  els.mobileWindow.style.width = widthPct + '%';
+  try { els.mobileWindow.setAttribute('aria-valuenow', String(view.start)); } catch {}
+}
+
 function renderTicks() {
   // Single source of truth: each tick contains its own full-height line and label
   els.ticks.innerHTML = '';
@@ -506,6 +518,7 @@ function updateViewMode() {
   }
   renderDayLabel();
   updateHelpText();
+  try { renderMobileControls(); } catch {}
 }
 
 function showGhost(a, b) {
@@ -629,4 +642,5 @@ export const ui = {
   updateHelpText,
   renderBucketDay,
   renderBucketMonth,
+  renderMobileControls,
 };

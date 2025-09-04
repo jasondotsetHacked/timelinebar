@@ -57,6 +57,12 @@ export const els = {
   calMonthLabel: byId('calMonthLabel'),
   calPrev: byId('calPrev'),
   calNext: byId('calNext'),
+  // Mobile controls
+  mobileControls: byId('mobileControls'),
+  mobileScrollbar: byId('mobileScrollbar'),
+  mobileWindow: byId('mobileWindow'),
+  mobileZoomIn: byId('mobileZoomIn'),
+  mobileZoomOut: byId('mobileZoomOut'),
   // Bucket reports
   bucketDayCard: byId('bucketDayCard'),
   bucketDayBody: byId('bucketDayBody'),

@@ -58,6 +58,12 @@
     calMonthLabel: byId("calMonthLabel"),
     calPrev: byId("calPrev"),
     calNext: byId("calNext"),
+    // Mobile controls
+    mobileControls: byId("mobileControls"),
+    mobileScrollbar: byId("mobileScrollbar"),
+    mobileWindow: byId("mobileWindow"),
+    mobileZoomIn: byId("mobileZoomIn"),
+    mobileZoomOut: byId("mobileZoomOut"),
     // Bucket reports
     bucketDayCard: byId("bucketDayCard"),
     bucketDayBody: byId("bucketDayBody"),
@@ -514,6 +520,19 @@
     const minutes = Math.max(1, e - s);
     return { start: s, end: e, minutes, startH: Math.floor(s / 60), endH: Math.ceil(e / 60) };
   }
+  function renderMobileControls() {
+    if (!els.mobileWindow || !els.mobileScrollbar) return;
+    const view = getView2();
+    const total = 24 * 60;
+    const leftPct = view.start / total * 100;
+    const widthPct = view.minutes / total * 100;
+    els.mobileWindow.style.left = leftPct + "%";
+    els.mobileWindow.style.width = widthPct + "%";
+    try {
+      els.mobileWindow.setAttribute("aria-valuenow", String(view.start));
+    } catch (e) {
+    }
+  }
   function renderTicks() {
     els.ticks.innerHTML = "";
     const view = getView2();
@@ -898,6 +917,10 @@
     }
     renderDayLabel();
     updateHelpText();
+    try {
+      renderMobileControls();
+    } catch (e) {
+    }
   }
   function showGhost(a, b) {
     const [start, end] = a < b ? [a, b] : [b, a];
@@ -1013,7 +1036,8 @@
     updateViewMode,
     updateHelpText,
     renderBucketDay,
-    renderBucketMonth
+    renderBucketMonth,
+    renderMobileControls
   };
 
   // src/storage.js
@@ -1843,7 +1867,7 @@
   };
   var closeModal2 = () => ui.closeModal();
   var attachEvents = () => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r;
     dragActions.attach();
     resizeActions.attach();
     calendarActions.attach();
@@ -2283,8 +2307,76 @@
       state.viewEndMin = Math.max(s, e);
       ui.renderAll();
     };
-    (_i = els.view24) == null ? void 0 : _i.addEventListener("click", () => setView(0, 24 * 60));
-    (_j = els.viewDefault) == null ? void 0 : _j.addEventListener("click", () => setView(6 * 60, 18 * 60));
+    const totalMin = 24 * 60;
+    const minSpan = 45;
+    const getSpan = () => Math.max(1, Math.abs((state.viewEndMin | 0) - (state.viewStartMin | 0)));
+    const getStart = () => Math.min(state.viewStartMin | 0, state.viewEndMin | 0);
+    const clampStartForSpan = (start, span) => Math.max(0, Math.min(totalMin - span, start));
+    const minutesFromScrollbar = (clientX) => {
+      const rect = els.mobileScrollbar.getBoundingClientRect();
+      const x = Math.min(Math.max(0, clientX - rect.left), Math.max(1, rect.width));
+      return Math.round(x / Math.max(1, rect.width) * totalMin);
+    };
+    const onScrollbarDown = (e) => {
+      if (!els.mobileScrollbar) return;
+      if (e.target === els.mobileWindow || e.target.closest("#mobileWindow")) return;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const span = getSpan();
+      const m = minutesFromScrollbar(clientX);
+      let start = clampStartForSpan(Math.round(m - span / 2), span);
+      setView(start, start + span);
+      if (e.cancelable) e.preventDefault();
+    };
+    let dragWin = null;
+    const onWindowDown = (e) => {
+      if (!els.mobileScrollbar || !els.mobileWindow) return;
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const rect = els.mobileScrollbar.getBoundingClientRect();
+      const span = getSpan();
+      const start = getStart();
+      const leftPx = start / totalMin * rect.width;
+      const x = clientX - rect.left;
+      dragWin = { offsetPx: x - leftPx, rectW: Math.max(1, rect.width), span };
+      window.addEventListener("mousemove", onWindowMove);
+      window.addEventListener("touchmove", onWindowMove, { passive: false });
+      window.addEventListener("mouseup", onWindowUp);
+      window.addEventListener("touchend", onWindowUp);
+      if (e.cancelable) e.preventDefault();
+    };
+    const onWindowMove = (e) => {
+      if (!dragWin || !els.mobileScrollbar) return;
+      if (e.cancelable) e.preventDefault();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const rect = els.mobileScrollbar.getBoundingClientRect();
+      let startPx = clientX - rect.left - dragWin.offsetPx;
+      const maxStartPx = rect.width - dragWin.span / totalMin * rect.width;
+      startPx = Math.max(0, Math.min(maxStartPx, startPx));
+      const startMin = Math.round(startPx / Math.max(1, rect.width) * totalMin);
+      setView(startMin, startMin + dragWin.span);
+    };
+    const onWindowUp = () => {
+      dragWin = null;
+      window.removeEventListener("mousemove", onWindowMove);
+      window.removeEventListener("touchmove", onWindowMove);
+      window.removeEventListener("mouseup", onWindowUp);
+      window.removeEventListener("touchend", onWindowUp);
+    };
+    (_i = els.mobileScrollbar) == null ? void 0 : _i.addEventListener("mousedown", onScrollbarDown);
+    (_j = els.mobileScrollbar) == null ? void 0 : _j.addEventListener("touchstart", onScrollbarDown, { passive: false });
+    (_k = els.mobileWindow) == null ? void 0 : _k.addEventListener("mousedown", onWindowDown);
+    (_l = els.mobileWindow) == null ? void 0 : _l.addEventListener("touchstart", onWindowDown, { passive: false });
+    const zoomBy = (factor) => {
+      const span = getSpan();
+      const center = getStart() + span / 2;
+      const newSpan = Math.min(totalMin, Math.max(minSpan, Math.round(span * factor)));
+      let newStart = Math.round(center - newSpan / 2);
+      newStart = clampStartForSpan(newStart, newSpan);
+      setView(newStart, newStart + newSpan);
+    };
+    (_m = els.mobileZoomIn) == null ? void 0 : _m.addEventListener("click", () => zoomBy(0.8));
+    (_n = els.mobileZoomOut) == null ? void 0 : _n.addEventListener("click", () => zoomBy(1.25));
+    (_o = els.view24) == null ? void 0 : _o.addEventListener("click", () => setView(0, 24 * 60));
+    (_p = els.viewDefault) == null ? void 0 : _p.addEventListener("click", () => setView(6 * 60, 18 * 60));
     els.track.addEventListener("click", (e) => {
       var _a2, _b2, _c2, _d2;
       const dot = e.target.closest(".note-dot");
@@ -2305,7 +2397,7 @@
         }
       }
     });
-    (_k = els.noteField) == null ? void 0 : _k.addEventListener("input", () => {
+    (_q = els.noteField) == null ? void 0 : _q.addEventListener("input", () => {
       try {
         els.noteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
@@ -2316,7 +2408,7 @@
       } catch (e) {
       }
     });
-    (_l = els.notePreviewToggle) == null ? void 0 : _l.addEventListener("click", (e) => {
+    (_r = els.notePreviewToggle) == null ? void 0 : _r.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.notePreview) return;
