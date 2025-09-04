@@ -63,6 +63,7 @@ export const els = {
   mobileWindow: byId('mobileWindow'),
   mobileZoomIn: byId('mobileZoomIn'),
   mobileZoomOut: byId('mobileZoomOut'),
+  mobileZoomRange: byId('mobileZoomRange'),
   // Bucket reports
   bucketDayCard: byId('bucketDayCard'),
   bucketDayBody: byId('bucketDayBody'),

@@ -8,8 +8,7 @@ import { todayStr } from './src/dates.js';
 async function init() {
   actions.attachEvents();
   if (typeof window.DEBUG_HANDLES === 'undefined') {
-    window.DEBUG_HANDLES = true;
-    console.info('DEBUG_HANDLES enabled — set window.DEBUG_HANDLES = false in console to disable');
+    window.DEBUG_HANDLES = false; // keep off by default to reduce console noise
   }
   state.punches = await idb.all();
   // Migration: ensure each punch has a date (YYYY-MM-DD) and rename caseNumber -> bucket

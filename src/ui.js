@@ -88,6 +88,14 @@ function renderMobileControls() {
   els.mobileWindow.style.left = leftPct + '%';
   els.mobileWindow.style.width = widthPct + '%';
   try { els.mobileWindow.setAttribute('aria-valuenow', String(view.start)); } catch {}
+  try {
+    if (els.mobileZoomRange) {
+      els.mobileZoomRange.min = '45';
+      els.mobileZoomRange.max = String(total);
+      els.mobileZoomRange.step = '15';
+      els.mobileZoomRange.value = String(view.minutes);
+    }
+  } catch {}
 }
 
 function renderTicks() {
@@ -519,6 +527,7 @@ function updateViewMode() {
   renderDayLabel();
   updateHelpText();
   try { renderMobileControls(); } catch {}
+  try { fitMobileViewport(); } catch {}
 }
 
 function showGhost(a, b) {
@@ -620,6 +629,26 @@ function toast(msg) {
 
 function renderAll() {
   updateViewMode();
+}
+
+function fitMobileViewport() {
+  const isMobile = Math.min(window.innerWidth, document.documentElement.clientWidth || window.innerWidth) <= 720;
+  if (!isMobile) {
+    if (els.track) els.track.style.height = '';
+    return;
+  }
+  if (!els.track) return;
+  const headerEl = document.querySelector('.header');
+  const topControls = document.getElementById('topControls');
+  const mobileControls = els.mobileControls;
+  const vh = Math.max(window.innerHeight, document.documentElement.clientHeight || 0);
+  const headerH = headerEl ? headerEl.getBoundingClientRect().height : 0;
+  const topH = topControls && topControls.offsetParent !== null ? topControls.getBoundingClientRect().height : 0;
+  const mobileH = mobileControls && mobileControls.offsetParent !== null ? mobileControls.getBoundingClientRect().height : 0;
+  const margins = 24; // combined margins/padding around sections
+  const available = Math.max(120, vh - headerH - topH - mobileH - margins);
+  const desired = Math.max(96, Math.min(180, Math.floor(available)));
+  els.track.style.height = desired + 'px';
 }
 
 export const ui = {

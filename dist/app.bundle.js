@@ -64,6 +64,7 @@
     mobileWindow: byId("mobileWindow"),
     mobileZoomIn: byId("mobileZoomIn"),
     mobileZoomOut: byId("mobileZoomOut"),
+    mobileZoomRange: byId("mobileZoomRange"),
     // Bucket reports
     bucketDayCard: byId("bucketDayCard"),
     bucketDayBody: byId("bucketDayBody"),
@@ -532,6 +533,15 @@
       els.mobileWindow.setAttribute("aria-valuenow", String(view.start));
     } catch (e) {
     }
+    try {
+      if (els.mobileZoomRange) {
+        els.mobileZoomRange.min = "45";
+        els.mobileZoomRange.max = String(total);
+        els.mobileZoomRange.step = "15";
+        els.mobileZoomRange.value = String(view.minutes);
+      }
+    } catch (e) {
+    }
   }
   function renderTicks() {
     els.ticks.innerHTML = "";
@@ -921,6 +931,10 @@
       renderMobileControls();
     } catch (e) {
     }
+    try {
+      fitMobileViewport();
+    } catch (e) {
+    }
   }
   function showGhost(a, b) {
     const [start, end] = a < b ? [a, b] : [b, a];
@@ -1016,6 +1030,25 @@
   }
   function renderAll() {
     updateViewMode();
+  }
+  function fitMobileViewport() {
+    const isMobile = Math.min(window.innerWidth, document.documentElement.clientWidth || window.innerWidth) <= 720;
+    if (!isMobile) {
+      if (els.track) els.track.style.height = "";
+      return;
+    }
+    if (!els.track) return;
+    const headerEl = document.querySelector(".header");
+    const topControls = document.getElementById("topControls");
+    const mobileControls = els.mobileControls;
+    const vh = Math.max(window.innerHeight, document.documentElement.clientHeight || 0);
+    const headerH = headerEl ? headerEl.getBoundingClientRect().height : 0;
+    const topH = topControls && topControls.offsetParent !== null ? topControls.getBoundingClientRect().height : 0;
+    const mobileH = mobileControls && mobileControls.offsetParent !== null ? mobileControls.getBoundingClientRect().height : 0;
+    const margins = 24;
+    const available = Math.max(120, vh - headerH - topH - mobileH - margins);
+    const desired = Math.max(96, Math.min(180, Math.floor(available)));
+    els.track.style.height = desired + "px";
   }
   var ui = {
     renderAll,
@@ -1867,7 +1900,7 @@
   };
   var closeModal2 = () => ui.closeModal();
   var attachEvents = () => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s;
     dragActions.attach();
     resizeActions.attach();
     calendarActions.attach();
@@ -2375,8 +2408,15 @@
     };
     (_m = els.mobileZoomIn) == null ? void 0 : _m.addEventListener("click", () => zoomBy(0.8));
     (_n = els.mobileZoomOut) == null ? void 0 : _n.addEventListener("click", () => zoomBy(1.25));
-    (_o = els.view24) == null ? void 0 : _o.addEventListener("click", () => setView(0, 24 * 60));
-    (_p = els.viewDefault) == null ? void 0 : _p.addEventListener("click", () => setView(6 * 60, 18 * 60));
+    (_o = els.mobileZoomRange) == null ? void 0 : _o.addEventListener("input", (e) => {
+      const val = Math.max(minSpan, Math.min(totalMin, Math.round(Number(e.target.value) || getSpan())));
+      const center = getStart() + getSpan() / 2;
+      let newStart = Math.round(center - val / 2);
+      newStart = clampStartForSpan(newStart, val);
+      setView(newStart, newStart + val);
+    });
+    (_p = els.view24) == null ? void 0 : _p.addEventListener("click", () => setView(0, 24 * 60));
+    (_q = els.viewDefault) == null ? void 0 : _q.addEventListener("click", () => setView(6 * 60, 18 * 60));
     els.track.addEventListener("click", (e) => {
       var _a2, _b2, _c2, _d2;
       const dot = e.target.closest(".note-dot");
@@ -2397,7 +2437,7 @@
         }
       }
     });
-    (_q = els.noteField) == null ? void 0 : _q.addEventListener("input", () => {
+    (_r = els.noteField) == null ? void 0 : _r.addEventListener("input", () => {
       try {
         els.noteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
@@ -2408,7 +2448,7 @@
       } catch (e) {
       }
     });
-    (_r = els.notePreviewToggle) == null ? void 0 : _r.addEventListener("click", (e) => {
+    (_s = els.notePreviewToggle) == null ? void 0 : _s.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.notePreview) return;
@@ -2432,8 +2472,7 @@
   async function init2() {
     actions.attachEvents();
     if (typeof window.DEBUG_HANDLES === "undefined") {
-      window.DEBUG_HANDLES = true;
-      console.info("DEBUG_HANDLES enabled \u2014 set window.DEBUG_HANDLES = false in console to disable");
+      window.DEBUG_HANDLES = false;
     }
     state.punches = await idb.all();
     const updates = [];

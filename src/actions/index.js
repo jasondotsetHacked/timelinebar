@@ -674,6 +674,13 @@ const attachEvents = () => {
   };
   els.mobileZoomIn?.addEventListener('click', () => zoomBy(0.8));
   els.mobileZoomOut?.addEventListener('click', () => zoomBy(1.25));
+  els.mobileZoomRange?.addEventListener('input', (e) => {
+    const val = Math.max(minSpan, Math.min(totalMin, Math.round(Number(e.target.value) || getSpan())));
+    const center = getStart() + getSpan() / 2;
+    let newStart = Math.round(center - val / 2);
+    newStart = clampStartForSpan(newStart, val);
+    setView(newStart, newStart + val);
+  });
 
   els.view24?.addEventListener('click', () => setView(0, 24 * 60));
   els.viewDefault?.addEventListener('click', () => setView(6 * 60, 18 * 60));
