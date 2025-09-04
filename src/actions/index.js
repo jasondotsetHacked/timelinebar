@@ -11,6 +11,7 @@ import { resizeActions } from './resize.js';
 import { calendarActions } from './calendar.js';
 import { settingsActions } from './settings.js';
 import { overlapsAny } from './helpers.js';
+import { copyActions } from '../copy.js';
 
 // helpers for modal note preview
 const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
@@ -699,6 +700,12 @@ const attachEvents = () => {
 
   els.view24?.addEventListener('click', () => setView(0, 24 * 60));
   els.viewDefault?.addEventListener('click', () => setView(6 * 60, 18 * 60));
+  const doCopy = async () => {
+    try { await copyActions.copyChart(); } catch {}
+  };
+  els.btnCopyChart?.addEventListener('click', doCopy);
+  els.btnCopyChartTop?.addEventListener('click', doCopy);
+  els.btnCopyChartTable?.addEventListener('click', doCopy);
 
   // track click: open note popover when appropriate
   els.track.addEventListener('click', (e) => {

@@ -46,10 +46,13 @@ export const els = {
   viewHelp: byId('viewHelp'),
   view24: byId('view24'),
   viewDefault: byId('viewDefault'),
+  btnCopyChart: byId('btnCopyChart'),
   // Calendar / header controls
   btnCalendar: byId('btnCalendar'),
   btnCalendar2: byId('btnCalendar2'),
   btnCalendarFab: byId('btnCalendarFab'),
+  btnCopyChartTop: byId('btnCopyChartTop'),
+  btnCopyChartTable: byId('btnCopyChartTable'),
   dayLabel: byId('dayLabel'),
   calendarCard: byId('calendarCard'),
   calendarGrid: byId('calendarGrid'),
