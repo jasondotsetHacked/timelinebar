@@ -345,11 +345,29 @@
       num.className = "cal-num";
       num.textContent = String(d.getDate());
       cell.appendChild(num);
-      if (sum && sum.totalMin) {
-        const meta = document.createElement("div");
-        meta.className = "cal-meta";
-        meta.textContent = `${sum.count} \u2022 ${time.durationLabel(sum.totalMin)}`;
-        cell.appendChild(meta);
+      try {
+        const dayItems = state.punches.filter((p) => getPunchDate(p) === ds).sort((a, b) => (a.start || 0) - (b.start || 0));
+        const seen = /* @__PURE__ */ new Set();
+        const buckets = [];
+        for (const p of dayItems) {
+          const label = String(p.bucket || "(no bucket)").trim();
+          if (!seen.has(label)) {
+            seen.add(label);
+            buckets.push(label);
+          }
+        }
+        if (buckets.length) {
+          const wrap = document.createElement("div");
+          wrap.className = "cal-buckets";
+          for (const b of buckets) {
+            const row = document.createElement("div");
+            row.className = "cal-bucket";
+            row.textContent = b;
+            wrap.appendChild(row);
+          }
+          cell.appendChild(wrap);
+        }
+      } catch (e) {
       }
       cell.addEventListener("click", () => {
         state.currentDate = ds;
