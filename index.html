@@ -14,7 +14,10 @@
     <div class="header">
       <div>
         <div class="title">Time Tracker</div>
-        <div id="viewHelp" class="subtle"></div>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <button id="btnBucketBackTop" class="btn ghost" style="display:none; padding:4px 10px; font-size:12px;">&#8592; Back</button>
+          <div id="viewHelp" class="subtle"></div>
+        </div>
       </div>
       <div>
         <button id="btnSettings" class="icon-btn" title="Settings">&#9881;</button>
@@ -131,7 +134,7 @@
     <!-- Bucket View -->
     <section class="card table-card" id="bucketViewCard" style="display:none;">
       <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px 0 14px;">
-        <div class="subtle" style="font-weight:700; letter-spacing:.2px;">Bucket View: <span id="bucketViewTitle"></span></div>
+        <div class="subtle" style="font-weight:700; letter-spacing:.2px;">Bucket View: <span id="bucketViewTitle"></span> <span id="bucketViewTotal" class="subtle"></span></div>
         <div style="display:flex; gap:8px;">
           <button id="btnBucketBack" class="btn ghost">Back</button>
           <button id="btnBucketDelete" class="btn danger" title="Delete all entries in this bucket">Delete Bucket</button>

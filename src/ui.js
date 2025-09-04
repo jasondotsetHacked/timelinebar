@@ -543,6 +543,11 @@ function renderBucketView() {
       if (ad !== 0) return ad;
       return (a.start || 0) - (b.start || 0);
     });
+  // Total duration for this bucket
+  try {
+    const totalMin = items.reduce((s, p) => s + Math.max(0, (p.end || 0) - (p.start || 0)), 0);
+    if (els.bucketViewTotal) els.bucketViewTotal.textContent = totalMin ? `— Total: ${time.durationLabel(totalMin)}` : '';
+  } catch {}
   els.bucketViewBody.innerHTML = '';
   for (const p of items) {
     const tr = document.createElement('tr');
@@ -552,7 +557,7 @@ function renderBucketView() {
       <td>${time.toLabel(p.start || 0)}</td>
       <td>${time.toLabel(p.end || 0)}</td>
       <td>${time.durationLabel(dur)}</td>
-      <td>${markdownToHtml(p.note || '')}</td>`;
+      <td class="note"><div class="note-html">${markdownToHtml(p.note || '')}</div></td>`;
     els.bucketViewBody.appendChild(tr);
   }
   if (els.bucketViewEmpty) els.bucketViewEmpty.style.display = items.length ? 'none' : 'block';
@@ -641,6 +646,7 @@ function updateViewMode() {
     nowIndicator.update();
     renderBucketDay();
   }
+  try { if (els.btnBucketBackTop) els.btnBucketBackTop.style.display = state.viewMode === 'bucket' ? '' : 'none'; } catch {}
   renderDayLabel();
   updateHelpText();
   try { renderMobileControls(); } catch {}
@@ -791,3 +797,4 @@ export const ui = {
   renderBucketView,
   renderMobileControls,
 };
+

@@ -45,6 +45,7 @@
     total: byId("total"),
     toast: byId("toast"),
     viewHelp: byId("viewHelp"),
+    btnBucketBackTop: byId("btnBucketBackTop"),
     view24: byId("view24"),
     viewDefault: byId("viewDefault"),
     btnCopyChart: byId("btnCopyChart"),
@@ -79,6 +80,7 @@
     // Bucket view
     bucketViewCard: byId("bucketViewCard"),
     bucketViewTitle: byId("bucketViewTitle"),
+    bucketViewTotal: byId("bucketViewTotal"),
     bucketViewBody: byId("bucketViewBody"),
     bucketViewEmpty: byId("bucketViewEmpty"),
     btnBucketBack: byId("btnBucketBack"),
@@ -1010,6 +1012,11 @@
       if (ad !== 0) return ad;
       return (a.start || 0) - (b.start || 0);
     });
+    try {
+      const totalMin = items.reduce((s, p) => s + Math.max(0, (p.end || 0) - (p.start || 0)), 0);
+      if (els.bucketViewTotal) els.bucketViewTotal.textContent = totalMin ? `\u2014 Total: ${time.durationLabel(totalMin)}` : "";
+    } catch (e) {
+    }
     els.bucketViewBody.innerHTML = "";
     for (const p of items) {
       const tr = document.createElement("tr");
@@ -1019,7 +1026,7 @@
       <td>${time.toLabel(p.start || 0)}</td>
       <td>${time.toLabel(p.end || 0)}</td>
       <td>${time.durationLabel(dur)}</td>
-      <td>${markdownToHtml(p.note || "")}</td>`;
+      <td class="note"><div class="note-html">${markdownToHtml(p.note || "")}</div></td>`;
       els.bucketViewBody.appendChild(tr);
     }
     if (els.bucketViewEmpty) els.bucketViewEmpty.style.display = items.length ? "none" : "block";
@@ -1110,6 +1117,10 @@
       renderTotal();
       nowIndicator.update();
       renderBucketDay();
+    }
+    try {
+      if (els.btnBucketBackTop) els.btnBucketBackTop.style.display = state.viewMode === "bucket" ? "" : "none";
+    } catch (e) {
     }
     renderDayLabel();
     updateHelpText();
@@ -2316,7 +2327,7 @@
   };
   var closeModal2 = () => ui.closeModal();
   var attachEvents = () => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A;
     dragActions.attach();
     resizeActions.attach();
     calendarActions.attach();
@@ -2767,7 +2778,11 @@
       state.viewMode = state.lastViewMode || "day";
       ui.renderAll();
     });
-    (_l = els.btnBucketDelete) == null ? void 0 : _l.addEventListener("click", async () => {
+    (_l = els.btnBucketBackTop) == null ? void 0 : _l.addEventListener("click", () => {
+      state.viewMode = state.lastViewMode || "day";
+      ui.renderAll();
+    });
+    (_m = els.btnBucketDelete) == null ? void 0 : _m.addEventListener("click", async () => {
       const name = String(state.bucketFilter || "");
       const label = name || "(no bucket)";
       const items = state.punches.filter((p) => String(p.bucket || "").trim() === name);
@@ -2881,10 +2896,10 @@
       window.removeEventListener("mouseup", onWindowUp);
       window.removeEventListener("touchend", onWindowUp);
     };
-    (_m = els.mobileScrollbar) == null ? void 0 : _m.addEventListener("mousedown", onScrollbarDown);
-    (_n = els.mobileScrollbar) == null ? void 0 : _n.addEventListener("touchstart", onScrollbarDown, { passive: false });
-    (_o = els.mobileWindow) == null ? void 0 : _o.addEventListener("mousedown", onWindowDown);
-    (_p = els.mobileWindow) == null ? void 0 : _p.addEventListener("touchstart", onWindowDown, { passive: false });
+    (_n = els.mobileScrollbar) == null ? void 0 : _n.addEventListener("mousedown", onScrollbarDown);
+    (_o = els.mobileScrollbar) == null ? void 0 : _o.addEventListener("touchstart", onScrollbarDown, { passive: false });
+    (_p = els.mobileWindow) == null ? void 0 : _p.addEventListener("mousedown", onWindowDown);
+    (_q = els.mobileWindow) == null ? void 0 : _q.addEventListener("touchstart", onWindowDown, { passive: false });
     const zoomBy = (factor) => {
       const span = getSpan();
       const center = getStart() + span / 2;
@@ -2893,26 +2908,26 @@
       newStart = clampStartForSpan(newStart, newSpan);
       setView(newStart, newStart + newSpan);
     };
-    (_q = els.mobileZoomIn) == null ? void 0 : _q.addEventListener("click", () => zoomBy(0.8));
-    (_r = els.mobileZoomOut) == null ? void 0 : _r.addEventListener("click", () => zoomBy(1.25));
-    (_s = els.mobileZoomRange) == null ? void 0 : _s.addEventListener("input", (e) => {
+    (_r = els.mobileZoomIn) == null ? void 0 : _r.addEventListener("click", () => zoomBy(0.8));
+    (_s = els.mobileZoomOut) == null ? void 0 : _s.addEventListener("click", () => zoomBy(1.25));
+    (_t = els.mobileZoomRange) == null ? void 0 : _t.addEventListener("input", (e) => {
       const val = Math.max(minSpan, Math.min(totalMin, Math.round(Number(e.target.value) || getSpan())));
       const center = getStart() + getSpan() / 2;
       let newStart = Math.round(center - val / 2);
       newStart = clampStartForSpan(newStart, val);
       setView(newStart, newStart + val);
     });
-    (_t = els.view24) == null ? void 0 : _t.addEventListener("click", () => setView(0, 24 * 60));
-    (_u = els.viewDefault) == null ? void 0 : _u.addEventListener("click", () => setView(6 * 60, 18 * 60));
+    (_u = els.view24) == null ? void 0 : _u.addEventListener("click", () => setView(0, 24 * 60));
+    (_v = els.viewDefault) == null ? void 0 : _v.addEventListener("click", () => setView(6 * 60, 18 * 60));
     const doCopy = async () => {
       try {
         await copyActions.copyChart();
       } catch (e) {
       }
     };
-    (_v = els.btnCopyChart) == null ? void 0 : _v.addEventListener("click", doCopy);
-    (_w = els.btnCopyChartTop) == null ? void 0 : _w.addEventListener("click", doCopy);
-    (_x = els.btnCopyChartTable) == null ? void 0 : _x.addEventListener("click", doCopy);
+    (_w = els.btnCopyChart) == null ? void 0 : _w.addEventListener("click", doCopy);
+    (_x = els.btnCopyChartTop) == null ? void 0 : _x.addEventListener("click", doCopy);
+    (_y = els.btnCopyChartTable) == null ? void 0 : _y.addEventListener("click", doCopy);
     els.track.addEventListener("click", (e) => {
       var _a2, _b2, _c2, _d2;
       if (e.shiftKey) {
@@ -2936,7 +2951,7 @@
         }
       }
     });
-    (_y = els.noteField) == null ? void 0 : _y.addEventListener("input", () => {
+    (_z = els.noteField) == null ? void 0 : _z.addEventListener("input", () => {
       try {
         els.noteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
@@ -2947,7 +2962,7 @@
       } catch (e) {
       }
     });
-    (_z = els.notePreviewToggle) == null ? void 0 : _z.addEventListener("click", (e) => {
+    (_A = els.notePreviewToggle) == null ? void 0 : _A.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.notePreview) return;

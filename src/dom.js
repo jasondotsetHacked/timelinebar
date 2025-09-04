@@ -44,6 +44,7 @@ export const els = {
   total: byId('total'),
   toast: byId('toast'),
   viewHelp: byId('viewHelp'),
+  btnBucketBackTop: byId('btnBucketBackTop'),
   view24: byId('view24'),
   viewDefault: byId('viewDefault'),
   btnCopyChart: byId('btnCopyChart'),
@@ -78,6 +79,7 @@ export const els = {
   // Bucket view
   bucketViewCard: byId('bucketViewCard'),
   bucketViewTitle: byId('bucketViewTitle'),
+  bucketViewTotal: byId('bucketViewTotal'),
   bucketViewBody: byId('bucketViewBody'),
   bucketViewEmpty: byId('bucketViewEmpty'),
   btnBucketBack: byId('btnBucketBack'),
