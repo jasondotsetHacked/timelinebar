@@ -4,6 +4,7 @@ import { time } from './time.js';
 import { nowIndicator } from './nowIndicator.js';
 import { getPunchDate, todayStr, parseDate } from './dates.js';
 import { calendar } from './calendar.js';
+import { idb } from './storage.js';
 // Viewport is now dynamic and sourced from state
 
 const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
@@ -41,7 +42,12 @@ function toggleNotePopover(id, anchorEl = null) {
   const pop = document.createElement('div');
   pop.className = 'note-popover';
   pop.dataset.id = String(id);
-  pop.innerHTML = `<button class="note-close" aria-label="Close">\u2715</button><div class="note-content"></div>`;
+  pop.innerHTML = `
+    <div class="note-actions" role="toolbar" aria-label="Note actions">
+      <button class="note-edit" title="Edit note" aria-label="Edit note">\u270E</button>
+      <button class="note-close" aria-label="Close">\u2715</button>
+    </div>
+    <div class="note-content"></div>`;
   const content = pop.querySelector('.note-content');
   content.innerHTML = markdownToHtml(p.note);
   document.body.appendChild(pop);
@@ -63,8 +69,72 @@ function toggleNotePopover(id, anchorEl = null) {
     pop.style.left = left + 'px';
     pop.style.top = top + 'px';
   });
-  pop.addEventListener('click', (e) => {
-    if (e.target.closest('.note-close')) hideNotePopover();
+  const enterEditMode = () => {
+    if (pop.dataset.mode === 'edit') return;
+    pop.dataset.mode = 'edit';
+    const p2 = state.punches.find((x) => x.id === id);
+    const current = (p2 && p2.note) || '';
+    content.innerHTML = `
+      <textarea class="note-editarea" aria-label="Edit note">${escapeHtml(current)}</textarea>
+      <div class="note-edit-actions">
+        <button class="btn primary note-save" type="button">Save</button>
+        <button class="btn ghost note-cancel" type="button">Cancel</button>
+      </div>`;
+    try {
+      const ta = content.querySelector('.note-editarea');
+      if (ta) {
+        ta.style.height = 'auto';
+        const h = Math.max(96, Math.min(360, ta.scrollHeight || 96));
+        ta.style.height = h + 'px';
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+      }
+    } catch {}
+  };
+  const exitEditMode = () => {
+    delete pop.dataset.mode;
+    const p3 = state.punches.find((x) => x.id === id);
+    content.innerHTML = markdownToHtml(p3?.note || '');
+  };
+  pop.addEventListener('click', async (e) => {
+    if (e.target.closest('.note-close')) {
+      hideNotePopover();
+      e.stopPropagation();
+      return;
+    }
+    if (e.target.closest('.note-edit')) {
+      enterEditMode();
+      e.stopPropagation();
+      return;
+    }
+    if (e.target.closest('.note-cancel')) {
+      exitEditMode();
+      e.stopPropagation();
+      return;
+    }
+    if (e.target.closest('.note-save')) {
+      const ta = pop.querySelector('.note-editarea');
+      const newText = String(ta?.value || '').trim();
+      const idx = state.punches.findIndex((x) => x.id === id);
+      if (idx !== -1) {
+        const updated = { ...state.punches[idx], note: newText };
+        await idb.put(updated);
+        state.punches[idx] = updated;
+        // Re-render relevant UI to reflect note presence/absence
+        try { 
+          // If note was cleared, close popover; else show updated content
+          if (!newText) {
+            hideNotePopover();
+          } else {
+            exitEditMode();
+          }
+          // Refresh UI so dots/table reflect current note state
+          renderAll();
+        } catch {}
+      }
+      e.stopPropagation();
+      return;
+    }
     e.stopPropagation();
   });
 }

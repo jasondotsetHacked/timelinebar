@@ -484,6 +484,37 @@
   }
   var calendar = { renderCalendar, nextMonth, prevMonth, nextYear, prevYear };
 
+  // src/storage.js
+  var openDb = () => new Promise((resolve, reject) => {
+    const req = indexedDB.open("timeTrackerDB", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("punches", { keyPath: "id", autoIncrement: true });
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  var withStore = (mode, fn) => openDb().then(
+    (db) => new Promise((resolve, reject) => {
+      const tx = db.transaction("punches", mode);
+      const store = tx.objectStore("punches");
+      fn(store);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    })
+  );
+  var add = (punch) => withStore("readwrite", (store) => store.add(punch));
+  var put = (punch) => withStore("readwrite", (store) => store.put(punch));
+  var remove = (id) => withStore("readwrite", (store) => store.delete(id));
+  var clear = () => withStore("readwrite", (store) => store.clear());
+  var all = () => openDb().then(
+    (db) => new Promise((resolve, reject) => {
+      const tx = db.transaction("punches", "readonly");
+      const store = tx.objectStore("punches");
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    })
+  );
+  var idb = { add, put, remove, clear, all };
+
   // src/ui.js
   var escapeHtml = (s) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
   function markdownToHtml(md) {
@@ -517,7 +548,12 @@
     const pop = document.createElement("div");
     pop.className = "note-popover";
     pop.dataset.id = String(id);
-    pop.innerHTML = `<button class="note-close" aria-label="Close">\u2715</button><div class="note-content"></div>`;
+    pop.innerHTML = `
+    <div class="note-actions" role="toolbar" aria-label="Note actions">
+      <button class="note-edit" title="Edit note" aria-label="Edit note">\u270E</button>
+      <button class="note-close" aria-label="Close">\u2715</button>
+    </div>
+    <div class="note-content"></div>`;
     const content = pop.querySelector(".note-content");
     content.innerHTML = markdownToHtml(p.note);
     document.body.appendChild(pop);
@@ -538,8 +574,71 @@
       pop.style.left = left + "px";
       pop.style.top = top + "px";
     });
-    pop.addEventListener("click", (e) => {
-      if (e.target.closest(".note-close")) hideNotePopover();
+    const enterEditMode = () => {
+      if (pop.dataset.mode === "edit") return;
+      pop.dataset.mode = "edit";
+      const p2 = state.punches.find((x) => x.id === id);
+      const current = p2 && p2.note || "";
+      content.innerHTML = `
+      <textarea class="note-editarea" aria-label="Edit note">${escapeHtml(current)}</textarea>
+      <div class="note-edit-actions">
+        <button class="btn primary note-save" type="button">Save</button>
+        <button class="btn ghost note-cancel" type="button">Cancel</button>
+      </div>`;
+      try {
+        const ta = content.querySelector(".note-editarea");
+        if (ta) {
+          ta.style.height = "auto";
+          const h = Math.max(96, Math.min(360, ta.scrollHeight || 96));
+          ta.style.height = h + "px";
+          ta.focus();
+          ta.setSelectionRange(ta.value.length, ta.value.length);
+        }
+      } catch (e) {
+      }
+    };
+    const exitEditMode = () => {
+      delete pop.dataset.mode;
+      const p3 = state.punches.find((x) => x.id === id);
+      content.innerHTML = markdownToHtml((p3 == null ? void 0 : p3.note) || "");
+    };
+    pop.addEventListener("click", async (e) => {
+      if (e.target.closest(".note-close")) {
+        hideNotePopover();
+        e.stopPropagation();
+        return;
+      }
+      if (e.target.closest(".note-edit")) {
+        enterEditMode();
+        e.stopPropagation();
+        return;
+      }
+      if (e.target.closest(".note-cancel")) {
+        exitEditMode();
+        e.stopPropagation();
+        return;
+      }
+      if (e.target.closest(".note-save")) {
+        const ta = pop.querySelector(".note-editarea");
+        const newText = String((ta == null ? void 0 : ta.value) || "").trim();
+        const idx = state.punches.findIndex((x) => x.id === id);
+        if (idx !== -1) {
+          const updated = { ...state.punches[idx], note: newText };
+          await idb.put(updated);
+          state.punches[idx] = updated;
+          try {
+            if (!newText) {
+              hideNotePopover();
+            } else {
+              exitEditMode();
+            }
+            renderAll();
+          } catch (e2) {
+          }
+        }
+        e.stopPropagation();
+        return;
+      }
       e.stopPropagation();
     });
   }
@@ -1103,37 +1202,6 @@
     renderBucketMonth,
     renderMobileControls
   };
-
-  // src/storage.js
-  var openDb = () => new Promise((resolve, reject) => {
-    const req = indexedDB.open("timeTrackerDB", 1);
-    req.onupgradeneeded = () => req.result.createObjectStore("punches", { keyPath: "id", autoIncrement: true });
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-  var withStore = (mode, fn) => openDb().then(
-    (db) => new Promise((resolve, reject) => {
-      const tx = db.transaction("punches", mode);
-      const store = tx.objectStore("punches");
-      fn(store);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    })
-  );
-  var add = (punch) => withStore("readwrite", (store) => store.add(punch));
-  var put = (punch) => withStore("readwrite", (store) => store.put(punch));
-  var remove = (id) => withStore("readwrite", (store) => store.delete(id));
-  var clear = () => withStore("readwrite", (store) => store.clear());
-  var all = () => openDb().then(
-    (db) => new Promise((resolve, reject) => {
-      const tx = db.transaction("punches", "readonly");
-      const store = tx.objectStore("punches");
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
-    })
-  );
-  var idb = { add, put, remove, clear, all };
 
   // src/recur.js
   function addDays(d, days) {

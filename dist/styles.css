@@ -1489,6 +1489,18 @@ tbody tr .row-action { cursor: pointer; }
 .fab { position: fixed; right: 18px; bottom: 18px; z-index: 80; padding: 12px 16px; border-radius: 999px; font-weight: 800; background: linear-gradient(180deg, var(--brand), var(--brand-2)); color: #08121f; box-shadow: var(--shadow); }
 .fab:hover { filter: brightness(1.08); }
 
+/* --- Note popover header + edit mode overrides --- */
+.note-popover { padding-top: 38px; }
+.note-popover .note-actions { position: absolute; top: 6px; right: 6px; display: flex; gap: 6px; }
+.note-popover .note-actions .note-edit,
+.note-popover .note-actions .note-close { appearance: none; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px; border-radius: 8px; }
+.note-popover .note-actions .note-close { position: static; }
+.note-popover .note-actions .note-edit:hover,
+.note-popover .note-actions .note-close:hover { background: rgba(255,255,255,.06); color: var(--text); }
+.note-popover .note-editarea { width: 100%; min-height: 120px; resize: vertical; padding: 8px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,.15); background: rgba(0,0,0,.15); color: var(--text); font: inherit; }
+.note-popover .note-edit-actions { display: flex; justify-content: end; gap: 8px; margin-top: 10px; }
+:root[data-theme='light'] .note-popover .note-editarea { background: rgba(16,24,40,.06); border-color: rgba(16,24,40,.12); }
+
 /* Final mobile overrides to ensure responsiveness below 720px/640px */
 @media (max-width: 720px) {
   #entriesTable { width: 100%; min-width: 0; table-layout: fixed; }
