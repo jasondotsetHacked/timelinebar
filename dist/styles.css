@@ -216,6 +216,30 @@ body::after {
 #entriesTable td.note .note-html p { margin: .25em 0; }
 #entriesTable td.note .note-html ul, #entriesTable td.note .note-html ol { padding-left: 18px; margin: .25em 0; }
 #entriesTable td.note .note-html li { margin: .15em 0; }
+
+/* Slim, themed scrollbars for note preview + popover */
+#entriesTable td.note .note-window,
+.note-popover .note-content {
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(0,255,102,.55) transparent; /* thumb | track */
+}
+#entriesTable td.note .note-window::-webkit-scrollbar,
+.note-popover .note-content::-webkit-scrollbar { width: 6px; height: 6px; }
+#entriesTable td.note .note-window::-webkit-scrollbar-track,
+.note-popover .note-content::-webkit-scrollbar-track { background: rgba(255,255,255,.06); border-radius: 8px; }
+#entriesTable td.note .note-window::-webkit-scrollbar-thumb,
+.note-popover .note-content::-webkit-scrollbar-thumb { background: rgba(0,255,102,.55); border-radius: 8px; }
+#entriesTable td.note .note-window::-webkit-scrollbar-thumb:hover,
+.note-popover .note-content::-webkit-scrollbar-thumb:hover { background: rgba(0,255,102,.75); }
+
+:root[data-theme='light'] #entriesTable td.note .note-window,
+:root[data-theme='light'] .note-popover .note-content {
+  scrollbar-color: rgba(22,163,74,.6) rgba(16,24,40,.08);
+}
+:root[data-theme='light'] #entriesTable td.note .note-window::-webkit-scrollbar-track,
+:root[data-theme='light'] .note-popover .note-content::-webkit-scrollbar-track { background: rgba(16,24,40,.08); }
+:root[data-theme='light'] #entriesTable td.note .note-window::-webkit-scrollbar-thumb,
+:root[data-theme='light'] .note-popover .note-content::-webkit-scrollbar-thumb { background: rgba(22,163,74,.6); }
 #entriesTable td.note:hover { background: rgba(255,255,255,.04); }
 :root[data-theme='light'] #entriesTable td.note:hover { background: rgba(16,24,40,.06); }
 
