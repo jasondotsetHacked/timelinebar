@@ -203,14 +203,13 @@ body::after {
 /* Entries table: note column snippet and wrapping */
 #entriesTable td.note { vertical-align: top; cursor: pointer; }
 #entriesTable td.note .note-snippet {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3; /* show snippet */
+  /* Keep a single-line preview so row height never changes */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
   line-height: 1.3;
-  max-height: calc(1.3em * 3);
+  max-height: 1.3em; /* lock to one line */
 }
 #entriesTable td.note:hover { background: rgba(255,255,255,.04); }
 :root[data-theme='light'] #entriesTable td.note:hover { background: rgba(16,24,40,.06); }
@@ -511,6 +510,9 @@ body::after {
 .note-popover code { background: rgba(255,255,255,.08); border-radius: 4px; padding: 0 3px; }
 .note-popover h1, .note-popover h2, .note-popover h3 { margin: .4em 0 .2em; }
 .note-popover p { margin: .4em 0; }
+/* Lists inside markdown popover */
+.note-popover ul, .note-popover ol { padding-left: 18px; margin: .3em 0; }
+.note-popover li { margin: .2em 0; }
 
 /* Hover highlight syncing between track blocks and table rows */
 .punch.is-hovered { outline: 2px solid rgba(255,255,255,.35); box-shadow: inset 0 0 0 1px rgba(255,255,255,.15), 0 8px 20px rgba(0,0,0,.5); }
@@ -574,6 +576,8 @@ input[type="date"]::-webkit-datetime-edit-day-field { color: var(--text); backgr
 .note-preview { margin-top: 8px; border: 1px dashed rgba(255,255,255,.12); border-radius: 10px; padding: 10px 12px; background: rgba(255,255,255,.04); font-size: 14px; max-height: 200px; overflow: auto; }
 .note-preview pre { background: rgba(0,0,0,.35); padding: 8px; border-radius: 8px; overflow: auto; }
 .note-preview code { background: rgba(0,0,0,.35); padding: 0 3px; border-radius: 4px; }
+.note-preview ul, .note-preview ol { padding-left: 18px; margin: .3em 0; }
+.note-preview li { margin: .2em 0; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
 .modal-title { font-weight: 700; letter-spacing:.2px; }
 .icon-btn { appearance: none; border: 0; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; padding: 6px; border-radius: 8px; }
