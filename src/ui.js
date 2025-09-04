@@ -551,6 +551,15 @@ function openModal(range) {
   els.endField.value = time.toLabel(range.endMin);
   els.bucketField.value = '';
   els.noteField.value = '';
+  // Reset recurrence controls for new item
+  try {
+    if (els.repeatEnabled) els.repeatEnabled.checked = false;
+    if (els.repeatFields) els.repeatFields.style.display = 'none';
+    if (els.applyScopeWrap) els.applyScopeWrap.style.display = 'none';
+    if (els.repeatFreq) els.repeatFreq.value = 'weekly';
+    if (els.repeatUntil) els.repeatUntil.value = '';
+    if (els.repeatUntilWrap) els.repeatUntilWrap.style.display = 'none';
+  } catch {}
   try {
     if (els.notePreview) {
       els.notePreview.style.display = 'none';
@@ -567,6 +576,14 @@ function openModal(range) {
     els.modalStatusBtn.dataset.value = 'default';
     els.modalStatusBtn.className = 'status-btn status-default';
   }
+  try {
+    if (els.repeatEnabled) els.repeatEnabled.disabled = false;
+    if (els.repeatFreq) els.repeatFreq.disabled = false;
+    if (els.repeatUntil) els.repeatUntil.disabled = false;
+    if (els.repeatDowWrap) els.repeatDowWrap.style.display = 'none';
+    if (els.repeatDow) els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => (c.checked = false));
+    if (els.extendWrap) els.extendWrap.style.display = 'none';
+  } catch {}
   if (els.modalStatusWrap) els.modalStatusWrap.classList.remove('open');
   if (els.modalDelete) els.modalDelete.style.display = 'none';
   if (els.modalTitle) els.modalTitle.textContent = 'New Time Block';

@@ -26,6 +26,22 @@
     modalStatusWrap: byId("modalStatusWrap"),
     modalStatusBtn: byId("modalStatusBtn"),
     modalStatusMenu: byId("modalStatusMenu"),
+    // Recurrence controls
+    repeatEnabled: byId("repeatEnabled"),
+    repeatFields: byId("repeatFields"),
+    repeatFreq: byId("repeatFreq"),
+    repeatUntil: byId("repeatUntil"),
+    repeatUntilWrap: byId("repeatUntilWrap"),
+    repeatDowWrap: byId("repeatDowWrap"),
+    repeatDow: byId("repeatDow"),
+    btnDowWeekdays: byId("btnDowWeekdays"),
+    btnDowAll: byId("btnDowAll"),
+    applyScopeWrap: byId("applyScopeWrap"),
+    applyScopeOne: byId("applyScopeOne"),
+    applyScopeSeries: byId("applyScopeSeries"),
+    extendWrap: byId("extendWrap"),
+    extendUntil: byId("extendUntil"),
+    btnExtendSeries: byId("btnExtendSeries"),
     total: byId("total"),
     toast: byId("toast"),
     viewHelp: byId("viewHelp"),
@@ -923,6 +939,15 @@
     els.bucketField.value = "";
     els.noteField.value = "";
     try {
+      if (els.repeatEnabled) els.repeatEnabled.checked = false;
+      if (els.repeatFields) els.repeatFields.style.display = "none";
+      if (els.applyScopeWrap) els.applyScopeWrap.style.display = "none";
+      if (els.repeatFreq) els.repeatFreq.value = "weekly";
+      if (els.repeatUntil) els.repeatUntil.value = "";
+      if (els.repeatUntilWrap) els.repeatUntilWrap.style.display = "none";
+    } catch (e) {
+    }
+    try {
       if (els.notePreview) {
         els.notePreview.style.display = "none";
         els.notePreview.innerHTML = "";
@@ -938,6 +963,15 @@
     if (els.modalStatusBtn) {
       els.modalStatusBtn.dataset.value = "default";
       els.modalStatusBtn.className = "status-btn status-default";
+    }
+    try {
+      if (els.repeatEnabled) els.repeatEnabled.disabled = false;
+      if (els.repeatFreq) els.repeatFreq.disabled = false;
+      if (els.repeatUntil) els.repeatUntil.disabled = false;
+      if (els.repeatDowWrap) els.repeatDowWrap.style.display = "none";
+      if (els.repeatDow) els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => c.checked = false);
+      if (els.extendWrap) els.extendWrap.style.display = "none";
+    } catch (e) {
     }
     if (els.modalStatusWrap) els.modalStatusWrap.classList.remove("open");
     if (els.modalDelete) els.modalDelete.style.display = "none";
@@ -1012,6 +1046,82 @@
     })
   );
   var idb = { add, put, remove, clear, all };
+
+  // src/recur.js
+  function addDays(d, days) {
+    const nd = new Date(d.getTime());
+    nd.setDate(nd.getDate() + days);
+    return nd;
+  }
+  function daysInMonth(y, m) {
+    return new Date(y, m + 1, 0).getDate();
+  }
+  function addMonthsClamped(d, months) {
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const day = d.getDate();
+    const targetM = m + months;
+    const targetY = y + Math.floor(targetM / 12);
+    const normM = (targetM % 12 + 12) % 12;
+    const dim = daysInMonth(targetY, normM);
+    const clampedDay = Math.min(day, dim);
+    return new Date(targetY, normM, clampedDay);
+  }
+  function addYearsClamped(d, years) {
+    const y = d.getFullYear() + years;
+    const m = d.getMonth();
+    const day = d.getDate();
+    const dim = daysInMonth(y, m);
+    const clampedDay = Math.min(day, dim);
+    return new Date(y, m, clampedDay);
+  }
+  function expandDates(startDateStr, rule) {
+    const out = [];
+    const start = parseDate(startDateStr);
+    if (!start) return out;
+    const freq = (rule == null ? void 0 : rule.freq) || "weekly";
+    const interval = Math.max(1, Math.floor(Number((rule == null ? void 0 : rule.interval) || 1)));
+    const until = (rule == null ? void 0 : rule.until) ? parseDate(rule.until) : null;
+    const count = (rule == null ? void 0 : rule.count) ? Math.max(1, Math.floor(Number(rule.count))) : null;
+    const byWeekday = Array.isArray(rule == null ? void 0 : rule.byWeekday) ? [...new Set(rule.byWeekday.map((n) => (Number(n) % 7 + 7) % 7))].sort((a, b) => a - b) : null;
+    let i = 0;
+    let cur = new Date(start.getTime());
+    const startStr = toDateStr(start);
+    if (freq === "weekly" && byWeekday && byWeekday.length) {
+      let guard = 0;
+      while (true) {
+        const curStr = toDateStr(cur);
+        const daysSince = Math.floor((cur - start) / 864e5);
+        const weekIndex = Math.floor(daysSince / 7);
+        const isSelectedDow = byWeekday.includes(cur.getDay());
+        const onIntervalWeek = weekIndex % interval === 0;
+        if (isSelectedDow && onIntervalWeek) {
+          out.push(curStr);
+          i++;
+          if (count && i >= count) break;
+        }
+        if (until && curStr >= toDateStr(until)) break;
+        cur = addDays(cur, 1);
+        guard++;
+        if (guard > 2e4 || out.length > 5e3) break;
+      }
+    } else {
+      while (true) {
+        const curStr = toDateStr(cur);
+        out.push(curStr);
+        i++;
+        if (count && i >= count) break;
+        if (until && curStr >= toDateStr(until)) break;
+        if (freq === "daily") cur = addDays(cur, interval);
+        else if (freq === "weekly") cur = addDays(cur, 7 * interval);
+        else if (freq === "monthly") cur = addMonthsClamped(cur, interval);
+        else if (freq === "yearly") cur = addYearsClamped(cur, interval);
+        else cur = addDays(cur, 7 * interval);
+        if (out.length > 2e3) break;
+      }
+    }
+    return out;
+  }
 
   // src/actions/helpers.js
   var getView3 = () => {
@@ -1476,6 +1586,20 @@
     const st = x.status || null;
     const allowed = /* @__PURE__ */ new Set([null, "default", "green", "green-solid", "yellow", "yellow-solid", "red", "red-solid", "blue", "blue-solid", "purple", "purple-solid"]);
     const status = allowed.has(st) ? st : null;
+    const recurrenceId = x.recurrenceId ? String(x.recurrenceId) : null;
+    const seq = Number.isFinite(x.seq) ? Math.max(0, Math.floor(Number(x.seq))) : 0;
+    const rec = (() => {
+      const r = x.recurrence;
+      if (!r || typeof r !== "object") return null;
+      const f = ["daily", "weekly", "monthly", "yearly"].includes(r.freq) ? r.freq : "weekly";
+      const interval = Math.max(1, Math.floor(Number(r.interval || 1)));
+      const until = r.until && /^\d{4}-\d{2}-\d{2}$/.test(String(r.until)) ? String(r.until) : null;
+      const count = r.count ? Math.max(1, Math.floor(Number(r.count))) : null;
+      const out = { freq: f, interval };
+      if (until) out.until = until;
+      else if (count) out.count = count;
+      return out;
+    })();
     return {
       start,
       end,
@@ -1483,7 +1607,10 @@
       note,
       date: okDate ? date : todayStr(),
       createdAt,
-      status
+      status,
+      recurrenceId,
+      recurrence: rec,
+      seq
     };
   }
   async function importDataFromFile(file) {
@@ -1579,7 +1706,30 @@
     }
     return escapeHtml2(t).replace(/\n/g, "<br>");
   };
+  function genRecurrenceId() {
+    return "r" + Math.random().toString(36).slice(2, 10);
+  }
+  function readRecurrenceFromUI() {
+    var _a, _b, _c, _d;
+    const enabled = !!((_a = els.repeatEnabled) == null ? void 0 : _a.checked);
+    if (!enabled) return null;
+    const freq = ((_b = els.repeatFreq) == null ? void 0 : _b.value) || "weekly";
+    const until = String(((_c = els.repeatUntil) == null ? void 0 : _c.value) || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(until)) return null;
+    const base = { freq, interval: 1, until };
+    if (freq === "weekly") {
+      const days = Array.from(((_d = els.repeatDow) == null ? void 0 : _d.querySelectorAll('input[type="checkbox"]')) || []).filter((c) => c.checked).map((c) => Number(c.value));
+      if (days.length) base.byWeekday = days;
+    }
+    return base;
+  }
+  function overlapsOnDate(dateStr, start, end, excludeId = null) {
+    return state.punches.some(
+      (p) => p.id !== excludeId && getPunchDate(p) === dateStr && start < p.end && end > p.start
+    );
+  }
   var saveNewFromModal = async (e) => {
+    var _a, _b;
     e.preventDefault();
     if (!state.pendingRange) return;
     const { startMin, endMin } = state.pendingRange;
@@ -1596,11 +1746,16 @@
       note: els.noteField.value.trim(),
       date: state.currentDate || todayStr(),
       status: (() => {
-        var _a;
-        const val = ((_a = els.modalStatusBtn) == null ? void 0 : _a.dataset.value) || "default";
+        var _a2;
+        const val = ((_a2 = els.modalStatusBtn) == null ? void 0 : _a2.dataset.value) || "default";
         return val === "default" ? null : val;
       })()
     };
+    const rec = readRecurrenceFromUI();
+    if (((_a = els.repeatEnabled) == null ? void 0 : _a.checked) && !rec) {
+      ui.toast("Pick an end date for the series");
+      return;
+    }
     if (state.editingId) {
       const idx = state.punches.findIndex((p) => p.id === state.editingId);
       if (idx === -1) {
@@ -1608,20 +1763,78 @@
         ui.closeModal();
         return;
       }
-      const updated = { ...state.punches[idx], ...payload };
-      if (overlapsAny(updated.start, updated.end, updated.id)) {
-        ui.toast("That range overlaps another block.");
-        return;
+      const prev = state.punches[idx];
+      const updated = { ...prev, ...payload };
+      const applyToSeries = !!((_b = els.applyScopeSeries) == null ? void 0 : _b.checked) && !!prev.recurrenceId;
+      if (applyToSeries) {
+        const deltaStart = updated.start - prev.start;
+        const deltaEnd = updated.end - prev.end;
+        const targetId = prev.recurrenceId;
+        const toUpdate = state.punches.filter((p) => p.recurrenceId === targetId);
+        for (const p of toUpdate) {
+          const newStart = p.start + deltaStart;
+          const newEnd = p.end + deltaEnd;
+          if (overlapsOnDate(p.date || getPunchDate(p), newStart, newEnd, p.id)) {
+            ui.toast("Change would overlap another block in the series.");
+            return;
+          }
+        }
+        for (const p of toUpdate) {
+          const upd = { ...p, start: p.start + deltaStart, end: p.end + deltaEnd, bucket: updated.bucket, note: updated.note, status: updated.status };
+          await idb.put(upd);
+        }
+      } else {
+        if (overlapsOnDate(updated.date, updated.start, updated.end, updated.id)) {
+          ui.toast("That range overlaps another block.");
+          return;
+        }
+        if (!prev.recurrenceId && rec) {
+          const recurrenceId = genRecurrenceId();
+          const dates = expandDates(updated.date, rec);
+          let seq = 0;
+          for (const d of dates) {
+            const start = updated.start;
+            const end = updated.end;
+            if (overlapsOnDate(d, start, end, prev.id)) continue;
+            const base = { start, end, bucket: updated.bucket, note: updated.note, status: updated.status, date: d, recurrenceId, recurrence: rec, seq };
+            if (d === prev.date) {
+              await idb.put({ ...prev, ...base });
+            } else {
+              await idb.add({ ...base, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
+            }
+            seq++;
+          }
+        } else {
+          state.punches[idx] = updated;
+          await idb.put(updated);
+        }
       }
-      state.punches[idx] = updated;
-      await idb.put(updated);
     } else {
-      if (overlapsAny(payload.start, payload.end)) {
-        ui.toast("That range overlaps another block.");
-        return;
+      if (rec) {
+        const recurrenceId = genRecurrenceId();
+        const dates = expandDates(payload.date, rec);
+        let added = 0;
+        let skipped = 0;
+        let seq = 0;
+        for (const d of dates) {
+          if (overlapsOnDate(d, payload.start, payload.end)) {
+            skipped++;
+            continue;
+          }
+          const item = { ...payload, date: d, recurrenceId, recurrence: rec, seq, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
+          await idb.add(item);
+          added++;
+          seq++;
+        }
+        if (skipped) ui.toast(`Created ${added}, skipped ${skipped} overlapping`);
+      } else {
+        if (overlapsOnDate(payload.date, payload.start, payload.end)) {
+          ui.toast("That range overlaps another block.");
+          return;
+        }
+        const toAdd = { ...payload, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
+        await idb.add(toAdd);
       }
-      const toAdd = { ...payload, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
-      await idb.add(toAdd);
     }
     state.punches = await idb.all();
     state.editingId = null;
@@ -1630,7 +1843,7 @@
   };
   var closeModal2 = () => ui.closeModal();
   var attachEvents = () => {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l;
     dragActions.attach();
     resizeActions.attach();
     calendarActions.attach();
@@ -1703,6 +1916,38 @@
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
         try {
+          const hasRec = !!p.recurrenceId;
+          if (els.repeatEnabled) els.repeatEnabled.checked = hasRec;
+          if (els.repeatFields) els.repeatFields.style.display = hasRec ? "" : "none";
+          if (hasRec && p.recurrence) {
+            if (els.repeatFreq) els.repeatFreq.value = p.recurrence.freq || "weekly";
+            if (els.repeatUntilWrap) els.repeatUntilWrap.style.display = "";
+            if (els.repeatUntil) els.repeatUntil.value = p.recurrence.until || "";
+            const showDow = (p.recurrence.freq || "weekly") === "weekly";
+            if (els.repeatDowWrap) els.repeatDowWrap.style.display = showDow ? "" : "none";
+            if (showDow && els.repeatDow) {
+              const set = new Set(Array.isArray(p.recurrence.byWeekday) ? p.recurrence.byWeekday.map(Number) : []);
+              const wd = new Date(p.date).getDay();
+              els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => {
+                c.checked = set.size ? set.has(Number(c.value)) : Number(c.value) === wd;
+              });
+            }
+          } else {
+            if (els.repeatUntil) els.repeatUntil.value = "";
+            if (els.repeatUntilWrap) els.repeatUntilWrap.style.display = "none";
+            if (els.repeatDowWrap) els.repeatDowWrap.style.display = "none";
+          }
+          if (els.applyScopeWrap) els.applyScopeWrap.style.display = hasRec ? "" : "none";
+          if (els.repeatEnabled) els.repeatEnabled.disabled = hasRec;
+          if (els.repeatFreq) els.repeatFreq.disabled = hasRec;
+          if (els.repeatUntil) els.repeatUntil.disabled = hasRec;
+          if (els.repeatDow) els.repeatDow.querySelectorAll("input").forEach((c) => c.disabled = hasRec);
+          if (els.applyScopeSeries) els.applyScopeSeries.checked = true;
+          if (els.applyScopeOne) els.applyScopeOne.checked = !els.applyScopeSeries.checked;
+          if (els.extendWrap) els.extendWrap.style.display = hasRec ? "" : "none";
+        } catch (e2) {
+        }
+        try {
           if (els.notePreview) {
             els.notePreview.style.display = "none";
             els.notePreview.innerHTML = "";
@@ -1740,6 +1985,37 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        try {
+          const hasRec = !!p.recurrenceId;
+          if (els.repeatEnabled) els.repeatEnabled.checked = hasRec;
+          if (els.repeatFields) els.repeatFields.style.display = hasRec ? "" : "none";
+          if (hasRec && p.recurrence) {
+            if (els.repeatFreq) els.repeatFreq.value = p.recurrence.freq || "weekly";
+            if (els.repeatUntilWrap) els.repeatUntilWrap.style.display = "";
+            if (els.repeatUntil) els.repeatUntil.value = p.recurrence.until || "";
+            const showDow = (p.recurrence.freq || "weekly") === "weekly";
+            if (els.repeatDowWrap) els.repeatDowWrap.style.display = showDow ? "" : "none";
+            if (showDow && els.repeatDow) {
+              const set = new Set(Array.isArray(p.recurrence.byWeekday) ? p.recurrence.byWeekday.map(Number) : []);
+              const wd = new Date(p.date).getDay();
+              els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => {
+                c.checked = set.size ? set.has(Number(c.value)) : Number(c.value) === wd;
+              });
+            }
+          } else {
+            if (els.repeatUntil) els.repeatUntil.value = "";
+            if (els.repeatUntilWrap) els.repeatUntilWrap.style.display = "none";
+            if (els.repeatDowWrap) els.repeatDowWrap.style.display = "none";
+          }
+          if (els.applyScopeWrap) els.applyScopeWrap.style.display = hasRec ? "" : "none";
+          if (els.repeatEnabled) els.repeatEnabled.disabled = hasRec;
+          if (els.repeatFreq) els.repeatFreq.disabled = hasRec;
+          if (els.repeatUntil) els.repeatUntil.disabled = hasRec;
+          if (els.repeatDow) els.repeatDow.querySelectorAll("input").forEach((c) => c.disabled = hasRec);
+          if (els.applyScopeSeries) els.applyScopeSeries.checked = true;
+          if (els.extendWrap) els.extendWrap.style.display = hasRec ? "" : "none";
+        } catch (e2) {
+        }
         if (els.modalStatusBtn) {
           const st = p.status || "default";
           els.modalStatusBtn.dataset.value = st;
@@ -1763,6 +2039,37 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        try {
+          const hasRec = !!p.recurrenceId;
+          if (els.repeatEnabled) els.repeatEnabled.checked = hasRec;
+          if (els.repeatFields) els.repeatFields.style.display = hasRec ? "" : "none";
+          if (hasRec && p.recurrence) {
+            if (els.repeatFreq) els.repeatFreq.value = p.recurrence.freq || "weekly";
+            if (els.repeatUntilWrap) els.repeatUntilWrap.style.display = "";
+            if (els.repeatUntil) els.repeatUntil.value = p.recurrence.until || "";
+            const showDow = (p.recurrence.freq || "weekly") === "weekly";
+            if (els.repeatDowWrap) els.repeatDowWrap.style.display = showDow ? "" : "none";
+            if (showDow && els.repeatDow) {
+              const set = new Set(Array.isArray(p.recurrence.byWeekday) ? p.recurrence.byWeekday.map(Number) : []);
+              const wd = new Date(p.date).getDay();
+              els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => {
+                c.checked = set.size ? set.has(Number(c.value)) : Number(c.value) === wd;
+              });
+            }
+          } else {
+            if (els.repeatUntil) els.repeatUntil.value = "";
+            if (els.repeatUntilWrap) els.repeatUntilWrap.style.display = "none";
+            if (els.repeatDowWrap) els.repeatDowWrap.style.display = "none";
+          }
+          if (els.applyScopeWrap) els.applyScopeWrap.style.display = hasRec ? "" : "none";
+          if (els.repeatEnabled) els.repeatEnabled.disabled = hasRec;
+          if (els.repeatFreq) els.repeatFreq.disabled = hasRec;
+          if (els.repeatUntil) els.repeatUntil.disabled = hasRec;
+          if (els.repeatDow) els.repeatDow.querySelectorAll("input").forEach((c) => c.disabled = hasRec);
+          if (els.applyScopeSeries) els.applyScopeSeries.checked = true;
+          if (els.extendWrap) els.extendWrap.style.display = hasRec ? "" : "none";
+        } catch (e2) {
+        }
         if (els.modalStatusBtn) {
           const st = p.status || "default";
           els.modalStatusBtn.dataset.value = st;
@@ -1824,21 +2131,90 @@
     els.modalForm.addEventListener("submit", saveNewFromModal);
     els.modalCancel.addEventListener("click", closeModal2);
     els.modalClose.addEventListener("click", closeModal2);
-    (_a = els.modalDelete) == null ? void 0 : _a.addEventListener("click", async () => {
+    (_a = els.repeatEnabled) == null ? void 0 : _a.addEventListener("change", () => {
+      var _a2;
+      const on = !!els.repeatEnabled.checked;
+      if (els.repeatFields) els.repeatFields.style.display = on ? "" : "none";
+      if (!on) return;
+      if (els.repeatUntilWrap) els.repeatUntilWrap.style.display = "";
+      const isWeekly = (((_a2 = els.repeatFreq) == null ? void 0 : _a2.value) || "weekly") === "weekly";
+      if (els.repeatDowWrap) els.repeatDowWrap.style.display = isWeekly ? "" : "none";
+    });
+    (_b = els.repeatFreq) == null ? void 0 : _b.addEventListener("change", () => {
+      var _a2;
+      const val = els.repeatFreq.value;
+      if (els.repeatDowWrap) els.repeatDowWrap.style.display = val === "weekly" && ((_a2 = els.repeatEnabled) == null ? void 0 : _a2.checked) ? "" : "none";
+    });
+    (_c = els.btnDowWeekdays) == null ? void 0 : _c.addEventListener("click", () => {
+      if (!els.repeatDow) return;
+      const set = /* @__PURE__ */ new Set([1, 2, 3, 4, 5]);
+      els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => c.checked = set.has(Number(c.value)));
+    });
+    (_d = els.btnDowAll) == null ? void 0 : _d.addEventListener("click", () => {
+      if (!els.repeatDow) return;
+      els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => c.checked = true);
+    });
+    (_e = els.modalDelete) == null ? void 0 : _e.addEventListener("click", async () => {
+      var _a2;
       if (!state.editingId) return;
-      if (!confirm("Delete this time entry?")) return;
-      await idb.remove(state.editingId);
+      const p = state.punches.find((x) => x.id === state.editingId);
+      if (!p) return;
+      const applySeries = !!((_a2 = els.applyScopeSeries) == null ? void 0 : _a2.checked) && !!p.recurrenceId;
+      if (applySeries) {
+        if (!confirm("Delete the entire series?")) return;
+        const items = state.punches.filter((x) => x.recurrenceId === p.recurrenceId);
+        for (const it of items) await idb.remove(it.id);
+      } else {
+        if (!confirm("Delete this time entry?")) return;
+        await idb.remove(state.editingId);
+      }
       state.punches = await idb.all();
       state.editingId = null;
       ui.closeModal();
       ui.renderAll();
       ui.toast("Deleted");
     });
-    (_b = els.modalStatusBtn) == null ? void 0 : _b.addEventListener("click", () => {
+    (_f = els.btnExtendSeries) == null ? void 0 : _f.addEventListener("click", async () => {
+      var _a2;
+      if (!state.editingId) return;
+      const p = state.punches.find((x) => x.id === state.editingId);
+      if (!(p == null ? void 0 : p.recurrenceId) || !p.recurrence) return;
+      const items = state.punches.filter((x) => x.recurrenceId === p.recurrenceId);
+      if (!items.length) return;
+      const last = items.reduce((a, b) => String(a.date) > String(b.date) ? a : b);
+      const startExt = (() => {
+        const d = new Date(last.date);
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().slice(0, 10);
+      })();
+      const untilStr = String(((_a2 = els.extendUntil) == null ? void 0 : _a2.value) || "");
+      const rule = { ...p.recurrence };
+      if (untilStr) {
+        rule.until = untilStr;
+        delete rule.count;
+      } else {
+        ui.toast("Pick an extend-until date");
+        return;
+      }
+      const dates = expandDates(startExt, rule);
+      let seq = items.reduce((m, it) => Math.max(m, Number(it.seq) || 0), 0) + 1;
+      let added = 0;
+      for (const d of dates) {
+        if (state.punches.some((x) => x.recurrenceId === p.recurrenceId && x.date === d)) continue;
+        if (overlapsOnDate(d, p.start, p.end)) continue;
+        await idb.add({ start: p.start, end: p.end, bucket: p.bucket, note: p.note, status: p.status || null, date: d, recurrenceId: p.recurrenceId, recurrence: p.recurrence, seq, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
+        seq++;
+        added++;
+      }
+      state.punches = await idb.all();
+      ui.renderAll();
+      ui.toast(added ? `Added ${added} more` : "No new dates to add");
+    });
+    (_g = els.modalStatusBtn) == null ? void 0 : _g.addEventListener("click", () => {
       var _a2;
       (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.toggle("open");
     });
-    (_c = els.modalStatusMenu) == null ? void 0 : _c.addEventListener("click", (e) => {
+    (_h = els.modalStatusMenu) == null ? void 0 : _h.addEventListener("click", (e) => {
       var _a2;
       const opt = e.target.closest(".status-option");
       if (!opt) return;
@@ -1907,8 +2283,8 @@
       state.viewEndMin = Math.max(s, e);
       ui.renderAll();
     };
-    (_d = els.view24) == null ? void 0 : _d.addEventListener("click", () => setView(0, 24 * 60));
-    (_e = els.viewDefault) == null ? void 0 : _e.addEventListener("click", () => setView(6 * 60, 18 * 60));
+    (_i = els.view24) == null ? void 0 : _i.addEventListener("click", () => setView(0, 24 * 60));
+    (_j = els.viewDefault) == null ? void 0 : _j.addEventListener("click", () => setView(6 * 60, 18 * 60));
     els.track.addEventListener("click", (e) => {
       var _a2, _b2, _c2, _d2;
       const dot = e.target.closest(".note-dot");
@@ -1929,7 +2305,7 @@
         }
       }
     });
-    (_f = els.noteField) == null ? void 0 : _f.addEventListener("input", () => {
+    (_k = els.noteField) == null ? void 0 : _k.addEventListener("input", () => {
       try {
         els.noteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
@@ -1940,7 +2316,7 @@
       } catch (e) {
       }
     });
-    (_g = els.notePreviewToggle) == null ? void 0 : _g.addEventListener("click", (e) => {
+    (_l = els.notePreviewToggle) == null ? void 0 : _l.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.notePreview) return;

@@ -55,6 +55,19 @@ function sanitizeItem(x) {
   const st = (x.status || null);
   const allowed = new Set([null, 'default', 'green', 'green-solid', 'yellow', 'yellow-solid', 'red', 'red-solid', 'blue', 'blue-solid', 'purple', 'purple-solid']);
   const status = allowed.has(st) ? st : null;
+  const recurrenceId = x.recurrenceId ? String(x.recurrenceId) : null;
+  const seq = Number.isFinite(x.seq) ? Math.max(0, Math.floor(Number(x.seq))) : 0;
+  const rec = (() => {
+    const r = x.recurrence;
+    if (!r || typeof r !== 'object') return null;
+    const f = ['daily', 'weekly', 'monthly', 'yearly'].includes(r.freq) ? r.freq : 'weekly';
+    const interval = Math.max(1, Math.floor(Number(r.interval || 1)));
+    const until = r.until && /^\d{4}-\d{2}-\d{2}$/.test(String(r.until)) ? String(r.until) : null;
+    const count = r.count ? Math.max(1, Math.floor(Number(r.count))) : null;
+    const out = { freq: f, interval };
+    if (until) out.until = until; else if (count) out.count = count;
+    return out;
+  })();
   return {
     start,
     end,
@@ -63,6 +76,9 @@ function sanitizeItem(x) {
     date: okDate ? date : todayStr(),
     createdAt,
     status,
+    recurrenceId,
+    recurrence: rec,
+    seq,
   };
 }
 

@@ -147,6 +147,66 @@
               <div id="notePreview" class="note-preview" style="display:none;"></div>
             </div>
           </div>
+          <div class="row" id="repeatRow" style="grid-template-columns: 1fr;">
+            <div>
+              <label>Repeat</label>
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:6px;">
+                  <input type="checkbox" id="repeatEnabled" /> Enable recurrence
+                </label>
+                <div id="repeatFields" style="display:none; width:100%;">
+                  <div style="display:grid; grid-template-columns: 1fr; gap:10px; margin-top:6px;">
+                    <div>
+                      <label>Frequency</label>
+                      <select id="repeatFreq">
+                        <option value="daily">Every day</option>
+                        <option value="weekly" selected>Every week</option>
+                        <option value="monthly">Every month</option>
+                        <option value="yearly">Every year</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div id="repeatDowWrap" style="display:none; margin-top:8px;">
+                    <label>Days of week</label>
+                    <div class="dow-picker" id="repeatDow">
+                      <label class="chip"><input type="checkbox" value="1" />Mon</label>
+                      <label class="chip"><input type="checkbox" value="2" />Tue</label>
+                      <label class="chip"><input type="checkbox" value="3" />Wed</label>
+                      <label class="chip"><input type="checkbox" value="4" />Thu</label>
+                      <label class="chip"><input type="checkbox" value="5" />Fri</label>
+                      <label class="chip"><input type="checkbox" value="6" />Sat</label>
+                      <label class="chip"><input type="checkbox" value="0" />Sun</label>
+                    </div>
+                    <div class="dow-presets">
+                      <button type="button" class="btn ghost" id="btnDowWeekdays" style="padding:6px 10px; font-size:12px;">Mon–Fri</button>
+                      <button type="button" class="btn ghost" id="btnDowAll" style="padding:6px 10px; font-size:12px;">All Days</button>
+                    </div>
+                  </div>
+                  <div id="repeatUntilWrap" style="margin-top:6px;">
+                    <label>End on date</label>
+                    <input type="date" id="repeatUntil" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div id="applyScopeWrap" style="display:none; margin-top:6px;">
+              <label>Apply changes to</label>
+              <div style="display:flex; gap:14px;">
+                <label><input type="radio" name="applyScope" id="applyScopeOne" value="one" /> Only this</label>
+                <label><input type="radio" name="applyScope" id="applyScopeSeries" value="series" checked /> Entire series</label>
+              </div>
+            </div>
+            <div id="extendWrap" style="display:none; margin-top:10px;">
+              <label>Extend series</label>
+              <div style="display:grid; grid-template-columns: 1fr auto; gap:10px; align-items:end;">
+                <div>
+                  <label>Extend until</label>
+                  <input type="date" id="extendUntil" />
+                </div>
+                <button type="button" class="btn" id="btnExtendSeries">Extend</button>
+              </div>
+            </div>
+          </div>
           <div class="row">
             <div>
               <label>Status</label>
