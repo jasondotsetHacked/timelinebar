@@ -15,6 +15,8 @@
     endField: byId("endField"),
     bucketField: byId("bucketField"),
     noteField: byId("noteField"),
+    notePreview: byId("notePreview"),
+    notePreviewToggle: byId("notePreviewToggle"),
     modalForm: byId("modalForm"),
     modalCancel: byId("modalCancel"),
     modalClose: byId("modalClose"),
@@ -375,6 +377,59 @@
 
   // src/ui.js
   var escapeHtml = (s) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
+  function markdownToHtml(md) {
+    const text = String(md || "");
+    if (!text.trim()) return "";
+    try {
+      if (window.marked && typeof window.marked.parse === "function") {
+        const raw = window.marked.parse(text);
+        if (window.DOMPurify && typeof window.DOMPurify.sanitize === "function") return window.DOMPurify.sanitize(raw);
+        return raw;
+      }
+    } catch (e) {
+    }
+    return escapeHtml(text).replace(/\n/g, "<br>");
+  }
+  function hideNotePopover() {
+    const existing = document.querySelector(".note-popover");
+    if (existing) existing.remove();
+  }
+  function toggleNotePopover(id) {
+    const punchEl = els.track.querySelector(`.punch[data-id="${id}"]`);
+    if (!punchEl) return;
+    const existing = document.querySelector(".note-popover");
+    if (existing && Number(existing.dataset.id) === Number(id)) {
+      existing.remove();
+      return;
+    }
+    if (existing) existing.remove();
+    const p = state.punches.find((x) => x.id === id);
+    if (!p || !p.note) return;
+    const pop = document.createElement("div");
+    pop.className = "note-popover";
+    pop.dataset.id = String(id);
+    pop.innerHTML = `<button class="note-close" aria-label="Close">\u2715</button><div class="note-content"></div>`;
+    const content = pop.querySelector(".note-content");
+    content.innerHTML = markdownToHtml(p.note);
+    els.track.appendChild(pop);
+    const trackRect = els.track.getBoundingClientRect();
+    const elRect = punchEl.getBoundingClientRect();
+    pop.style.left = Math.max(8, elRect.left + elRect.width / 2 - trackRect.left - 140) + "px";
+    pop.style.top = "6px";
+    requestAnimationFrame(() => {
+      const pr = pop.getBoundingClientRect();
+      let left = elRect.left + elRect.width / 2 - trackRect.left - pr.width / 2;
+      left = Math.max(6, Math.min(left, trackRect.width - pr.width - 6));
+      let top = elRect.top - trackRect.top - pr.height - 10;
+      if (top < -pr.height * 0.15) top = elRect.bottom - trackRect.top + 10;
+      pop.style.left = left + "px";
+      pop.style.top = top + "px";
+    });
+    pop.addEventListener("click", (e) => {
+      if (e.target.closest(".note-close")) hideNotePopover();
+      e.stopPropagation();
+    });
+  }
   function getView2() {
     const start = Math.max(0, Math.min(24 * 60, Number(state.viewStartMin)));
     const end = Math.max(0, Math.min(24 * 60, Number(state.viewEndMin)));
@@ -411,6 +466,7 @@
   }
   function renderTimeline() {
     var _a;
+    hideNotePopover();
     els.track.querySelectorAll(".punch").forEach((n) => n.remove());
     const existingLayer = els.track.querySelector(".label-layer");
     if (existingLayer) existingLayer.remove();
@@ -508,6 +564,14 @@
           console.log("HANDLE_DEBUG", { id: p.id, pxWidth, edgeW, leftPct, widthPct });
         }
       } catch (e) {
+      }
+      if (p.note && String(p.note).trim()) {
+        const noteBtn = document.createElement("button");
+        noteBtn.className = "note-dot";
+        noteBtn.title = "Show note";
+        noteBtn.type = "button";
+        noteBtn.dataset.id = p.id;
+        el.appendChild(noteBtn);
       }
       els.track.appendChild(el);
       try {
@@ -723,6 +787,19 @@
     els.endField.value = time.toLabel(range.endMin);
     els.bucketField.value = "";
     els.noteField.value = "";
+    try {
+      if (els.notePreview) {
+        els.notePreview.style.display = "none";
+        els.notePreview.innerHTML = "";
+      }
+      if (els.notePreviewToggle) els.notePreviewToggle.textContent = "Preview";
+      if (els.noteField) {
+        els.noteField.style.height = "auto";
+        const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
+        els.noteField.style.height = h + "px";
+      }
+    } catch (e) {
+    }
     if (els.modalStatusBtn) {
       els.modalStatusBtn.dataset.value = "default";
       els.modalStatusBtn.className = "status-btn status-default";
@@ -754,6 +831,8 @@
     renderTimeline,
     renderTable,
     renderTotal,
+    toggleNotePopover,
+    hideNotePopover,
     showGhost,
     hideGhost,
     showTips,
@@ -1201,6 +1280,20 @@
   };
 
   // src/actions/index.js
+  var escapeHtml2 = (s) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
+  var mdToHtml = (text) => {
+    const t = String(text || "");
+    if (!t.trim()) return "";
+    try {
+      if (window.marked && typeof window.marked.parse === "function") {
+        const raw = window.marked.parse(t);
+        if (window.DOMPurify && typeof window.DOMPurify.sanitize === "function") return window.DOMPurify.sanitize(raw);
+        return raw;
+      }
+    } catch (e) {
+    }
+    return escapeHtml2(t).replace(/\n/g, "<br>");
+  };
   var saveNewFromModal = async (e) => {
     e.preventDefault();
     if (!state.pendingRange) return;
@@ -1252,11 +1345,7 @@
   };
   var closeModal2 = () => ui.closeModal();
   var attachEvents = () => {
-<<<<<<< HEAD
-    var _a, _b;
-=======
-    var _a, _b, _c, _d, _e;
->>>>>>> 134b5b7bfe1cf0b818c9ee64978f954cd3a61e78
+    var _a, _b, _c, _d, _e, _f, _g;
     dragActions.attach();
     resizeActions.attach();
     calendarActions.attach();
@@ -1327,6 +1416,19 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        try {
+          if (els.notePreview) {
+            els.notePreview.style.display = "none";
+            els.notePreview.innerHTML = "";
+          }
+          if (els.notePreviewToggle) els.notePreviewToggle.textContent = "Preview";
+          if (els.noteField) {
+            els.noteField.style.height = "auto";
+            const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
+            els.noteField.style.height = h + "px";
+          }
+        } catch (e2) {
+        }
         if (els.modalStatusBtn) {
           const st = p.status || "default";
           els.modalStatusBtn.dataset.value = st;
@@ -1467,10 +1569,13 @@
     });
     window.addEventListener("resize", () => ui.renderAll());
     window.addEventListener("click", (e) => {
-      var _a2;
+      var _a2, _b2, _c2;
       if (!e.target.closest(".status-wrap")) {
         els.rows.querySelectorAll(".status-wrap.open").forEach((w) => w.classList.remove("open"));
         (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.remove("open");
+      }
+      if (!e.target.closest(".note-popover") && !e.target.closest(".note-dot")) {
+        (_c2 = (_b2 = ui).hideNotePopover) == null ? void 0 : _c2.call(_b2);
       }
     });
     els.track.addEventListener("mouseover", (e) => {
@@ -1516,13 +1621,54 @@
       state.viewEndMin = Math.max(s, e);
       ui.renderAll();
     };
-<<<<<<< HEAD
-    (_a = els.view24) == null ? void 0 : _a.addEventListener("click", () => setView(0, 24 * 60));
-    (_b = els.viewDefault) == null ? void 0 : _b.addEventListener("click", () => setView(6 * 60, 18 * 60));
-=======
     (_d = els.view24) == null ? void 0 : _d.addEventListener("click", () => setView(0, 24 * 60));
     (_e = els.viewDefault) == null ? void 0 : _e.addEventListener("click", () => setView(6 * 60, 18 * 60));
->>>>>>> 134b5b7bfe1cf0b818c9ee64978f954cd3a61e78
+    els.track.addEventListener("click", (e) => {
+      var _a2, _b2, _c2, _d2;
+      const dot = e.target.closest(".note-dot");
+      if (dot) {
+        const id = Number(dot.dataset.id);
+        if (id) (_b2 = (_a2 = ui).toggleNotePopover) == null ? void 0 : _b2.call(_a2, id);
+        e.stopPropagation();
+        return;
+      }
+      const punch = e.target.closest(".punch");
+      if (punch) {
+        const id = Number(punch.dataset.id);
+        if (!id) return;
+        const p = state.punches.find((x) => x.id === id);
+        if (p == null ? void 0 : p.note) {
+          (_d2 = (_c2 = ui).toggleNotePopover) == null ? void 0 : _d2.call(_c2, id);
+          e.stopPropagation();
+        }
+      }
+    });
+    (_f = els.noteField) == null ? void 0 : _f.addEventListener("input", () => {
+      try {
+        els.noteField.style.height = "auto";
+        const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
+        els.noteField.style.height = h + "px";
+        if (els.notePreview && els.notePreview.style.display !== "none") {
+          els.notePreview.innerHTML = mdToHtml(els.noteField.value);
+        }
+      } catch (e) {
+      }
+    });
+    (_g = els.notePreviewToggle) == null ? void 0 : _g.addEventListener("click", (e) => {
+      var _a2;
+      e.preventDefault();
+      if (!els.notePreview) return;
+      const showing = els.notePreview.style.display !== "none";
+      if (showing) {
+        els.notePreview.style.display = "none";
+        els.notePreview.innerHTML = "";
+        if (els.notePreviewToggle) els.notePreviewToggle.textContent = "Preview";
+      } else {
+        els.notePreview.innerHTML = mdToHtml(((_a2 = els.noteField) == null ? void 0 : _a2.value) || "");
+        els.notePreview.style.display = "";
+        if (els.notePreviewToggle) els.notePreviewToggle.textContent = "Hide preview";
+      }
+    });
   };
   var actions = {
     attachEvents
