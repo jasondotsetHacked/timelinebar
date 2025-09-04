@@ -411,17 +411,21 @@
     pop.innerHTML = `<button class="note-close" aria-label="Close">\u2715</button><div class="note-content"></div>`;
     const content = pop.querySelector(".note-content");
     content.innerHTML = markdownToHtml(p.note);
-    els.track.appendChild(pop);
-    const trackRect = els.track.getBoundingClientRect();
+    document.body.appendChild(pop);
     const elRect = punchEl.getBoundingClientRect();
-    pop.style.left = Math.max(8, elRect.left + elRect.width / 2 - trackRect.left - 140) + "px";
+    const approxW = 280;
+    const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+    let left0 = elRect.left + elRect.width / 2 - approxW / 2;
+    left0 = Math.max(6, Math.min(left0, vw - approxW - 6));
+    pop.style.left = left0 + "px";
     pop.style.top = "6px";
     requestAnimationFrame(() => {
       const pr = pop.getBoundingClientRect();
-      let left = elRect.left + elRect.width / 2 - trackRect.left - pr.width / 2;
-      left = Math.max(6, Math.min(left, trackRect.width - pr.width - 6));
-      let top = elRect.top - trackRect.top - pr.height - 10;
-      if (top < -pr.height * 0.15) top = elRect.bottom - trackRect.top + 10;
+      const vw2 = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+      let left = elRect.left + elRect.width / 2 - pr.width / 2;
+      left = Math.max(6, Math.min(left, vw2 - pr.width - 6));
+      let top = elRect.top - pr.height - 10;
+      if (top < 8) top = elRect.bottom + 10;
       pop.style.left = left + "px";
       pop.style.top = top + "px";
     });
