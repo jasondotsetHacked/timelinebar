@@ -153,6 +153,7 @@ textarea { resize: vertical; min-height: 72px; }
 .btn { appearance: none; border: 0; border-radius: 10px; padding: 10px 14px; font-weight: 700; cursor: pointer; }
 .btn.primary { background: linear-gradient(180deg, var(--accent), #18b67c); color: #042416; }
 .btn.ghost { background: rgba(255,255,255,.06); color: var(--text); }
+.btn.danger { background: #ff6b6b; color: #1e0f0f; }
 
 /* Table */
 /* Allow status dropdowns to overflow outside the card without clipping */

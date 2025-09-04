@@ -25,6 +25,10 @@ const saveNewFromModal = async (e) => {
     bucket: els.bucketField.value.trim(),
     note: els.noteField.value.trim(),
     date: state.currentDate || todayStr(),
+    status: (() => {
+      const val = els.modalStatusBtn?.dataset.value || 'default';
+      return val === 'default' ? null : val;
+    })(),
   };
   if (state.editingId) {
     const idx = state.punches.findIndex((p) => p.id === state.editingId);
@@ -129,6 +133,13 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      if (els.modalStatusBtn) {
+        const st = p.status || 'default';
+        els.modalStatusBtn.dataset.value = st;
+        els.modalStatusBtn.className = `status-btn status-${st}`;
+      }
+      if (els.modalStatusWrap) els.modalStatusWrap.classList.remove('open');
+      if (els.modalDelete) els.modalDelete.style.display = '';
       if (els.modalTitle) els.modalTitle.textContent = 'Edit Time Block';
       els.modal.style.display = 'flex';
       els.bucketField.focus();
@@ -148,6 +159,13 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      if (els.modalStatusBtn) {
+        const st = p.status || 'default';
+        els.modalStatusBtn.dataset.value = st;
+        els.modalStatusBtn.className = `status-btn status-${st}`;
+      }
+      if (els.modalStatusWrap) els.modalStatusWrap.classList.remove('open');
+      if (els.modalDelete) els.modalDelete.style.display = '';
       if (els.modalTitle) els.modalTitle.textContent = 'Edit Time Block';
       els.modal.style.display = 'flex';
       els.bucketField.focus();
@@ -164,6 +182,13 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      if (els.modalStatusBtn) {
+        const st = p.status || 'default';
+        els.modalStatusBtn.dataset.value = st;
+        els.modalStatusBtn.className = `status-btn status-${st}`;
+      }
+      if (els.modalStatusWrap) els.modalStatusWrap.classList.remove('open');
+      if (els.modalDelete) els.modalDelete.style.display = '';
       if (els.modalTitle) els.modalTitle.textContent = 'Edit Time Block';
       els.modal.style.display = 'flex';
       els.bucketField.focus();
@@ -191,6 +216,13 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      if (els.modalStatusBtn) {
+        const st = p.status || 'default';
+        els.modalStatusBtn.dataset.value = st;
+        els.modalStatusBtn.className = `status-btn status-${st}`;
+      }
+      if (els.modalStatusWrap) els.modalStatusWrap.classList.remove('open');
+      if (els.modalDelete) els.modalDelete.style.display = '';
       if (els.modalTitle) els.modalTitle.textContent = 'Edit Time Block';
       els.modal.style.display = 'flex';
       els.bucketField.focus();
@@ -212,6 +244,30 @@ const attachEvents = () => {
   els.modalForm.addEventListener('submit', saveNewFromModal);
   els.modalCancel.addEventListener('click', closeModal);
   els.modalClose.addEventListener('click', closeModal);
+  els.modalDelete?.addEventListener('click', async () => {
+    if (!state.editingId) return;
+    if (!confirm('Delete this time entry?')) return;
+    await idb.remove(state.editingId);
+    state.punches = await idb.all();
+    state.editingId = null;
+    ui.closeModal();
+    ui.renderAll();
+    ui.toast('Deleted');
+  });
+  els.modalStatusBtn?.addEventListener('click', () => {
+    els.modalStatusWrap?.classList.toggle('open');
+  });
+  els.modalStatusMenu?.addEventListener('click', (e) => {
+    const opt = e.target.closest('.status-option');
+    if (!opt) return;
+    const val = opt.dataset.value;
+    if (!val) return;
+    if (els.modalStatusBtn) {
+      els.modalStatusBtn.dataset.value = val;
+      els.modalStatusBtn.className = `status-btn status-${val}`;
+    }
+    els.modalStatusWrap?.classList.remove('open');
+  });
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
   });
@@ -220,6 +276,7 @@ const attachEvents = () => {
   window.addEventListener('click', (e) => {
     if (!e.target.closest('.status-wrap')) {
       els.rows.querySelectorAll('.status-wrap.open').forEach((w) => w.classList.remove('open'));
+      els.modalStatusWrap?.classList.remove('open');
     }
   });
 

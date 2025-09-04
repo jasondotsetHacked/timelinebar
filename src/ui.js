@@ -396,6 +396,12 @@ function openModal(range) {
   els.endField.value = time.toLabel(range.endMin);
   els.bucketField.value = '';
   els.noteField.value = '';
+  if (els.modalStatusBtn) {
+    els.modalStatusBtn.dataset.value = 'default';
+    els.modalStatusBtn.className = 'status-btn status-default';
+  }
+  if (els.modalStatusWrap) els.modalStatusWrap.classList.remove('open');
+  if (els.modalDelete) els.modalDelete.style.display = 'none';
   if (els.modalTitle) els.modalTitle.textContent = 'New Time Block';
   els.modal.style.display = 'flex';
   els.bucketField.focus();
@@ -405,6 +411,7 @@ function closeModal() {
   els.modal.style.display = 'none';
   state.pendingRange = null;
   state.editingId = null;
+  if (els.modalStatusWrap) els.modalStatusWrap.classList.remove('open');
 }
 
 function toast(msg) {

@@ -20,6 +20,10 @@
     modalClose: byId("modalClose"),
     modalTitle: document.querySelector(".modal-title"),
     modalFooter: document.querySelector(".modal-footer"),
+    modalDelete: byId("modalDelete"),
+    modalStatusWrap: byId("modalStatusWrap"),
+    modalStatusBtn: byId("modalStatusBtn"),
+    modalStatusMenu: byId("modalStatusMenu"),
     total: byId("total"),
     toast: byId("toast"),
     viewHelp: byId("viewHelp"),
@@ -719,6 +723,12 @@
     els.endField.value = time.toLabel(range.endMin);
     els.bucketField.value = "";
     els.noteField.value = "";
+    if (els.modalStatusBtn) {
+      els.modalStatusBtn.dataset.value = "default";
+      els.modalStatusBtn.className = "status-btn status-default";
+    }
+    if (els.modalStatusWrap) els.modalStatusWrap.classList.remove("open");
+    if (els.modalDelete) els.modalDelete.style.display = "none";
     if (els.modalTitle) els.modalTitle.textContent = "New Time Block";
     els.modal.style.display = "flex";
     els.bucketField.focus();
@@ -727,6 +737,7 @@
     els.modal.style.display = "none";
     state.pendingRange = null;
     state.editingId = null;
+    if (els.modalStatusWrap) els.modalStatusWrap.classList.remove("open");
   }
   function toast(msg) {
     els.toast.textContent = msg;
@@ -785,7 +796,7 @@
   );
   var idb = { add, put, remove, all };
 
-  // src/actions.js
+  // src/actions/helpers.js
   var getView3 = () => {
     const start = Math.max(0, Math.min(24 * 60, state.viewStartMin | 0));
     const end = Math.max(0, Math.min(24 * 60, state.viewEndMin | 0));
@@ -804,7 +815,9 @@
   };
   var overlapsAny = (start, end, excludeId = null) => {
     const day = state.currentDate || todayStr();
-    return state.punches.some((p) => p.id !== excludeId && getPunchDate(p) === day && start < p.end && end > p.start);
+    return state.punches.some(
+      (p) => p.id !== excludeId && getPunchDate(p) === day && start < p.end && end > p.start
+    );
   };
   var nearestBounds = (forId) => {
     const day = state.currentDate || todayStr();
@@ -820,6 +833,8 @@
       }
     };
   };
+
+  // src/actions/drag.js
   var startDrag = (e) => {
     if (e.target.closest(".handle")) return;
     if (e.target.closest(".punch")) return;
@@ -858,76 +873,6 @@
     window.removeEventListener("touchmove", onDragMove);
     window.removeEventListener("mouseup", endDrag);
     window.removeEventListener("touchend", endDrag);
-  };
-  var startResize = (e) => {
-    const handle = e.target.closest(".handle");
-    if (!handle) return;
-    const punchEl = handle.closest(".punch");
-    const id = Number(punchEl.dataset.id);
-    const p = state.punches.find((x) => x.id === id);
-    state.resizing = { id, edge: handle.dataset.edge, startStart: p.start, startEnd: p.end };
-    if (handle.dataset.edge === "left") punchEl.classList.add("resizing-left");
-    if (handle.dataset.edge === "right") punchEl.classList.add("resizing-right");
-    window.addEventListener("mousemove", onResizeMove);
-    window.addEventListener("touchmove", onResizeMove, { passive: false });
-    window.addEventListener("mouseup", endResize);
-    window.addEventListener("touchend", endResize);
-    e.stopPropagation();
-  };
-  var onResizeMove = (e) => {
-    if (!state.resizing) return;
-    if (e.cancelable) e.preventDefault();
-    const { id, edge, startStart, startEnd } = state.resizing;
-    const raw = e.touches ? pxToMinutes(e.touches[0].clientX) : pxToMinutes(e.clientX);
-    const m = time.snap(raw);
-    const bounds = nearestBounds(id);
-    let newStart = startStart;
-    let newEnd = startEnd;
-    if (edge === "left") {
-      const minL = bounds.leftLimitAt(startStart);
-      const maxL = startEnd - 1;
-      newStart = Math.min(maxL, Math.max(minL, m));
-      newStart = time.snap(newStart);
-    }
-    if (edge === "right") {
-      const minR = startStart + 1;
-      const maxR = bounds.rightLimitAt(startEnd);
-      newEnd = Math.max(minR, Math.min(maxR, m));
-      newEnd = time.snap(newEnd);
-    }
-    const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
-    const el = els.track.querySelector(`.punch[data-id="${id}"]`);
-    const view = getView3();
-    const leftPct = (Math.max(newStart, view.start) - view.start) / view.minutes * 100;
-    const widthPctRaw = (Math.min(newEnd, view.end) - Math.max(newStart, view.start)) / view.minutes * 100;
-    const widthPct = Math.max(0, widthPctRaw);
-    el.style.left = leftPct + "%";
-    el.style.width = widthPct + "%";
-    el.classList.toggle("invalid", invalid);
-    state.resizing.preview = { newStart, newEnd, invalid };
-    ui.showTips(newStart, newEnd);
-  };
-  var endResize = async () => {
-    if (!state.resizing) return;
-    const { id } = state.resizing;
-    const preview = state.resizing.preview;
-    const punchEl = els.track.querySelector(`.punch[data-id="${id}"]`);
-    if (punchEl) punchEl.classList.remove("resizing-left", "resizing-right");
-    state.resizing = null;
-    window.removeEventListener("mousemove", onResizeMove);
-    window.removeEventListener("touchmove", onResizeMove);
-    window.removeEventListener("mouseup", endResize);
-    window.removeEventListener("touchend", endResize);
-    ui.hideTips();
-    if (!preview || preview.invalid) {
-      ui.renderTimeline();
-      if (preview == null ? void 0 : preview.invalid) ui.toast("Adjust would overlap another block.");
-      return;
-    }
-    const idx = state.punches.findIndex((p) => p.id === id);
-    state.punches[idx] = { ...state.punches[idx], start: preview.newStart, end: preview.newEnd };
-    await idb.put(state.punches[idx]);
-    ui.renderAll();
   };
   var startMove = (e) => {
     const handle = e.target.closest(".handle");
@@ -1005,6 +950,257 @@
     await idb.put(state.punches[idx]);
     ui.renderAll();
   };
+  var onWheel = (e) => {
+    if (!state.overTrack) return;
+    e.preventDefault();
+    const rect = els.track.getBoundingClientRect();
+    const view = getView3();
+    const pointerX = e.clientX - rect.left;
+    const pct = Math.min(1, Math.max(0, pointerX / Math.max(1, rect.width)));
+    if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      const delta2 = e.deltaY !== 0 ? e.deltaY : e.deltaX;
+      const panMin = delta2 * 0.03;
+      let newStart2 = view.start + panMin;
+      let newEnd2 = view.end + panMin;
+      const span = view.minutes;
+      if (newStart2 < 0) {
+        newStart2 = 0;
+        newEnd2 = span;
+      } else if (newEnd2 > 24 * 60) {
+        newEnd2 = 24 * 60;
+        newStart2 = newEnd2 - span;
+      }
+      state.viewStartMin = Math.floor(newStart2);
+      state.viewEndMin = Math.floor(newEnd2);
+      ui.renderAll();
+      return;
+    }
+    const delta = e.ctrlKey ? e.deltaY : e.deltaY;
+    const factor = Math.exp(delta * 7e-4);
+    const minSpan = 45;
+    const maxSpan = 24 * 60;
+    let newSpan = Math.min(maxSpan, Math.max(minSpan, Math.round(view.minutes * factor)));
+    const anchorMin = view.start + pct * view.minutes;
+    let newStart = Math.round(anchorMin - pct * newSpan);
+    let newEnd = newStart + newSpan;
+    if (newStart < 0) {
+      newStart = 0;
+      newEnd = newSpan;
+    }
+    if (newEnd > 24 * 60) {
+      newEnd = 24 * 60;
+      newStart = newEnd - newSpan;
+    }
+    state.viewStartMin = newStart;
+    state.viewEndMin = newEnd;
+    ui.renderAll();
+  };
+  var dragActions = {
+    attach: () => {
+      els.track.addEventListener("mousedown", startDrag);
+      els.track.addEventListener("touchstart", startDrag, { passive: true });
+      els.track.addEventListener("mousedown", startMove);
+      els.track.addEventListener("touchstart", startMove, { passive: true });
+      els.track.addEventListener("mouseenter", () => state.overTrack = true);
+      els.track.addEventListener("mouseleave", () => state.overTrack = false);
+      window.addEventListener("wheel", onWheel, { passive: false });
+    }
+  };
+
+  // src/actions/resize.js
+  var startResize = (e) => {
+    const handle = e.target.closest(".handle");
+    if (!handle) return;
+    const punchEl = handle.closest(".punch");
+    const id = Number(punchEl.dataset.id);
+    const p = state.punches.find((x) => x.id === id);
+    state.resizing = { id, edge: handle.dataset.edge, startStart: p.start, startEnd: p.end };
+    if (handle.dataset.edge === "left") punchEl.classList.add("resizing-left");
+    if (handle.dataset.edge === "right") punchEl.classList.add("resizing-right");
+    window.addEventListener("mousemove", onResizeMove);
+    window.addEventListener("touchmove", onResizeMove, { passive: false });
+    window.addEventListener("mouseup", endResize);
+    window.addEventListener("touchend", endResize);
+    e.stopPropagation();
+  };
+  var onResizeMove = (e) => {
+    if (!state.resizing) return;
+    if (e.cancelable) e.preventDefault();
+    const { id, edge, startStart, startEnd } = state.resizing;
+    const raw = e.touches ? pxToMinutes(e.touches[0].clientX) : pxToMinutes(e.clientX);
+    const m = time.snap(raw);
+    const bounds = nearestBounds(id);
+    let newStart = startStart;
+    let newEnd = startEnd;
+    if (edge === "left") {
+      const minL = bounds.leftLimitAt(startStart);
+      const maxL = startEnd - 1;
+      newStart = Math.min(maxL, Math.max(minL, m));
+      newStart = time.snap(newStart);
+    }
+    if (edge === "right") {
+      const minR = startStart + 1;
+      const maxR = bounds.rightLimitAt(startEnd);
+      newEnd = Math.max(minR, Math.min(maxR, m));
+      newEnd = time.snap(newEnd);
+    }
+    const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
+    const el = els.track.querySelector(`.punch[data-id="${id}"]`);
+    const view = getView3();
+    const leftPct = (Math.max(newStart, view.start) - view.start) / view.minutes * 100;
+    const widthPctRaw = (Math.min(newEnd, view.end) - Math.max(newStart, view.start)) / view.minutes * 100;
+    const widthPct = Math.max(0, widthPctRaw);
+    el.style.left = leftPct + "%";
+    el.style.width = widthPct + "%";
+    el.classList.toggle("invalid", invalid);
+    state.resizing.preview = { newStart, newEnd, invalid };
+    ui.showTips(newStart, newEnd);
+  };
+  var endResize = async () => {
+    if (!state.resizing) return;
+    const { id } = state.resizing;
+    const preview = state.resizing.preview;
+    const punchEl = els.track.querySelector(`.punch[data-id="${id}"]`);
+    if (punchEl) punchEl.classList.remove("resizing-left", "resizing-right");
+    state.resizing = null;
+    window.removeEventListener("mousemove", onResizeMove);
+    window.removeEventListener("touchmove", onResizeMove);
+    window.removeEventListener("mouseup", endResize);
+    window.removeEventListener("touchend", endResize);
+    ui.hideTips();
+    if (!preview || preview.invalid) {
+      ui.renderTimeline();
+      if (preview == null ? void 0 : preview.invalid) ui.toast("Adjust would overlap another block.");
+      return;
+    }
+    const idx = state.punches.findIndex((p) => p.id === id);
+    state.punches[idx] = { ...state.punches[idx], start: preview.newStart, end: preview.newEnd };
+    await idb.put(state.punches[idx]);
+    ui.renderAll();
+  };
+  var resizeActions = {
+    attach: () => {
+      els.track.addEventListener("mousedown", startResize);
+      els.track.addEventListener("touchstart", startResize, { passive: true });
+    }
+  };
+
+  // src/actions/calendar.js
+  var toggleCalendarView = () => {
+    state.viewMode = state.viewMode === "calendar" ? "day" : "calendar";
+    ui.updateViewMode();
+  };
+  var calendarActions = {
+    attach: () => {
+      if (els.btnCalendar) {
+        els.btnCalendar.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleCalendarView();
+        });
+      }
+      if (els.btnCalendar2) {
+        els.btnCalendar2.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleCalendarView();
+        });
+      }
+      if (els.dayLabel) {
+        els.dayLabel.addEventListener("click", (e) => {
+          e.preventDefault();
+          if (state.viewMode !== "calendar") toggleCalendarView();
+        });
+        els.dayLabel.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (state.viewMode !== "calendar") toggleCalendarView();
+          }
+        });
+      }
+      if (els.btnCalendarFab) {
+        els.btnCalendarFab.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleCalendarView();
+        });
+      }
+      document.addEventListener("click", (e) => {
+        var _a;
+        const id = (_a = e.target) == null ? void 0 : _a.id;
+        if (id === "btnCalendar" || id === "btnCalendar2" || id === "btnCalendarFab") {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleCalendarView();
+        }
+      });
+      if (els.calPrev) {
+        els.calPrev.addEventListener("click", () => {
+          if (state.calendarMode === "days") {
+            calendar.prevMonth();
+          } else if (state.calendarMode === "months") {
+            state.calendarYear -= 1;
+            calendar.renderCalendar();
+          } else {
+            state.yearGridStart -= 12;
+            calendar.renderCalendar();
+          }
+        });
+      }
+      if (els.calNext) {
+        els.calNext.addEventListener("click", () => {
+          if (state.calendarMode === "days") {
+            calendar.nextMonth();
+          } else if (state.calendarMode === "months") {
+            state.calendarYear += 1;
+            calendar.renderCalendar();
+          } else {
+            state.yearGridStart += 12;
+            calendar.renderCalendar();
+          }
+        });
+      }
+      if (els.calMonthLabel) {
+        els.calMonthLabel.addEventListener("click", (e) => {
+          const t = e.target.closest("[data-cal-click]");
+          if (t) {
+            const what = t.dataset.calClick;
+            if (what === "year") {
+              state.calendarMode = "years";
+              state.yearGridStart = Math.floor(state.calendarYear / 12) * 12;
+              calendar.renderCalendar();
+              ui.updateHelpText();
+              return;
+            } else if (what === "month") {
+              state.calendarMode = "months";
+              calendar.renderCalendar();
+              ui.updateHelpText();
+              return;
+            }
+          }
+          const nav = e.target.closest("[data-cal-nav]");
+          if (nav) {
+            const dir = nav.dataset.calNav;
+            const delta = dir === "prev" ? -1 : 1;
+            if (state.calendarMode === "days") {
+              if (delta === -1) calendar.prevMonth();
+              else calendar.nextMonth();
+            } else if (state.calendarMode === "months") {
+              state.calendarYear += delta;
+              calendar.renderCalendar();
+            } else {
+              state.yearGridStart += delta * 12;
+              calendar.renderCalendar();
+            }
+          }
+        });
+      }
+      window.addEventListener("calendar:daySelected", () => ui.updateViewMode());
+      window.addEventListener("calendar:modeChanged", () => ui.updateHelpText());
+    }
+  };
+
+  // src/actions/index.js
   var saveNewFromModal = async (e) => {
     e.preventDefault();
     if (!state.pendingRange) return;
@@ -1020,7 +1216,12 @@
       end: eMin,
       bucket: els.bucketField.value.trim(),
       note: els.noteField.value.trim(),
-      date: state.currentDate || todayStr()
+      date: state.currentDate || todayStr(),
+      status: (() => {
+        var _a;
+        const val = ((_a = els.modalStatusBtn) == null ? void 0 : _a.dataset.value) || "default";
+        return val === "default" ? null : val;
+      })()
     };
     if (state.editingId) {
       const idx = state.punches.findIndex((p) => p.id === state.editingId);
@@ -1050,123 +1251,11 @@
     ui.renderAll();
   };
   var closeModal2 = () => ui.closeModal();
-  var toggleCalendarView = () => {
-    state.viewMode = state.viewMode === "calendar" ? "day" : "calendar";
-    ui.updateViewMode();
-  };
   var attachEvents = () => {
-    var _a, _b;
-    els.track.addEventListener("mousedown", startDrag);
-    els.track.addEventListener("touchstart", startDrag, { passive: true });
-    els.track.addEventListener("mousedown", startMove);
-    els.track.addEventListener("touchstart", startMove, { passive: true });
-    els.track.addEventListener("mousedown", startResize);
-    els.track.addEventListener("touchstart", startResize, { passive: true });
-    if (els.btnCalendar) {
-      els.btnCalendar.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleCalendarView();
-      });
-    }
-    if (els.btnCalendar2) {
-      els.btnCalendar2.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleCalendarView();
-      });
-    }
-    if (els.dayLabel) {
-      els.dayLabel.addEventListener("click", (e) => {
-        e.preventDefault();
-        if (state.viewMode !== "calendar") toggleCalendarView();
-      });
-      els.dayLabel.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          if (state.viewMode !== "calendar") toggleCalendarView();
-        }
-      });
-    }
-    if (els.btnCalendarFab) {
-      els.btnCalendarFab.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleCalendarView();
-      });
-    }
-    document.addEventListener("click", (e) => {
-      var _a2;
-      const id = (_a2 = e.target) == null ? void 0 : _a2.id;
-      if (id === "btnCalendar" || id === "btnCalendar2" || id === "btnCalendarFab") {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleCalendarView();
-      }
-    });
-    if (els.calPrev) {
-      els.calPrev.addEventListener("click", () => {
-        if (state.calendarMode === "days") {
-          calendar.prevMonth();
-        } else if (state.calendarMode === "months") {
-          state.calendarYear -= 1;
-          calendar.renderCalendar();
-        } else {
-          state.yearGridStart -= 12;
-          calendar.renderCalendar();
-        }
-      });
-    }
-    if (els.calNext) {
-      els.calNext.addEventListener("click", () => {
-        if (state.calendarMode === "days") {
-          calendar.nextMonth();
-        } else if (state.calendarMode === "months") {
-          state.calendarYear += 1;
-          calendar.renderCalendar();
-        } else {
-          state.yearGridStart += 12;
-          calendar.renderCalendar();
-        }
-      });
-    }
-    if (els.calMonthLabel) {
-      els.calMonthLabel.addEventListener("click", (e) => {
-        const t = e.target.closest("[data-cal-click]");
-        if (t) {
-          const what = t.dataset.calClick;
-          if (what === "year") {
-            state.calendarMode = "years";
-            state.yearGridStart = Math.floor(state.calendarYear / 12) * 12;
-            calendar.renderCalendar();
-            ui.updateHelpText();
-            return;
-          } else if (what === "month") {
-            state.calendarMode = "months";
-            calendar.renderCalendar();
-            ui.updateHelpText();
-            return;
-          }
-        }
-        const nav = e.target.closest("[data-cal-nav]");
-        if (nav) {
-          const dir = nav.dataset.calNav;
-          const delta = dir === "prev" ? -1 : 1;
-          if (state.calendarMode === "days") {
-            if (delta === -1) calendar.prevMonth();
-            else calendar.nextMonth();
-          } else if (state.calendarMode === "months") {
-            state.calendarYear += delta;
-            calendar.renderCalendar();
-          } else {
-            state.yearGridStart += delta * 12;
-            calendar.renderCalendar();
-          }
-        }
-      });
-    }
-    window.addEventListener("calendar:daySelected", () => ui.updateViewMode());
-    window.addEventListener("calendar:modeChanged", () => ui.updateHelpText());
+    var _a, _b, _c, _d, _e;
+    dragActions.attach();
+    resizeActions.attach();
+    calendarActions.attach();
     els.rows.addEventListener("click", async (e) => {
       const btn = e.target.closest(".status-btn");
       if (btn) {
@@ -1234,6 +1323,13 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        if (els.modalStatusBtn) {
+          const st = p.status || "default";
+          els.modalStatusBtn.dataset.value = st;
+          els.modalStatusBtn.className = `status-btn status-${st}`;
+        }
+        if (els.modalStatusWrap) els.modalStatusWrap.classList.remove("open");
+        if (els.modalDelete) els.modalDelete.style.display = "";
         if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
         els.modal.style.display = "flex";
         els.bucketField.focus();
@@ -1252,6 +1348,13 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        if (els.modalStatusBtn) {
+          const st = p.status || "default";
+          els.modalStatusBtn.dataset.value = st;
+          els.modalStatusBtn.className = `status-btn status-${st}`;
+        }
+        if (els.modalStatusWrap) els.modalStatusWrap.classList.remove("open");
+        if (els.modalDelete) els.modalDelete.style.display = "";
         if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
         els.modal.style.display = "flex";
         els.bucketField.focus();
@@ -1268,6 +1371,13 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        if (els.modalStatusBtn) {
+          const st = p.status || "default";
+          els.modalStatusBtn.dataset.value = st;
+          els.modalStatusBtn.className = `status-btn status-${st}`;
+        }
+        if (els.modalStatusWrap) els.modalStatusWrap.classList.remove("open");
+        if (els.modalDelete) els.modalDelete.style.display = "";
         if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
         els.modal.style.display = "flex";
         els.bucketField.focus();
@@ -1295,6 +1405,13 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        if (els.modalStatusBtn) {
+          const st = p.status || "default";
+          els.modalStatusBtn.dataset.value = st;
+          els.modalStatusBtn.className = `status-btn status-${st}`;
+        }
+        if (els.modalStatusWrap) els.modalStatusWrap.classList.remove("open");
+        if (els.modalDelete) els.modalDelete.style.display = "";
         if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
         els.modal.style.display = "flex";
         els.bucketField.focus();
@@ -1315,13 +1432,41 @@
     els.modalForm.addEventListener("submit", saveNewFromModal);
     els.modalCancel.addEventListener("click", closeModal2);
     els.modalClose.addEventListener("click", closeModal2);
+    (_a = els.modalDelete) == null ? void 0 : _a.addEventListener("click", async () => {
+      if (!state.editingId) return;
+      if (!confirm("Delete this time entry?")) return;
+      await idb.remove(state.editingId);
+      state.punches = await idb.all();
+      state.editingId = null;
+      ui.closeModal();
+      ui.renderAll();
+      ui.toast("Deleted");
+    });
+    (_b = els.modalStatusBtn) == null ? void 0 : _b.addEventListener("click", () => {
+      var _a2;
+      (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.toggle("open");
+    });
+    (_c = els.modalStatusMenu) == null ? void 0 : _c.addEventListener("click", (e) => {
+      var _a2;
+      const opt = e.target.closest(".status-option");
+      if (!opt) return;
+      const val = opt.dataset.value;
+      if (!val) return;
+      if (els.modalStatusBtn) {
+        els.modalStatusBtn.dataset.value = val;
+        els.modalStatusBtn.className = `status-btn status-${val}`;
+      }
+      (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.remove("open");
+    });
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeModal2();
     });
     window.addEventListener("resize", () => ui.renderAll());
     window.addEventListener("click", (e) => {
+      var _a2;
       if (!e.target.closest(".status-wrap")) {
         els.rows.querySelectorAll(".status-wrap.open").forEach((w) => w.classList.remove("open"));
+        (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.remove("open");
       }
     });
     els.track.addEventListener("mouseover", (e) => {
@@ -1367,56 +1512,8 @@
       state.viewEndMin = Math.max(s, e);
       ui.renderAll();
     };
-    (_a = els.view24) == null ? void 0 : _a.addEventListener("click", () => setView(0, 24 * 60));
-    (_b = els.viewDefault) == null ? void 0 : _b.addEventListener("click", () => setView(6 * 60, 18 * 60));
-    els.track.addEventListener("mouseenter", () => state.overTrack = true);
-    els.track.addEventListener("mouseleave", () => state.overTrack = false);
-    const onWheel = (e) => {
-      if (!state.overTrack) return;
-      e.preventDefault();
-      const rect = els.track.getBoundingClientRect();
-      const view = getView3();
-      const pointerX = e.clientX - rect.left;
-      const pct = Math.min(1, Math.max(0, pointerX / Math.max(1, rect.width)));
-      if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        const delta2 = e.deltaY !== 0 ? e.deltaY : e.deltaX;
-        const panMin = delta2 * 0.03;
-        let newStart2 = view.start + panMin;
-        let newEnd2 = view.end + panMin;
-        const span = view.minutes;
-        if (newStart2 < 0) {
-          newStart2 = 0;
-          newEnd2 = span;
-        } else if (newEnd2 > 24 * 60) {
-          newEnd2 = 24 * 60;
-          newStart2 = newEnd2 - span;
-        }
-        state.viewStartMin = Math.floor(newStart2);
-        state.viewEndMin = Math.floor(newEnd2);
-        ui.renderAll();
-        return;
-      }
-      const delta = e.ctrlKey ? e.deltaY : e.deltaY;
-      const factor = Math.exp(delta * 7e-4);
-      const minSpan = 45;
-      const maxSpan = 24 * 60;
-      let newSpan = Math.min(maxSpan, Math.max(minSpan, Math.round(view.minutes * factor)));
-      const anchorMin = view.start + pct * view.minutes;
-      let newStart = Math.round(anchorMin - pct * newSpan);
-      let newEnd = newStart + newSpan;
-      if (newStart < 0) {
-        newStart = 0;
-        newEnd = newSpan;
-      }
-      if (newEnd > 24 * 60) {
-        newEnd = 24 * 60;
-        newStart = newEnd - newSpan;
-      }
-      state.viewStartMin = newStart;
-      state.viewEndMin = newEnd;
-      ui.renderAll();
-    };
-    window.addEventListener("wheel", onWheel, { passive: false });
+    (_d = els.view24) == null ? void 0 : _d.addEventListener("click", () => setView(0, 24 * 60));
+    (_e = els.viewDefault) == null ? void 0 : _e.addEventListener("click", () => setView(6 * 60, 18 * 60));
   };
   var actions = {
     attachEvents
