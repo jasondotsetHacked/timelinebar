@@ -412,6 +412,10 @@ const attachEvents = () => {
       if (els.modalTitle) els.modalTitle.textContent = 'Edit Time Block';
       els.modal.style.display = 'flex';
       els.bucketField.focus();
+      // Prevent the track's other click handlers (e.g., note preview) from firing
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      e.stopPropagation();
+      if (e.preventDefault) e.preventDefault();
       return;
     }
     const editBtn = e.target.closest('.control-btn.edit');
@@ -812,6 +816,10 @@ const attachEvents = () => {
   els.track.addEventListener('click', (e) => {
     if (e.shiftKey) {
       // Already handled by earlier listener
+      return;
+    }
+    // Ignore clicks on the label area; label opens the edit modal only
+    if (e.target.closest('.punch-label')) {
       return;
     }
     const dot = e.target.closest('.note-dot');

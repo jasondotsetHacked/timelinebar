@@ -2539,6 +2539,9 @@
         if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
         els.modal.style.display = "flex";
         els.bucketField.focus();
+        if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
+        e.stopPropagation();
+        if (e.preventDefault) e.preventDefault();
         return;
       }
       const editBtn = e.target.closest(".control-btn.edit");
@@ -2952,6 +2955,9 @@
     els.track.addEventListener("click", (e) => {
       var _a2, _b2, _c2, _d2;
       if (e.shiftKey) {
+        return;
+      }
+      if (e.target.closest(".punch-label")) {
         return;
       }
       const dot = e.target.closest(".note-dot");
