@@ -500,9 +500,9 @@
     const existing = document.querySelector(".note-popover");
     if (existing) existing.remove();
   }
-  function toggleNotePopover(id) {
-    const punchEl = els.track.querySelector(`.punch[data-id="${id}"]`);
-    if (!punchEl) return;
+  function toggleNotePopover(id, anchorEl = null) {
+    const anchor = anchorEl || els.track.querySelector(`.punch[data-id="${id}"]`);
+    if (!anchor) return;
     const existing = document.querySelector(".note-popover");
     if (existing && Number(existing.dataset.id) === Number(id)) {
       existing.remove();
@@ -518,7 +518,7 @@
     const content = pop.querySelector(".note-content");
     content.innerHTML = markdownToHtml(p.note);
     document.body.appendChild(pop);
-    const elRect = punchEl.getBoundingClientRect();
+    const elRect = anchor.getBoundingClientRect();
     const approxW = 280;
     const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
     let left0 = elRect.left + elRect.width / 2 - approxW / 2;
@@ -811,7 +811,7 @@
       <td class="cell-end">${time.toLabel(p.end)}</td>
       <td>${time.durationLabel(dur)}</td>
       <td>${escapeHtml(p.bucket || "")}</td>
-      <td class="note">${escapeHtml(p.note || "")}</td>
+      <td class="note"><div class="note-snippet">${escapeHtml(p.note || "")}</div></td>
       <td class="table-actions">
         <button class="row-action edit" title="Edit" data-id="${p.id}">Edit</button>
         <button class="row-action delete" title="Delete" data-id="${p.id}">Delete</button>
@@ -1934,6 +1934,7 @@
     calendarActions.attach();
     settingsActions.attach();
     els.rows.addEventListener("click", async (e) => {
+      var _a2, _b2;
       const btn = e.target.closest(".status-btn");
       if (btn) {
         const wrap = btn.closest(".status-wrap");
@@ -1980,12 +1981,23 @@
       const delBtn = e.target.closest(".row-action.delete");
       if (delBtn) {
         const id = Number(delBtn.dataset.id);
-        if (!confirm("Delete this time entry?")) return;
+        const force = !!e.shiftKey;
+        if (!force && !confirm("Delete this time entry?")) return;
         await idb.remove(id);
         state.punches = await idb.all();
         ui.renderAll();
         ui.toast("Deleted");
         return;
+      }
+      const noteCell = e.target.closest("td.note");
+      if (noteCell) {
+        const tr = noteCell.closest("tr[data-id]");
+        const id = Number(tr == null ? void 0 : tr.dataset.id);
+        if (id) {
+          (_b2 = (_a2 = ui).toggleNotePopover) == null ? void 0 : _b2.call(_a2, id, noteCell);
+          e.stopPropagation();
+          return;
+        }
       }
       const editBtn = e.target.closest(".row-action.edit");
       const row = e.target.closest("tr");
@@ -2170,7 +2182,8 @@
       const delBtn = e.target.closest(".control-btn.delete");
       if (delBtn) {
         const id = Number(delBtn.dataset.id);
-        if (!confirm("Delete this time entry?")) return;
+        const force = !!e.shiftKey;
+        if (!force && !confirm("Delete this time entry?")) return;
         await idb.remove(id);
         state.punches = await idb.all();
         ui.renderAll();
@@ -2205,7 +2218,8 @@
       if (popDel) {
         const pop = e.target.closest(".label-popper");
         const id = Number(pop.dataset.id);
-        if (!confirm("Delete this time entry?")) return;
+        const force = !!e.shiftKey;
+        if (!force && !confirm("Delete this time entry?")) return;
         await idb.remove(id);
         state.punches = await idb.all();
         ui.renderAll();
@@ -2239,18 +2253,19 @@
       if (!els.repeatDow) return;
       els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => c.checked = true);
     });
-    (_e = els.modalDelete) == null ? void 0 : _e.addEventListener("click", async () => {
+    (_e = els.modalDelete) == null ? void 0 : _e.addEventListener("click", async (e) => {
       var _a2;
       if (!state.editingId) return;
       const p = state.punches.find((x) => x.id === state.editingId);
       if (!p) return;
       const applySeries = !!((_a2 = els.applyScopeSeries) == null ? void 0 : _a2.checked) && !!p.recurrenceId;
+      const force = !!e.shiftKey;
       if (applySeries) {
-        if (!confirm("Delete the entire series?")) return;
+        if (!force && !confirm("Delete the entire series?")) return;
         const items = state.punches.filter((x) => x.recurrenceId === p.recurrenceId);
         for (const it of items) await idb.remove(it.id);
       } else {
-        if (!confirm("Delete this time entry?")) return;
+        if (!force && !confirm("Delete this time entry?")) return;
         await idb.remove(state.editingId);
       }
       state.punches = await idb.all();
@@ -2321,7 +2336,7 @@
         els.rows.querySelectorAll(".status-wrap.open").forEach((w) => w.classList.remove("open"));
         (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.remove("open");
       }
-      if (!e.target.closest(".note-popover") && !e.target.closest(".note-dot")) {
+      if (!e.target.closest(".note-popover") && !e.target.closest(".note-dot") && !e.target.closest("td.note")) {
         (_c2 = (_b2 = ui).hideNotePopover) == null ? void 0 : _c2.call(_b2);
       }
     });

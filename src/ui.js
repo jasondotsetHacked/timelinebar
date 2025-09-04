@@ -27,9 +27,9 @@ function hideNotePopover() {
   if (existing) existing.remove();
 }
 
-function toggleNotePopover(id) {
-  const punchEl = els.track.querySelector(`.punch[data-id="${id}"]`);
-  if (!punchEl) return;
+function toggleNotePopover(id, anchorEl = null) {
+  const anchor = anchorEl || els.track.querySelector(`.punch[data-id="${id}"]`);
+  if (!anchor) return;
   const existing = document.querySelector('.note-popover');
   if (existing && Number(existing.dataset.id) === Number(id)) {
     existing.remove();
@@ -45,7 +45,7 @@ function toggleNotePopover(id) {
   const content = pop.querySelector('.note-content');
   content.innerHTML = markdownToHtml(p.note);
   document.body.appendChild(pop);
-  const elRect = punchEl.getBoundingClientRect();
+  const elRect = anchor.getBoundingClientRect();
   // initial position roughly centered (before measuring width)
   const approxW = 280;
   const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
@@ -373,7 +373,7 @@ function renderTable() {
       <td class="cell-end">${time.toLabel(p.end)}</td>
       <td>${time.durationLabel(dur)}</td>
       <td>${escapeHtml(p.bucket || '')}</td>
-      <td class="note">${escapeHtml(p.note || '')}</td>
+      <td class="note"><div class="note-snippet">${escapeHtml(p.note || '')}</div></td>
       <td class="table-actions">
         <button class="row-action edit" title="Edit" data-id="${p.id}">Edit</button>
         <button class="row-action delete" title="Delete" data-id="${p.id}">Delete</button>
