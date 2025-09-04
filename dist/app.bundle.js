@@ -183,37 +183,67 @@
     const d = /* @__PURE__ */ new Date();
     return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
   }
-  function ensureEl() {
-    let el = els.track.querySelector(".now-indicator");
+  function ensureElIn(container) {
+    if (!container) return null;
+    let el = container.querySelector(":scope > .now-indicator");
     if (!el) {
       el = document.createElement("div");
       el.className = "now-indicator";
       el.setAttribute("aria-hidden", "true");
-      els.track.appendChild(el);
+      container.appendChild(el);
     }
     return el;
   }
   function update() {
-    const el = ensureEl();
+    var _a;
     const view = getView();
     const mins = nowMinutes();
-    if (mins < view.start || mins > view.end) {
-      el.style.display = "none";
-      return;
-    }
+    const isInView = !(mins < view.start || mins > view.end);
     const isToday = (state.currentDate || todayStr()) === todayStr();
-    if (isToday) el.classList.remove("not-today");
-    else el.classList.add("not-today");
     const pct = (mins - view.start) / view.minutes * 100;
-    el.style.left = pct + "%";
-    el.style.display = "block";
+    const trackEl = ensureElIn(els.track);
+    if (trackEl) {
+      if (isInView) {
+        trackEl.style.left = pct + "%";
+        trackEl.style.display = "block";
+        if (isToday) trackEl.classList.remove("not-today");
+        else trackEl.classList.add("not-today");
+      } else {
+        trackEl.style.display = "none";
+      }
+    }
+    const entriesCard = els.rows ? els.rows.closest(".table-card") : null;
+    const tableEl = ensureElIn(entriesCard);
+    if (tableEl) {
+      if (isInView) {
+        tableEl.style.left = pct + "%";
+        try {
+          const tr = (_a = els.track) == null ? void 0 : _a.getBoundingClientRect();
+          const cr = entriesCard == null ? void 0 : entriesCard.getBoundingClientRect();
+          const dx = tr && cr ? tr.left - cr.left : 0;
+          tableEl.style.transform = `translateX(-50%) translateX(${Math.round(dx)}px)`;
+        } catch (e) {
+        }
+        tableEl.style.display = "block";
+        if (isToday) tableEl.classList.remove("not-today");
+        else tableEl.classList.add("not-today");
+      } else {
+        tableEl.style.display = "none";
+      }
+    }
   }
   var _timer = null;
   function init() {
-    ensureEl();
+    ensureElIn(els.track);
+    const entriesCard = els.rows ? els.rows.closest(".table-card") : null;
+    ensureElIn(entriesCard);
     update();
     if (_timer) clearInterval(_timer);
     _timer = setInterval(update, 3e4);
+    try {
+      window.addEventListener("resize", update, { passive: true });
+    } catch (e) {
+    }
   }
   var nowIndicator = { init, update };
 
