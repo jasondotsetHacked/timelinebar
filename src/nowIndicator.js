@@ -1,5 +1,6 @@
 import { els } from './dom.js';
 import { state } from './state.js';
+import { todayStr } from './dates.js';
 
 function getView() {
   const start = Math.max(0, Math.min(24 * 60, Number(state.viewStartMin)));
@@ -30,10 +31,15 @@ function update() {
   const el = ensureEl();
   const view = getView();
   const mins = nowMinutes();
+  // Only show within the visible time range
   if (mins < view.start || mins > view.end) {
     el.style.display = 'none';
     return;
   }
+  // Toggle active vs. inactive (not-today) appearance
+  const isToday = (state.currentDate || todayStr()) === todayStr();
+  if (isToday) el.classList.remove('not-today');
+  else el.classList.add('not-today');
   const pct = ((mins - view.start) / view.minutes) * 100;
   el.style.left = pct + '%';
   el.style.display = 'block';
@@ -49,4 +55,3 @@ function init() {
 }
 
 export const nowIndicator = { init, update };
-

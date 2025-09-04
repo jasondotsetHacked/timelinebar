@@ -61,6 +61,8 @@ body {
 
 /* Current time indicator */
 .now-indicator { position: absolute; top: 0; bottom: 0; width: 2px; background: #ffd046; box-shadow: 0 0 0 1px rgba(0,0,0,.25), 0 0 10px rgba(255,208,70,.4); transform: translateX(-50%); pointer-events: none; z-index: 2; }
+/* Dimmed style when viewing a non-today date */
+.now-indicator.not-today { background: rgba(255,255,255,.5); box-shadow: 0 0 0 1px rgba(0,0,0,.25); opacity: .55; }
 
 .ghost { position: absolute; top: 0; bottom: 0; background: linear-gradient(180deg, rgba(90,162,255,.3), rgba(90,162,255,.18)); border-left: 2px dashed var(--brand-2); border-right: 2px dashed var(--brand-2); display: none; pointer-events: none; z-index: 1; }
 
