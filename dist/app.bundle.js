@@ -2109,6 +2109,41 @@
       (p) => p.id !== excludeId && getPunchDate(p) === dateStr && start < p.end && end > p.start
     );
   }
+  async function splitPunchAtClick(e, punchEl) {
+    var _a, _b;
+    try {
+      const id = Number((_a = punchEl == null ? void 0 : punchEl.dataset) == null ? void 0 : _a.id);
+      if (!id) return;
+      const p = state.punches.find((x) => x.id === id);
+      if (!p) return;
+      const clientX = e.touches ? (_b = e.touches[0]) == null ? void 0 : _b.clientX : e.clientX;
+      const rawMin = pxToMinutes(clientX);
+      const lower = Math.floor(rawMin / SNAP_MIN) * SNAP_MIN;
+      const upper = Math.ceil(rawMin / SNAP_MIN) * SNAP_MIN;
+      const candidates = [];
+      if (lower > p.start && lower < p.end) candidates.push(lower);
+      if (upper !== lower && upper > p.start && upper < p.end) candidates.push(upper);
+      if (!candidates.length) {
+        ui.toast("Block too short to split at 15m");
+        return;
+      }
+      const chosen = candidates.length === 1 ? candidates[0] : Math.abs(candidates[0] - rawMin) <= Math.abs(candidates[1] - rawMin) ? candidates[0] : candidates[1];
+      const base = { bucket: p.bucket, note: p.note, status: p.status || null, date: p.date || getPunchDate(p) };
+      const left = { ...base, start: p.start, end: chosen, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
+      const right = { ...base, start: chosen, end: p.end, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
+      await idb.remove(p.id);
+      await idb.add(left);
+      await idb.add(right);
+      state.punches = await idb.all();
+      ui.renderAll();
+      ui.toast(`Split at ${time.toLabel(chosen)}`);
+    } catch (err) {
+      try {
+        console.error("splitPunchAtClick error", err);
+      } catch (e2) {
+      }
+    }
+  }
   var saveNewFromModal = async (e) => {
     var _a, _b;
     e.preventDefault();
@@ -2367,6 +2402,17 @@
       }
     });
     els.track.addEventListener("click", async (e) => {
+      if (e.shiftKey) {
+        const handle = e.target.closest(".handle");
+        const ctrl = e.target.closest(".control-btn");
+        const punchEl = e.target.closest(".punch");
+        if (!handle && !ctrl && punchEl) {
+          await splitPunchAtClick(e, punchEl);
+          if (typeof e.stopImmediatePropagation === "function") e.stopImmediatePropagation();
+          e.stopPropagation();
+          return;
+        }
+      }
       const lbl = e.target.closest(".punch-label");
       if (lbl) {
         const id = Number(lbl.dataset.id);
@@ -2767,6 +2813,9 @@
     (_t = els.btnCopyChartTable) == null ? void 0 : _t.addEventListener("click", doCopy);
     els.track.addEventListener("click", (e) => {
       var _a2, _b2, _c2, _d2;
+      if (e.shiftKey) {
+        return;
+      }
       const dot = e.target.closest(".note-dot");
       if (dot) {
         const id = Number(dot.dataset.id);
