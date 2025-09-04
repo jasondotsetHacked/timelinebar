@@ -350,8 +350,10 @@ function renderTable() {
   for (const p of sorted) {
     const tr = document.createElement('tr');
     tr.dataset.id = p.id;
-    const dur = p.end - p.start;
     const status = p.status || 'default';
+    // reflect status on the entire row for quick scanning
+    tr.classList.add(`status-${status}`);
+    const dur = p.end - p.start;
     tr.innerHTML = `
       <td class="status-cell"><div class="status-wrap"><button class="status-btn status-${status}" data-id="${p.id}" aria-label="Status"></button>
         <div class="status-menu" data-id="${p.id}">

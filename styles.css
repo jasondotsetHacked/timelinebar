@@ -200,6 +200,32 @@ body::after {
 /* Hide in-block and popper edit/delete controls */
 .punch .controls, .label-popper .controls { display: none !important; }
 
+/* Entries table: color rows by status for quick scanning */
+/* Transparent variants: subtle background + left accent */
+#entriesTable tbody tr.status-green { background: rgba(0,255,0,0.07); border-left: 3px solid #00ff00; }
+#entriesTable tbody tr.status-yellow { background: rgba(255,255,0,0.08); border-left: 3px solid #ffff00; }
+#entriesTable tbody tr.status-red { background: rgba(255,51,51,0.08); border-left: 3px solid #ff3333; }
+#entriesTable tbody tr.status-blue { background: rgba(0,128,255,0.08); border-left: 3px solid #0080ff; }
+#entriesTable tbody tr.status-purple { background: rgba(170,0,255,0.08); border-left: 3px solid #aa00ff; }
+/* Solid variants: a bit stronger but keep text readable */
+#entriesTable tbody tr.status-green-solid { background: rgba(0,255,0,0.18); border-left: 3px solid #00ff00; }
+#entriesTable tbody tr.status-yellow-solid { background: rgba(255,255,0,0.2); border-left: 3px solid #ffff00; }
+#entriesTable tbody tr.status-red-solid { background: rgba(255,51,51,0.18); border-left: 3px solid #ff3333; }
+#entriesTable tbody tr.status-blue-solid { background: rgba(0,128,255,0.18); border-left: 3px solid #0080ff; }
+#entriesTable tbody tr.status-purple-solid { background: rgba(170,0,255,0.18); border-left: 3px solid #aa00ff; }
+
+/* Light theme: lighten backgrounds to avoid overpowering */
+:root[data-theme='light'] #entriesTable tbody tr.status-green { background: rgba(22,163,74,0.10); }
+:root[data-theme='light'] #entriesTable tbody tr.status-yellow { background: rgba(240,180,0,0.12); }
+:root[data-theme='light'] #entriesTable tbody tr.status-red { background: rgba(220,38,38,0.12); }
+:root[data-theme='light'] #entriesTable tbody tr.status-blue { background: rgba(37,99,235,0.10); }
+:root[data-theme='light'] #entriesTable tbody tr.status-purple { background: rgba(147,51,234,0.10); }
+:root[data-theme='light'] #entriesTable tbody tr.status-green-solid { background: rgba(22,163,74,0.16); }
+:root[data-theme='light'] #entriesTable tbody tr.status-yellow-solid { background: rgba(240,180,0,0.18); }
+:root[data-theme='light'] #entriesTable tbody tr.status-red-solid { background: rgba(220,38,38,0.18); }
+:root[data-theme='light'] #entriesTable tbody tr.status-blue-solid { background: rgba(37,99,235,0.16); }
+:root[data-theme='light'] #entriesTable tbody tr.status-purple-solid { background: rgba(147,51,234,0.16); }
+
 /* --- Responsive: Mobile Layout --- */
 /* Extracted from timelinebar.html */
 :root {
@@ -689,6 +715,18 @@ tbody tr .row-action { cursor: pointer; }
   .punch .control-btn, .label-popper .control-btn { width: 30px; height: 30px; font-size: 13px; }
   /* Ensure content can scroll on small screens */
   body { display: block; overflow-y: auto; }
+}
+
+/* Dedicated narrow breakpoint polish and overflow safety */
+@media (max-width: 640px) {
+  .app { width: 100vw; }
+  .header { flex-wrap: wrap; gap: 8px; }
+  .top-controls { flex-wrap: wrap; gap: 6px; }
+  .title { font-size: 20px; }
+  /* Reset hard column widths so the table fits */
+  #entriesTable th, #entriesTable td { width: auto !important; }
+  #entriesTable { table-layout: fixed; }
+  .table-card { overflow-x: hidden; }
 }
 
 /* Ensure order-specific override for mobile controls visibility */
