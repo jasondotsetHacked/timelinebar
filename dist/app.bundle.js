@@ -1125,6 +1125,12 @@
     renderDayLabel();
     updateHelpText();
     try {
+      if (state.viewMode === "bucket" && els.viewHelp) {
+        els.viewHelp.textContent = "Bucket: Click 'Back to Calendar' to return; click 'Delete Bucket' to remove all entries.";
+      }
+    } catch (e) {
+    }
+    try {
       renderMobileControls();
     } catch (e) {
     }

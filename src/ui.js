@@ -649,6 +649,12 @@ function updateViewMode() {
   try { if (els.btnBucketBackTop) els.btnBucketBackTop.style.display = state.viewMode === 'bucket' ? '' : 'none'; } catch {}
   renderDayLabel();
   updateHelpText();
+  // Ensure clear instructions on bucket view
+  try {
+    if (state.viewMode === 'bucket' && els.viewHelp) {
+      els.viewHelp.textContent = "Bucket: Click 'Back to Calendar' to return; click 'Delete Bucket' to remove all entries.";
+    }
+  } catch {}
   try { renderMobileControls(); } catch {}
   try { fitMobileViewport(); } catch {}
 }
