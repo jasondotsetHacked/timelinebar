@@ -719,7 +719,8 @@ tbody tr .row-action { cursor: pointer; }
 
 /* Dedicated narrow breakpoint polish and overflow safety */
 @media (max-width: 640px) {
-  .app { width: 100vw; }
+  .app { width: 100%; }
+  .card { max-width: 100%; }
   .header { flex-wrap: wrap; gap: 8px; }
   .top-controls { flex-wrap: wrap; gap: 6px; }
   .title { font-size: 20px; }
@@ -727,6 +728,8 @@ tbody tr .row-action { cursor: pointer; }
   #entriesTable th, #entriesTable td { width: auto !important; }
   #entriesTable { table-layout: fixed; }
   .table-card { overflow-x: hidden; }
+  /* Break very long content */
+  th, td { word-break: break-word; }
 }
 
 /* Ensure order-specific override for mobile controls visibility */
