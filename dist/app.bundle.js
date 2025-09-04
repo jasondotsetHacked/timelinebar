@@ -20,6 +20,10 @@
     modalClose: byId("modalClose"),
     modalTitle: document.querySelector(".modal-title"),
     modalFooter: document.querySelector(".modal-footer"),
+    modalDelete: byId("modalDelete"),
+    modalStatusWrap: byId("modalStatusWrap"),
+    modalStatusBtn: byId("modalStatusBtn"),
+    modalStatusMenu: byId("modalStatusMenu"),
     total: byId("total"),
     toast: byId("toast"),
     viewHelp: byId("viewHelp"),
@@ -719,6 +723,12 @@
     els.endField.value = time.toLabel(range.endMin);
     els.bucketField.value = "";
     els.noteField.value = "";
+    if (els.modalStatusBtn) {
+      els.modalStatusBtn.dataset.value = "default";
+      els.modalStatusBtn.className = "status-btn status-default";
+    }
+    if (els.modalStatusWrap) els.modalStatusWrap.classList.remove("open");
+    if (els.modalDelete) els.modalDelete.style.display = "none";
     if (els.modalTitle) els.modalTitle.textContent = "New Time Block";
     els.modal.style.display = "flex";
     els.bucketField.focus();
@@ -727,6 +737,7 @@
     els.modal.style.display = "none";
     state.pendingRange = null;
     state.editingId = null;
+    if (els.modalStatusWrap) els.modalStatusWrap.classList.remove("open");
   }
   function toast(msg) {
     els.toast.textContent = msg;
@@ -1205,7 +1216,12 @@
       end: eMin,
       bucket: els.bucketField.value.trim(),
       note: els.noteField.value.trim(),
-      date: state.currentDate || todayStr()
+      date: state.currentDate || todayStr(),
+      status: (() => {
+        var _a;
+        const val = ((_a = els.modalStatusBtn) == null ? void 0 : _a.dataset.value) || "default";
+        return val === "default" ? null : val;
+      })()
     };
     if (state.editingId) {
       const idx = state.punches.findIndex((p) => p.id === state.editingId);
@@ -1236,7 +1252,11 @@
   };
   var closeModal2 = () => ui.closeModal();
   var attachEvents = () => {
+<<<<<<< HEAD
     var _a, _b;
+=======
+    var _a, _b, _c, _d, _e;
+>>>>>>> 134b5b7bfe1cf0b818c9ee64978f954cd3a61e78
     dragActions.attach();
     resizeActions.attach();
     calendarActions.attach();
@@ -1307,6 +1327,13 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        if (els.modalStatusBtn) {
+          const st = p.status || "default";
+          els.modalStatusBtn.dataset.value = st;
+          els.modalStatusBtn.className = `status-btn status-${st}`;
+        }
+        if (els.modalStatusWrap) els.modalStatusWrap.classList.remove("open");
+        if (els.modalDelete) els.modalDelete.style.display = "";
         if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
         els.modal.style.display = "flex";
         els.bucketField.focus();
@@ -1325,6 +1352,13 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        if (els.modalStatusBtn) {
+          const st = p.status || "default";
+          els.modalStatusBtn.dataset.value = st;
+          els.modalStatusBtn.className = `status-btn status-${st}`;
+        }
+        if (els.modalStatusWrap) els.modalStatusWrap.classList.remove("open");
+        if (els.modalDelete) els.modalDelete.style.display = "";
         if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
         els.modal.style.display = "flex";
         els.bucketField.focus();
@@ -1341,6 +1375,13 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        if (els.modalStatusBtn) {
+          const st = p.status || "default";
+          els.modalStatusBtn.dataset.value = st;
+          els.modalStatusBtn.className = `status-btn status-${st}`;
+        }
+        if (els.modalStatusWrap) els.modalStatusWrap.classList.remove("open");
+        if (els.modalDelete) els.modalDelete.style.display = "";
         if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
         els.modal.style.display = "flex";
         els.bucketField.focus();
@@ -1368,6 +1409,13 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        if (els.modalStatusBtn) {
+          const st = p.status || "default";
+          els.modalStatusBtn.dataset.value = st;
+          els.modalStatusBtn.className = `status-btn status-${st}`;
+        }
+        if (els.modalStatusWrap) els.modalStatusWrap.classList.remove("open");
+        if (els.modalDelete) els.modalDelete.style.display = "";
         if (els.modalTitle) els.modalTitle.textContent = "Edit Time Block";
         els.modal.style.display = "flex";
         els.bucketField.focus();
@@ -1388,13 +1436,41 @@
     els.modalForm.addEventListener("submit", saveNewFromModal);
     els.modalCancel.addEventListener("click", closeModal2);
     els.modalClose.addEventListener("click", closeModal2);
+    (_a = els.modalDelete) == null ? void 0 : _a.addEventListener("click", async () => {
+      if (!state.editingId) return;
+      if (!confirm("Delete this time entry?")) return;
+      await idb.remove(state.editingId);
+      state.punches = await idb.all();
+      state.editingId = null;
+      ui.closeModal();
+      ui.renderAll();
+      ui.toast("Deleted");
+    });
+    (_b = els.modalStatusBtn) == null ? void 0 : _b.addEventListener("click", () => {
+      var _a2;
+      (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.toggle("open");
+    });
+    (_c = els.modalStatusMenu) == null ? void 0 : _c.addEventListener("click", (e) => {
+      var _a2;
+      const opt = e.target.closest(".status-option");
+      if (!opt) return;
+      const val = opt.dataset.value;
+      if (!val) return;
+      if (els.modalStatusBtn) {
+        els.modalStatusBtn.dataset.value = val;
+        els.modalStatusBtn.className = `status-btn status-${val}`;
+      }
+      (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.remove("open");
+    });
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") closeModal2();
     });
     window.addEventListener("resize", () => ui.renderAll());
     window.addEventListener("click", (e) => {
+      var _a2;
       if (!e.target.closest(".status-wrap")) {
         els.rows.querySelectorAll(".status-wrap.open").forEach((w) => w.classList.remove("open"));
+        (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.remove("open");
       }
     });
     els.track.addEventListener("mouseover", (e) => {
@@ -1440,8 +1516,13 @@
       state.viewEndMin = Math.max(s, e);
       ui.renderAll();
     };
+<<<<<<< HEAD
     (_a = els.view24) == null ? void 0 : _a.addEventListener("click", () => setView(0, 24 * 60));
     (_b = els.viewDefault) == null ? void 0 : _b.addEventListener("click", () => setView(6 * 60, 18 * 60));
+=======
+    (_d = els.view24) == null ? void 0 : _d.addEventListener("click", () => setView(0, 24 * 60));
+    (_e = els.viewDefault) == null ? void 0 : _e.addEventListener("click", () => setView(6 * 60, 18 * 60));
+>>>>>>> 134b5b7bfe1cf0b818c9ee64978f954cd3a61e78
   };
   var actions = {
     attachEvents
