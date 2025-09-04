@@ -202,15 +202,20 @@ body::after {
 
 /* Entries table: note column snippet and wrapping */
 #entriesTable td.note { vertical-align: top; cursor: pointer; }
-#entriesTable td.note .note-snippet {
-  /* Keep a single-line preview so row height never changes */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-  line-height: 1.3;
-  max-height: 1.3em; /* lock to one line */
+/* Fixed-height viewport that shows rendered markdown without affecting row height */
+#entriesTable td.note .note-window { 
+  --note-window-height: 38px; /* approx single-row height incl. line; tune if needed */
+  height: var(--note-window-height);
+  max-height: var(--note-window-height);
+  overflow: auto; 
+  padding-right: 4px;
+  scrollbar-gutter: stable both-edges;
 }
+#entriesTable td.note .note-html { line-height: 1.3; }
+/* Some basic markdown spacing inside the window */
+#entriesTable td.note .note-html p { margin: .25em 0; }
+#entriesTable td.note .note-html ul, #entriesTable td.note .note-html ol { padding-left: 18px; margin: .25em 0; }
+#entriesTable td.note .note-html li { margin: .15em 0; }
 #entriesTable td.note:hover { background: rgba(255,255,255,.04); }
 :root[data-theme='light'] #entriesTable td.note:hover { background: rgba(16,24,40,.06); }
 

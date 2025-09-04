@@ -373,7 +373,7 @@ function renderTable() {
       <td class="cell-end">${time.toLabel(p.end)}</td>
       <td>${time.durationLabel(dur)}</td>
       <td>${escapeHtml(p.bucket || '')}</td>
-      <td class="note"><div class="note-snippet">${escapeHtml(p.note || '')}</div></td>
+      <td class="note"><div class="note-window" role="region" aria-label="Note preview"><div class="note-html">${markdownToHtml(p.note || '')}</div></div></td>
       <td class="table-actions">
         <button class="row-action edit" title="Edit" data-id="${p.id}">Edit</button>
         <button class="row-action delete" title="Delete" data-id="${p.id}">Delete</button>
