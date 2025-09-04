@@ -686,6 +686,15 @@ td.status-cell, th.status-cell { padding-left: 10px; padding-right: 10px; width:
 /* Table actions */
 .table-actions { white-space: nowrap; display: flex; align-items: center; gap: 6px; }
 .row-action { appearance: none; border: 0; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 700; cursor: pointer; margin-right: 0; }
+.table-actions { justify-content: flex-start; }
+/* Add a little cushion to the right edge of the Actions cell */
+#entriesTable td.table-actions { padding-right: 18px !important; }
+#entriesTable thead th:last-child { padding-right: 18px !important; }
+/* Slightly widen the Actions column so right padding is respected */
+#entriesTable thead th:last-child { width: 140px; }
+#entriesTable tbody td.table-actions { width: 140px; }
+/* Add small space after last button */
+.table-actions .row-action:last-child { margin-right: 8px; }
 .row-action.edit { background: rgba(255,255,255,.08); color: var(--text); }
 .row-action.delete { background: var(--danger); color: #091019; }
 tbody tr { cursor: pointer; }
