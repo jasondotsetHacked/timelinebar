@@ -4,7 +4,7 @@
   --panel: #000;
   --panel-2: #001000;
   --text: #00ff66;
-  --muted: #008c3a;
+  --muted: #00b865;
   --brand: #00ff66;
   --brand-2: #00994d;
   --accent: #00ff66;
@@ -22,7 +22,7 @@ body {
   display: grid;
   place-items: start center;
   padding: 32px 16px 80px;
-  text-shadow: 0 0 4px rgba(0,255,0,0.7);
+  text-shadow: none;
   position: relative;
 }
 
@@ -31,8 +31,8 @@ body::after {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: rgba(0,0,0,0.1);
-  backdrop-filter: blur(1px);
+  background: transparent;
+  backdrop-filter: none;
 }
 
 .app { width: min(1100px, 96vw); display: grid; gap: 24px; }
@@ -81,7 +81,7 @@ body::after {
 .tip-center { top: auto; bottom: -36px; }
 
 .punch { position: absolute; top: 16px; bottom: 16px; border-radius: 10px; background: rgba(0,255,102,0.15); border: 1px solid rgba(0,255,102,0.6); box-shadow: inset 0 0 0 1px rgba(0,255,102,0.2), 0 6px 16px rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: default; padding: 0 12px; color: var(--text); }
-.punch-label { font-weight: 600; font-size: 18px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; color: var(--text); text-shadow: 0 0 4px rgba(0,255,0,0.7); margin: 0; flex: 1; }
+.punch-label { font-weight: 600; font-size: 18px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; color: var(--text); text-shadow: none; margin: 0; flex: 1; }
 
 /* small indicator for notes inside a punch */
 .punch .note-dot { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%; background: #ffd046; box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 0 6px rgba(255,208,70,.6); border: 0; cursor: pointer; padding: 0; display: inline-block; z-index: 40; }
@@ -174,14 +174,14 @@ tbody tr.is-hovered { background: rgba(255,255,255,.06); }
 .punch.status-red-solid .punch-label { color: #000; }
 
 .punch.status-blue { background: rgba(0,128,255,0.15); border-color: #0080ff; }
-.punch.status-blue .punch-label { color: #33aaff; }
+.punch.status-blue .punch-label { color: var(--text); }
 .punch.status-blue-solid { background: #0080ff; border-color: #0080ff; }
-.punch.status-blue-solid .punch-label { color: #000; }
+.punch.status-blue-solid .punch-label { color: #fff; }
 
 .punch.status-purple { background: rgba(170,0,255,0.15); border-color: #aa00ff; }
-.punch.status-purple .punch-label { color: #d066ff; }
+.punch.status-purple .punch-label { color: var(--text); }
 .punch.status-purple-solid { background: #aa00ff; border-color: #aa00ff; }
-.punch.status-purple-solid .punch-label { color: #000; }
+.punch.status-purple-solid .punch-label { color: #fff; }
 
 .punch.status-default { /* keep the default styling */ }
 
