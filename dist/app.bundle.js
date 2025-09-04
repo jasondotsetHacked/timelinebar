@@ -195,7 +195,7 @@
     return el;
   }
   function update() {
-    var _a;
+    var _a, _b, _c;
     const view = getView();
     const mins = nowMinutes();
     const isInView = !(mins < view.start || mins > view.end);
@@ -212,31 +212,28 @@
         trackEl.style.display = "none";
       }
     }
-    const entriesCard = els.rows ? els.rows.closest(".table-card") : null;
-    const tableEl = ensureElIn(entriesCard);
-    if (tableEl) {
-      if (isInView) {
-        tableEl.style.left = pct + "%";
-        try {
-          const tr = (_a = els.track) == null ? void 0 : _a.getBoundingClientRect();
-          const cr = entriesCard == null ? void 0 : entriesCard.getBoundingClientRect();
-          const dx = tr && cr ? tr.left - cr.left : 0;
-          tableEl.style.transform = `translateX(-50%) translateX(${Math.round(dx)}px)`;
-        } catch (e) {
+    try {
+      document.querySelectorAll(".punch.is-active").forEach((n) => n.classList.remove("is-active"));
+      (_a = els.rows) == null ? void 0 : _a.querySelectorAll("tr.is-active").forEach((n) => n.classList.remove("is-active"));
+    } catch (e) {
+    }
+    if (isToday) {
+      try {
+        const day = todayStr();
+        const active = state.punches.find((p) => getPunchDate(p) === day && p.start <= mins && mins < p.end);
+        if (active) {
+          const punchEl = (_b = els.track) == null ? void 0 : _b.querySelector(`.punch[data-id="${active.id}"]`);
+          if (punchEl) punchEl.classList.add("is-active");
+          const rowEl = (_c = els.rows) == null ? void 0 : _c.querySelector(`tr[data-id="${active.id}"]`);
+          if (rowEl) rowEl.classList.add("is-active");
         }
-        tableEl.style.display = "block";
-        if (isToday) tableEl.classList.remove("not-today");
-        else tableEl.classList.add("not-today");
-      } else {
-        tableEl.style.display = "none";
+      } catch (e) {
       }
     }
   }
   var _timer = null;
   function init() {
     ensureElIn(els.track);
-    const entriesCard = els.rows ? els.rows.closest(".table-card") : null;
-    ensureElIn(entriesCard);
     update();
     if (_timer) clearInterval(_timer);
     _timer = setInterval(update, 3e4);

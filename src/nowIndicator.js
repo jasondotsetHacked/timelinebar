@@ -1,6 +1,6 @@
 import { els } from './dom.js';
 import { state } from './state.js';
-import { todayStr } from './dates.js';
+import { todayStr, getPunchDate } from './dates.js';
 
 function getView() {
   const start = Math.max(0, Math.min(24 * 60, Number(state.viewStartMin)));
@@ -49,33 +49,29 @@ function update() {
     }
   }
 
-  // Mirror indicator inside the entries table card (chart below timeline)
-  const entriesCard = els.rows ? els.rows.closest('.table-card') : null;
-  const tableEl = ensureElIn(entriesCard);
-  if (tableEl) {
-    if (isInView) {
-      tableEl.style.left = pct + '%';
-      try {
-        const tr = els.track?.getBoundingClientRect();
-        const cr = entriesCard?.getBoundingClientRect();
-        const dx = tr && cr ? (tr.left - cr.left) : 0;
-        // Align the table indicator with the track's inner content (accounts for timeline padding)
-        tableEl.style.transform = `translateX(-50%) translateX(${Math.round(dx)}px)`;
-      } catch {}
-      tableEl.style.display = 'block';
-      if (isToday) tableEl.classList.remove('not-today');
-      else tableEl.classList.add('not-today');
-    } else {
-      tableEl.style.display = 'none';
-    }
+  // Highlight the active punch and its table row (if any)
+  try {
+    document.querySelectorAll('.punch.is-active').forEach((n) => n.classList.remove('is-active'));
+    els.rows?.querySelectorAll('tr.is-active').forEach((n) => n.classList.remove('is-active'));
+  } catch {}
+
+  if (isToday) {
+    try {
+      const day = todayStr();
+      const active = state.punches.find((p) => (getPunchDate(p) === day) && (p.start <= mins) && (mins < p.end));
+      if (active) {
+        const punchEl = els.track?.querySelector(`.punch[data-id="${active.id}"]`);
+        if (punchEl) punchEl.classList.add('is-active');
+        const rowEl = els.rows?.querySelector(`tr[data-id="${active.id}"]`);
+        if (rowEl) rowEl.classList.add('is-active');
+      }
+    } catch {}
   }
 }
 
 let _timer = null;
 function init() {
   ensureElIn(els.track);
-  const entriesCard = els.rows ? els.rows.closest('.table-card') : null;
-  ensureElIn(entriesCard);
   update();
   if (_timer) clearInterval(_timer);
   // Update roughly every 30s to keep it fresh without excess work

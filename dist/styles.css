@@ -200,6 +200,22 @@ body::after {
 /* Hide in-block and popper edit/delete controls */
 .punch .controls, .label-popper .controls { display: none !important; }
 
+/* Active (current time) highlight on timeline block */
+.punch.is-active {
+  box-shadow: inset 0 0 0 2px #ffd046, 0 0 14px rgba(255,208,70,.45);
+  z-index: 45;
+}
+
+/* Active row highlight in entries table */
+#entriesTable tbody tr.is-active {
+  border-left: 3px solid #ffd046 !important;
+  outline: 2px solid rgba(255,208,70,.25);
+  outline-offset: -2px;
+}
+:root[data-theme='light'] #entriesTable tbody tr.is-active {
+  outline-color: rgba(240,180,0,.25);
+}
+
 /* Entries table: color rows by status for quick scanning */
 /* Transparent variants: subtle background + left accent */
 #entriesTable tbody tr.status-green { background: rgba(0,255,0,0.07); border-left: 3px solid #00ff00; }
