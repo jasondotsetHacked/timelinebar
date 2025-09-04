@@ -127,6 +127,30 @@
       </table>
       <div class="empty" id="bucketMonthEmpty">No time tracked for this month.</div>
     </section>
+
+    <!-- Bucket View -->
+    <section class="card table-card" id="bucketViewCard" style="display:none;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px 0 14px;">
+        <div class="subtle" style="font-weight:700; letter-spacing:.2px;">Bucket View: <span id="bucketViewTitle"></span></div>
+        <div style="display:flex; gap:8px;">
+          <button id="btnBucketBack" class="btn ghost">Back</button>
+          <button id="btnBucketDelete" class="btn danger" title="Delete all entries in this bucket">Delete Bucket</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:140px">Date</th>
+            <th style="width:140px">Start</th>
+            <th style="width:140px">Stop</th>
+            <th style="width:150px">Duration</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody id="bucketViewBody"></tbody>
+      </table>
+      <div class="empty" id="bucketViewEmpty">No entries found for this bucket.</div>
+    </section>
   </div>
 
   <div class="modal-backdrop" id="modal">

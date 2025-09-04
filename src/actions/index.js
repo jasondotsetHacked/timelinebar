@@ -616,6 +616,50 @@ const attachEvents = () => {
     }
   });
 
+  // Bucket report links → open Bucket View
+  els.bucketDayBody?.addEventListener('click', (e) => {
+    const link = e.target.closest('.bucket-link');
+    if (!link) return;
+    e.preventDefault();
+    const tr = link.closest('tr');
+    const name = String(tr?.dataset?.bucket ?? '');
+    state.lastViewMode = state.viewMode;
+    state.bucketFilter = name;
+    state.viewMode = 'bucket';
+    ui.renderAll();
+  });
+  els.bucketMonthBody?.addEventListener('click', (e) => {
+    const link = e.target.closest('.bucket-link');
+    if (!link) return;
+    e.preventDefault();
+    const tr = link.closest('tr');
+    const name = String(tr?.dataset?.bucket ?? '');
+    state.lastViewMode = state.viewMode;
+    state.bucketFilter = name;
+    state.viewMode = 'bucket';
+    ui.renderAll();
+  });
+
+  // Bucket View controls
+  els.btnBucketBack?.addEventListener('click', () => {
+    state.viewMode = state.lastViewMode || 'day';
+    ui.renderAll();
+  });
+  els.btnBucketDelete?.addEventListener('click', async () => {
+    const name = String(state.bucketFilter || '');
+    const label = name || '(no bucket)';
+    const items = state.punches.filter((p) => String(p.bucket || '').trim() === name);
+    if (!items.length) { ui.toast('No entries for this bucket.'); return; }
+    if (!confirm(`Delete all ${items.length} entries for bucket "${label}"?`)) return;
+    for (const p of items) {
+      await idb.remove(p.id);
+    }
+    state.punches = await idb.all();
+    state.viewMode = state.lastViewMode || 'day';
+    ui.renderAll();
+    ui.toast('Bucket deleted');
+  });
+
   els.track.addEventListener('mouseover', (e) => {
     const punch = e.target.closest('.punch');
     if (!punch) return;

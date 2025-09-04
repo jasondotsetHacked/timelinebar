@@ -483,8 +483,9 @@ function renderBucketDay() {
   els.bucketDayBody.innerHTML = '';
   for (const [bucket, info] of sorted) {
     const tr = document.createElement('tr');
+    tr.dataset.bucket = bucket;
     const label = bucket || '(no bucket)';
-    tr.innerHTML = `<td>${escapeHtml(label)}</td><td>${time.durationLabel(info.totalMin)}</td>`;
+    tr.innerHTML = `<td><a href="#" class="bucket-link">${escapeHtml(label)}</a></td><td>${time.durationLabel(info.totalMin)}</td>`;
     els.bucketDayBody.appendChild(tr);
   }
   if (els.bucketDayEmpty) els.bucketDayEmpty.style.display = sorted.length ? 'none' : 'block';
@@ -509,8 +510,9 @@ function renderBucketMonth() {
   els.bucketMonthBody.innerHTML = '';
   for (const [bucket, info] of sorted) {
     const tr = document.createElement('tr');
+    tr.dataset.bucket = bucket;
     const label = bucket || '(no bucket)';
-    tr.innerHTML = `<td>${escapeHtml(label)}</td><td>${time.durationLabel(info.totalMin)}</td>`;
+    tr.innerHTML = `<td><a href="#" class="bucket-link">${escapeHtml(label)}</a></td><td>${time.durationLabel(info.totalMin)}</td>`;
     els.bucketMonthBody.appendChild(tr);
   }
   if (els.bucketMonthEmpty) els.bucketMonthEmpty.style.display = sorted.length ? 'none' : 'block';
@@ -528,9 +530,37 @@ function renderBucketMonth() {
   els.bucketMonthCard.style.display = show ? '' : 'none';
 }
 
+function renderBucketView() {
+  if (!els.bucketViewCard || !els.bucketViewBody) return;
+  const name = String(state.bucketFilter || '');
+  const label = name || '(no bucket)';
+  if (els.bucketViewTitle) els.bucketViewTitle.textContent = label;
+  const items = state.punches
+    .filter((p) => String(p.bucket || '').trim() === name)
+    .slice()
+    .sort((a, b) => {
+      const ad = String(a.date || '').localeCompare(String(b.date || ''));
+      if (ad !== 0) return ad;
+      return (a.start || 0) - (b.start || 0);
+    });
+  els.bucketViewBody.innerHTML = '';
+  for (const p of items) {
+    const tr = document.createElement('tr');
+    const dur = Math.max(0, (p.end || 0) - (p.start || 0));
+    tr.innerHTML = `
+      <td>${escapeHtml(p.date || '')}</td>
+      <td>${time.toLabel(p.start || 0)}</td>
+      <td>${time.toLabel(p.end || 0)}</td>
+      <td>${time.durationLabel(dur)}</td>
+      <td>${markdownToHtml(p.note || '')}</td>`;
+    els.bucketViewBody.appendChild(tr);
+  }
+  if (els.bucketViewEmpty) els.bucketViewEmpty.style.display = items.length ? 'none' : 'block';
+}
+
 function renderDayLabel() {
   if (!els.dayLabel) return;
-  if (state.viewMode === 'calendar') {
+  if (state.viewMode === 'calendar' || state.viewMode === 'bucket') {
     // Hide the day label in calendar view (calendar has its own header)
     els.dayLabel.style.display = 'none';
     try { els.dayLabel.classList.remove('clickable'); } catch {}
@@ -557,6 +587,10 @@ function updateHelpText() {
     }
     return;
   }
+  if (state.viewMode === 'bucket') {
+    els.viewHelp.textContent = 'Bucket: click Back to return A� Use Delete Bucket to remove all entries';
+    return;
+  }
   // Day (timeline) view
   els.viewHelp.textContent = 'Drag to create · Resize with side handles · Snaps to 15m · Scroll to zoom · Shift+Scroll to pan · Click the day title to open calendar';
 }
@@ -581,7 +615,17 @@ function updateViewMode() {
       const show = (state.calendarMode || 'days') === 'days';
       els.bucketMonthCard.style.display = show ? '' : 'none';
     }
+    if (els.bucketViewCard) els.bucketViewCard.style.display = 'none';
     renderBucketMonth();
+  } else if (state.viewMode === 'bucket') {
+    if (timelineCard) timelineCard.style.display = 'none';
+    if (mainTableCard) mainTableCard.style.display = 'none';
+    if (els.calendarCard) els.calendarCard.style.display = 'none';
+    if (els.btnCalendar) els.btnCalendar.textContent = 'Calendar';
+    if (els.bucketDayCard) els.bucketDayCard.style.display = 'none';
+    if (els.bucketMonthCard) els.bucketMonthCard.style.display = 'none';
+    if (els.bucketViewCard) els.bucketViewCard.style.display = '';
+    try { renderBucketView(); } catch {}
   } else {
     if (timelineCard) timelineCard.style.display = '';
     if (mainTableCard) mainTableCard.style.display = '';
@@ -589,6 +633,7 @@ function updateViewMode() {
     if (els.btnCalendar) els.btnCalendar.textContent = 'Calendar';
     if (els.bucketDayCard) els.bucketDayCard.style.display = '';
     if (els.bucketMonthCard) els.bucketMonthCard.style.display = 'none';
+    if (els.bucketViewCard) els.bucketViewCard.style.display = 'none';
     renderTicks();
     renderTimeline();
     renderTable();
@@ -743,5 +788,6 @@ export const ui = {
   updateHelpText,
   renderBucketDay,
   renderBucketMonth,
+  renderBucketView,
   renderMobileControls,
 };

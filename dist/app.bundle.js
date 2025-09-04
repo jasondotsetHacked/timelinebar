@@ -76,6 +76,13 @@
     bucketMonthBody: byId("bucketMonthBody"),
     bucketMonthEmpty: byId("bucketMonthEmpty"),
     bucketMonthTitle: byId("bucketMonthTitle"),
+    // Bucket view
+    bucketViewCard: byId("bucketViewCard"),
+    bucketViewTitle: byId("bucketViewTitle"),
+    bucketViewBody: byId("bucketViewBody"),
+    bucketViewEmpty: byId("bucketViewEmpty"),
+    btnBucketBack: byId("btnBucketBack"),
+    btnBucketDelete: byId("btnBucketDelete"),
     // Settings
     btnSettings: byId("btnSettings"),
     settingsModal: byId("settingsModal"),
@@ -109,14 +116,19 @@
     currentDate: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
     // YYYY-MM-DD selected day
     viewMode: "calendar",
-    // 'day' | 'calendar'
+    // 'day' | 'calendar' | 'bucket'
     calendarYear: (/* @__PURE__ */ new Date()).getFullYear(),
     calendarMonth: (/* @__PURE__ */ new Date()).getMonth(),
     // 0-11
     // Calendar sub-view: 'days' | 'months' | 'years'
     calendarMode: "days",
     // Start year for the visible year grid (in 'years' mode). Initialized to a 12-year block containing today.
-    yearGridStart: Math.floor((/* @__PURE__ */ new Date()).getFullYear() / 12) * 12
+    yearGridStart: Math.floor((/* @__PURE__ */ new Date()).getFullYear() / 12) * 12,
+    // Bucket view state
+    bucketFilter: "",
+    // exact bucket label being viewed ('' = no bucket)
+    lastViewMode: "day"
+    // where to return when leaving bucket view
   };
 
   // src/config.js
@@ -946,8 +958,9 @@
     els.bucketDayBody.innerHTML = "";
     for (const [bucket, info] of sorted) {
       const tr = document.createElement("tr");
+      tr.dataset.bucket = bucket;
       const label = bucket || "(no bucket)";
-      tr.innerHTML = `<td>${escapeHtml(label)}</td><td>${time.durationLabel(info.totalMin)}</td>`;
+      tr.innerHTML = `<td><a href="#" class="bucket-link">${escapeHtml(label)}</a></td><td>${time.durationLabel(info.totalMin)}</td>`;
       els.bucketDayBody.appendChild(tr);
     }
     if (els.bucketDayEmpty) els.bucketDayEmpty.style.display = sorted.length ? "none" : "block";
@@ -969,8 +982,9 @@
     els.bucketMonthBody.innerHTML = "";
     for (const [bucket, info] of sorted) {
       const tr = document.createElement("tr");
+      tr.dataset.bucket = bucket;
       const label = bucket || "(no bucket)";
-      tr.innerHTML = `<td>${escapeHtml(label)}</td><td>${time.durationLabel(info.totalMin)}</td>`;
+      tr.innerHTML = `<td><a href="#" class="bucket-link">${escapeHtml(label)}</a></td><td>${time.durationLabel(info.totalMin)}</td>`;
       els.bucketMonthBody.appendChild(tr);
     }
     if (els.bucketMonthEmpty) els.bucketMonthEmpty.style.display = sorted.length ? "none" : "block";
@@ -986,9 +1000,33 @@
     const show = state.viewMode === "calendar" && (state.calendarMode || "days") === "days";
     els.bucketMonthCard.style.display = show ? "" : "none";
   }
+  function renderBucketView() {
+    if (!els.bucketViewCard || !els.bucketViewBody) return;
+    const name = String(state.bucketFilter || "");
+    const label = name || "(no bucket)";
+    if (els.bucketViewTitle) els.bucketViewTitle.textContent = label;
+    const items = state.punches.filter((p) => String(p.bucket || "").trim() === name).slice().sort((a, b) => {
+      const ad = String(a.date || "").localeCompare(String(b.date || ""));
+      if (ad !== 0) return ad;
+      return (a.start || 0) - (b.start || 0);
+    });
+    els.bucketViewBody.innerHTML = "";
+    for (const p of items) {
+      const tr = document.createElement("tr");
+      const dur = Math.max(0, (p.end || 0) - (p.start || 0));
+      tr.innerHTML = `
+      <td>${escapeHtml(p.date || "")}</td>
+      <td>${time.toLabel(p.start || 0)}</td>
+      <td>${time.toLabel(p.end || 0)}</td>
+      <td>${time.durationLabel(dur)}</td>
+      <td>${markdownToHtml(p.note || "")}</td>`;
+      els.bucketViewBody.appendChild(tr);
+    }
+    if (els.bucketViewEmpty) els.bucketViewEmpty.style.display = items.length ? "none" : "block";
+  }
   function renderDayLabel() {
     if (!els.dayLabel) return;
-    if (state.viewMode === "calendar") {
+    if (state.viewMode === "calendar" || state.viewMode === "bucket") {
       els.dayLabel.style.display = "none";
       try {
         els.dayLabel.classList.remove("clickable");
@@ -1019,6 +1057,10 @@
       }
       return;
     }
+    if (state.viewMode === "bucket") {
+      els.viewHelp.textContent = "Bucket: click Back to return A\uFFFD Use Delete Bucket to remove all entries";
+      return;
+    }
     els.viewHelp.textContent = "Drag to create \xB7 Resize with side handles \xB7 Snaps to 15m \xB7 Scroll to zoom \xB7 Shift+Scroll to pan \xB7 Click the day title to open calendar";
   }
   function updateViewMode() {
@@ -1040,7 +1082,20 @@
         const show = (state.calendarMode || "days") === "days";
         els.bucketMonthCard.style.display = show ? "" : "none";
       }
+      if (els.bucketViewCard) els.bucketViewCard.style.display = "none";
       renderBucketMonth();
+    } else if (state.viewMode === "bucket") {
+      if (timelineCard) timelineCard.style.display = "none";
+      if (mainTableCard) mainTableCard.style.display = "none";
+      if (els.calendarCard) els.calendarCard.style.display = "none";
+      if (els.btnCalendar) els.btnCalendar.textContent = "Calendar";
+      if (els.bucketDayCard) els.bucketDayCard.style.display = "none";
+      if (els.bucketMonthCard) els.bucketMonthCard.style.display = "none";
+      if (els.bucketViewCard) els.bucketViewCard.style.display = "";
+      try {
+        renderBucketView();
+      } catch (e) {
+      }
     } else {
       if (timelineCard) timelineCard.style.display = "";
       if (mainTableCard) mainTableCard.style.display = "";
@@ -1048,6 +1103,7 @@
       if (els.btnCalendar) els.btnCalendar.textContent = "Calendar";
       if (els.bucketDayCard) els.bucketDayCard.style.display = "";
       if (els.bucketMonthCard) els.bucketMonthCard.style.display = "none";
+      if (els.bucketViewCard) els.bucketViewCard.style.display = "none";
       renderTicks();
       renderTimeline();
       renderTable();
@@ -1200,6 +1256,7 @@
     updateHelpText,
     renderBucketDay,
     renderBucketMonth,
+    renderBucketView,
     renderMobileControls
   };
 
@@ -2259,7 +2316,7 @@
   };
   var closeModal2 = () => ui.closeModal();
   var attachEvents = () => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z;
     dragActions.attach();
     resizeActions.attach();
     calendarActions.attach();
@@ -2682,6 +2739,51 @@
         (_c2 = (_b2 = ui).hideNotePopover) == null ? void 0 : _c2.call(_b2);
       }
     });
+    (_i = els.bucketDayBody) == null ? void 0 : _i.addEventListener("click", (e) => {
+      var _a2, _b2;
+      const link = e.target.closest(".bucket-link");
+      if (!link) return;
+      e.preventDefault();
+      const tr = link.closest("tr");
+      const name = String((_b2 = (_a2 = tr == null ? void 0 : tr.dataset) == null ? void 0 : _a2.bucket) != null ? _b2 : "");
+      state.lastViewMode = state.viewMode;
+      state.bucketFilter = name;
+      state.viewMode = "bucket";
+      ui.renderAll();
+    });
+    (_j = els.bucketMonthBody) == null ? void 0 : _j.addEventListener("click", (e) => {
+      var _a2, _b2;
+      const link = e.target.closest(".bucket-link");
+      if (!link) return;
+      e.preventDefault();
+      const tr = link.closest("tr");
+      const name = String((_b2 = (_a2 = tr == null ? void 0 : tr.dataset) == null ? void 0 : _a2.bucket) != null ? _b2 : "");
+      state.lastViewMode = state.viewMode;
+      state.bucketFilter = name;
+      state.viewMode = "bucket";
+      ui.renderAll();
+    });
+    (_k = els.btnBucketBack) == null ? void 0 : _k.addEventListener("click", () => {
+      state.viewMode = state.lastViewMode || "day";
+      ui.renderAll();
+    });
+    (_l = els.btnBucketDelete) == null ? void 0 : _l.addEventListener("click", async () => {
+      const name = String(state.bucketFilter || "");
+      const label = name || "(no bucket)";
+      const items = state.punches.filter((p) => String(p.bucket || "").trim() === name);
+      if (!items.length) {
+        ui.toast("No entries for this bucket.");
+        return;
+      }
+      if (!confirm(`Delete all ${items.length} entries for bucket "${label}"?`)) return;
+      for (const p of items) {
+        await idb.remove(p.id);
+      }
+      state.punches = await idb.all();
+      state.viewMode = state.lastViewMode || "day";
+      ui.renderAll();
+      ui.toast("Bucket deleted");
+    });
     els.track.addEventListener("mouseover", (e) => {
       const punch = e.target.closest(".punch");
       if (!punch) return;
@@ -2779,10 +2881,10 @@
       window.removeEventListener("mouseup", onWindowUp);
       window.removeEventListener("touchend", onWindowUp);
     };
-    (_i = els.mobileScrollbar) == null ? void 0 : _i.addEventListener("mousedown", onScrollbarDown);
-    (_j = els.mobileScrollbar) == null ? void 0 : _j.addEventListener("touchstart", onScrollbarDown, { passive: false });
-    (_k = els.mobileWindow) == null ? void 0 : _k.addEventListener("mousedown", onWindowDown);
-    (_l = els.mobileWindow) == null ? void 0 : _l.addEventListener("touchstart", onWindowDown, { passive: false });
+    (_m = els.mobileScrollbar) == null ? void 0 : _m.addEventListener("mousedown", onScrollbarDown);
+    (_n = els.mobileScrollbar) == null ? void 0 : _n.addEventListener("touchstart", onScrollbarDown, { passive: false });
+    (_o = els.mobileWindow) == null ? void 0 : _o.addEventListener("mousedown", onWindowDown);
+    (_p = els.mobileWindow) == null ? void 0 : _p.addEventListener("touchstart", onWindowDown, { passive: false });
     const zoomBy = (factor) => {
       const span = getSpan();
       const center = getStart() + span / 2;
@@ -2791,26 +2893,26 @@
       newStart = clampStartForSpan(newStart, newSpan);
       setView(newStart, newStart + newSpan);
     };
-    (_m = els.mobileZoomIn) == null ? void 0 : _m.addEventListener("click", () => zoomBy(0.8));
-    (_n = els.mobileZoomOut) == null ? void 0 : _n.addEventListener("click", () => zoomBy(1.25));
-    (_o = els.mobileZoomRange) == null ? void 0 : _o.addEventListener("input", (e) => {
+    (_q = els.mobileZoomIn) == null ? void 0 : _q.addEventListener("click", () => zoomBy(0.8));
+    (_r = els.mobileZoomOut) == null ? void 0 : _r.addEventListener("click", () => zoomBy(1.25));
+    (_s = els.mobileZoomRange) == null ? void 0 : _s.addEventListener("input", (e) => {
       const val = Math.max(minSpan, Math.min(totalMin, Math.round(Number(e.target.value) || getSpan())));
       const center = getStart() + getSpan() / 2;
       let newStart = Math.round(center - val / 2);
       newStart = clampStartForSpan(newStart, val);
       setView(newStart, newStart + val);
     });
-    (_p = els.view24) == null ? void 0 : _p.addEventListener("click", () => setView(0, 24 * 60));
-    (_q = els.viewDefault) == null ? void 0 : _q.addEventListener("click", () => setView(6 * 60, 18 * 60));
+    (_t = els.view24) == null ? void 0 : _t.addEventListener("click", () => setView(0, 24 * 60));
+    (_u = els.viewDefault) == null ? void 0 : _u.addEventListener("click", () => setView(6 * 60, 18 * 60));
     const doCopy = async () => {
       try {
         await copyActions.copyChart();
       } catch (e) {
       }
     };
-    (_r = els.btnCopyChart) == null ? void 0 : _r.addEventListener("click", doCopy);
-    (_s = els.btnCopyChartTop) == null ? void 0 : _s.addEventListener("click", doCopy);
-    (_t = els.btnCopyChartTable) == null ? void 0 : _t.addEventListener("click", doCopy);
+    (_v = els.btnCopyChart) == null ? void 0 : _v.addEventListener("click", doCopy);
+    (_w = els.btnCopyChartTop) == null ? void 0 : _w.addEventListener("click", doCopy);
+    (_x = els.btnCopyChartTable) == null ? void 0 : _x.addEventListener("click", doCopy);
     els.track.addEventListener("click", (e) => {
       var _a2, _b2, _c2, _d2;
       if (e.shiftKey) {
@@ -2834,7 +2936,7 @@
         }
       }
     });
-    (_u = els.noteField) == null ? void 0 : _u.addEventListener("input", () => {
+    (_y = els.noteField) == null ? void 0 : _y.addEventListener("input", () => {
       try {
         els.noteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
@@ -2845,7 +2947,7 @@
       } catch (e) {
       }
     });
-    (_v = els.notePreviewToggle) == null ? void 0 : _v.addEventListener("click", (e) => {
+    (_z = els.notePreviewToggle) == null ? void 0 : _z.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.notePreview) return;

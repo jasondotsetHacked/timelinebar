@@ -75,6 +75,13 @@ export const els = {
   bucketMonthBody: byId('bucketMonthBody'),
   bucketMonthEmpty: byId('bucketMonthEmpty'),
   bucketMonthTitle: byId('bucketMonthTitle'),
+  // Bucket view
+  bucketViewCard: byId('bucketViewCard'),
+  bucketViewTitle: byId('bucketViewTitle'),
+  bucketViewBody: byId('bucketViewBody'),
+  bucketViewEmpty: byId('bucketViewEmpty'),
+  btnBucketBack: byId('btnBucketBack'),
+  btnBucketDelete: byId('btnBucketDelete'),
   // Settings
   btnSettings: byId('btnSettings'),
   settingsModal: byId('settingsModal'),
