@@ -667,9 +667,16 @@
       <td class="status-cell"><div class="status-wrap"><button class="status-btn status-${status}" data-id="${p.id}" aria-label="Status"></button>
         <div class="status-menu" data-id="${p.id}">
           <div class="status-option" data-value="default" title="Default"></div>
-          <div class="status-option" data-value="green" title="Green"></div>
-          <div class="status-option" data-value="yellow" title="Yellow"></div>
-          <div class="status-option" data-value="red" title="Red"></div>
+          <div class="status-option" data-value="green" title="Green (transparent)"></div>
+          <div class="status-option" data-value="green-solid" title="Green"></div>
+          <div class="status-option" data-value="yellow" title="Yellow (transparent)"></div>
+          <div class="status-option" data-value="yellow-solid" title="Yellow"></div>
+          <div class="status-option" data-value="red" title="Red (transparent)"></div>
+          <div class="status-option" data-value="red-solid" title="Red"></div>
+          <div class="status-option" data-value="blue" title="Blue (transparent)"></div>
+          <div class="status-option" data-value="blue-solid" title="Blue"></div>
+          <div class="status-option" data-value="purple" title="Purple (transparent)"></div>
+          <div class="status-option" data-value="purple-solid" title="Purple"></div>
         </div></div></td>
       <td class="cell-start">${time.toLabel(p.start)}</td>
       <td class="cell-end">${time.toLabel(p.end)}</td>
