@@ -10,6 +10,30 @@
   --accent: #00ff66;
   --danger: #ff3333;
   --shadow: 0 10px 30px rgba(0,0,0,.35);
+  --input-bg: #000;
+}
+
+:root[data-theme='light'] {
+  --bg: #f6f8fa;
+  --panel: #ffffff;
+  --panel-2: #f3f6fb;
+  --text: #0d1321;
+  --muted: #5c6b73;
+  --brand: #16a34a;
+  --brand-2: #0e7a3d;
+  --accent: #16a34a;
+  --danger: #dc2626;
+  --shadow: 0 10px 30px rgba(0,0,0,.12);
+  --input-bg: #ffffff;
+}
+
+/* Light theme tweaks for buttons */
+:root[data-theme='light'] .btn.ghost {
+  background: rgba(16,24,40,0.06);
+  border: 1px solid rgba(16,24,40,0.12);
+}
+:root[data-theme='light'] .btn.ghost:hover {
+  background: rgba(16,24,40,0.1);
 }
 
 * { box-sizing: border-box; }
@@ -77,7 +101,7 @@ body::after {
 
 .ghost { position: absolute; top: 0; bottom: 0; background: linear-gradient(180deg, rgba(0,255,102,.3), rgba(0,255,102,.18)); border-left: 2px dashed var(--brand-2); border-right: 2px dashed var(--brand-2); display: none; pointer-events: none; z-index: 1; }
 
-.tip { position: absolute; top: -36px; transform: translateX(-50%); background: #000; color: var(--text); border: 1px solid rgba(0,255,102,0.3); border-radius: 10px; padding: 4px 8px; font-size: 12px; white-space: nowrap; display: none; pointer-events: none; z-index: 2; box-shadow: var(--shadow); }
+.tip { position: absolute; top: -36px; transform: translateX(-50%); background: var(--panel); color: var(--text); border: 1px solid rgba(0,255,102,0.3); border-radius: 10px; padding: 4px 8px; font-size: 12px; white-space: nowrap; display: none; pointer-events: none; z-index: 2; box-shadow: var(--shadow); }
 .tip-center { top: auto; bottom: -36px; }
 
 .punch { position: absolute; top: 16px; bottom: 16px; border-radius: 10px; background: rgba(0,255,102,0.15); border: 1px solid rgba(0,255,102,0.6); box-shadow: inset 0 0 0 1px rgba(0,255,102,0.2), 0 6px 16px rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: default; padding: 0 12px; color: var(--text); }
@@ -143,7 +167,7 @@ body::after {
 .punch .controls, .label-popper .controls { display: none !important; }
 
 /* Floating popover for full note content */
-.note-popover { position: fixed; max-width: 520px; min-width: 260px; background: #000; color: var(--text); border: 1px solid rgba(0,255,102,0.3); border-radius: 12px; box-shadow: var(--shadow); padding: 10px 12px; z-index: 300; }
+.note-popover { position: fixed; max-width: 520px; min-width: 260px; background: var(--panel); color: var(--text); border: 1px solid rgba(0,255,102,0.3); border-radius: 12px; box-shadow: var(--shadow); padding: 10px 12px; z-index: 300; }
 .note-popover .note-content { max-height: 260px; overflow: auto; }
 .note-popover .note-close { position: absolute; top: 6px; right: 6px; appearance: none; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px; border-radius: 8px; }
 .note-popover .note-close:hover { background: rgba(255,255,255,.06); color: var(--text); }
@@ -193,7 +217,7 @@ tbody tr.is-hovered { background: rgba(255,255,255,.06); }
 .modal .body { padding: 18px; display: grid; gap: 12px; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
-input[type="text"], textarea, input[readonly] { width: 100%; border: 1px solid rgba(0,255,102,0.3); background: #000; color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
+input[type="text"], textarea, input[readonly], select { width: 100%; border: 1px solid rgba(0,255,102,0.3); background: var(--input-bg); color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
 textarea { resize: vertical; min-height: 72px; }
 .note-foot { margin-top: 6px; display: flex; gap: 6px; align-items: center; }
 .note-foot a { color: var(--brand-2); text-decoration: none; }

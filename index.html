@@ -13,6 +13,9 @@
         <div class="title">Time Tracker</div>
         <div id="viewHelp" class="subtle"></div>
       </div>
+      <div>
+        <button id="btnSettings" class="icon-btn" title="Settings">&#9881;</button>
+      </div>
     </div>
 
     <div class="top-controls" id="topControls" style="display:flex; justify-content: space-between; align-items:center; gap:8px;">
@@ -172,6 +175,47 @@
           <button type="submit" class="btn primary">Save</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="card modal">
+      <div class="modal-header">
+        <div class="modal-title">Settings</div>
+        <button class="icon-btn" id="settingsClose" aria-label="Close">&#x2715;</button>
+      </div>
+      <div class="body" style="padding-top: 4px;">
+        <div class="row" style="grid-template-columns: 1fr;">
+          <div>
+            <label>Theme</label>
+            <select id="themeSelect">
+              <option value="neon">Neon (default)</option>
+              <option value="light">Light</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" style="grid-template-columns: 1fr 1fr; align-items:end;">
+          <div>
+            <label id="lblBackup" style="cursor:pointer;">Backup</label>
+            <button id="btnExport" class="btn primary" style="width:100%;">Export Data</button>
+          </div>
+          <div>
+            <label id="lblRestore" style="cursor:pointer;">Restore</label>
+            <button id="btnImport" class="btn primary" style="width:100%;">Import Data (merge)</button>
+            <input id="importFile" type="file" accept="application/json" style="display:none;" />
+          </div>
+        </div>
+        <div class="row" style="grid-template-columns: 1fr;">
+          <div>
+            <label>Danger zone</label>
+            <button id="btnEraseAll" class="btn danger" style="width:100%;">Erase All Data</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn ghost" id="settingsCancel">Close</button>
+      </div>
     </div>
   </div>
 

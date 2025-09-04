@@ -21,6 +21,7 @@ const withStore = (mode, fn) =>
 const add = (punch) => withStore('readwrite', (store) => store.add(punch));
 const put = (punch) => withStore('readwrite', (store) => store.put(punch));
 const remove = (id) => withStore('readwrite', (store) => store.delete(id));
+const clear = () => withStore('readwrite', (store) => store.clear());
 const all = () =>
   openDb().then(
     (db) =>
@@ -33,5 +34,4 @@ const all = () =>
       })
   );
 
-export const idb = { add, put, remove, all };
-
+export const idb = { add, put, remove, clear, all };

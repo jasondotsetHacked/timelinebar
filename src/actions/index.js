@@ -7,6 +7,7 @@ import { todayStr } from '../dates.js';
 import { dragActions } from './drag.js';
 import { resizeActions } from './resize.js';
 import { calendarActions } from './calendar.js';
+import { settingsActions } from './settings.js';
 import { overlapsAny } from './helpers.js';
 
 // helpers for modal note preview
@@ -79,6 +80,7 @@ const attachEvents = () => {
   dragActions.attach();
   resizeActions.attach();
   calendarActions.attach();
+  settingsActions.attach();
 
   els.rows.addEventListener('click', async (e) => {
     // Status swatch open/close

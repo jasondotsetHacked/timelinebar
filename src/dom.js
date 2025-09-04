@@ -49,4 +49,16 @@ export const els = {
   bucketMonthBody: byId('bucketMonthBody'),
   bucketMonthEmpty: byId('bucketMonthEmpty'),
   bucketMonthTitle: byId('bucketMonthTitle'),
+  // Settings
+  btnSettings: byId('btnSettings'),
+  settingsModal: byId('settingsModal'),
+  settingsClose: byId('settingsClose'),
+  settingsCancel: byId('settingsCancel'),
+  btnExport: byId('btnExport'),
+  btnImport: byId('btnImport'),
+  importFile: byId('importFile'),
+  btnEraseAll: byId('btnEraseAll'),
+  themeSelect: byId('themeSelect'),
+  lblBackup: byId('lblBackup'),
+  lblRestore: byId('lblRestore'),
 };
