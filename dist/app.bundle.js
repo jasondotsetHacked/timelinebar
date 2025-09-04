@@ -105,6 +105,28 @@
   };
   var time = { clamp, snap, toLabel, durationLabel, hourLabel };
 
+  // src/dates.js
+  function pad(n) {
+    return String(n).padStart(2, "0");
+  }
+  function todayStr() {
+    const d = /* @__PURE__ */ new Date();
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  function toDateStr(d) {
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  function parseDate(str) {
+    const [y, m, day] = (str || "").split("-").map((x) => Number(x));
+    if (!y || !m || !day) return null;
+    return new Date(y, m - 1, day);
+  }
+  function getPunchDate(p) {
+    if (p.date) return p.date;
+    if (p.createdAt) return (p.createdAt + "").slice(0, 10);
+    return todayStr();
+  }
+
   // src/nowIndicator.js
   function getView() {
     const start = Math.max(0, Math.min(24 * 60, Number(state.viewStartMin)));
@@ -136,6 +158,9 @@
       el.style.display = "none";
       return;
     }
+    const isToday = (state.currentDate || todayStr()) === todayStr();
+    if (isToday) el.classList.remove("not-today");
+    else el.classList.add("not-today");
     const pct = (mins - view.start) / view.minutes * 100;
     el.style.left = pct + "%";
     el.style.display = "block";
@@ -148,28 +173,6 @@
     _timer = setInterval(update, 3e4);
   }
   var nowIndicator = { init, update };
-
-  // src/dates.js
-  function pad(n) {
-    return String(n).padStart(2, "0");
-  }
-  function todayStr() {
-    const d = /* @__PURE__ */ new Date();
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  }
-  function toDateStr(d) {
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  }
-  function parseDate(str) {
-    const [y, m, day] = (str || "").split("-").map((x) => Number(x));
-    if (!y || !m || !day) return null;
-    return new Date(y, m - 1, day);
-  }
-  function getPunchDate(p) {
-    if (p.date) return p.date;
-    if (p.createdAt) return (p.createdAt + "").slice(0, 10);
-    return todayStr();
-  }
 
   // src/calendar.js
   function summarizeByDate() {
