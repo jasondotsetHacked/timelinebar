@@ -726,10 +726,22 @@ tbody tr .row-action { cursor: pointer; }
   .title { font-size: 20px; }
   /* Reset hard column widths so the table fits */
   #entriesTable th, #entriesTable td { width: auto !important; }
-  #entriesTable { table-layout: fixed; }
-  .table-card { overflow-x: hidden; }
+  #entriesTable { table-layout: fixed; width: 100%; min-width: 0; }
+  /* Allow horizontal scroll inside the table card if needed */
+  .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   /* Break very long content */
   th, td { word-break: break-word; }
+}
+
+/* Extra-safe mobile overrides at the end of the file to win cascade */
+@media (max-width: 720px) {
+  /* Ensure table never forces page wider than viewport */
+  #entriesTable { width: 100%; min-width: 0; table-layout: fixed; }
+  #entriesTable th, #entriesTable td { width: auto !important; }
+  .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* Keep controls wrapping */
+  .header { flex-wrap: wrap; }
+  .top-controls { flex-wrap: wrap; }
 }
 
 /* Ensure order-specific override for mobile controls visibility */
@@ -1393,3 +1405,11 @@ tbody tr .row-action { cursor: pointer; }
 .fab { position: fixed; right: 18px; bottom: 18px; z-index: 80; padding: 12px 16px; border-radius: 999px; font-weight: 800; background: linear-gradient(180deg, var(--brand), var(--brand-2)); color: #08121f; box-shadow: var(--shadow); }
 .fab:hover { filter: brightness(1.08); }
 
+/* Final mobile overrides to ensure responsiveness below 720px/640px */
+@media (max-width: 720px) {
+  #entriesTable { width: 100%; min-width: 0; table-layout: fixed; }
+  #entriesTable th, #entriesTable td { width: auto !important; }
+  .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .header { flex-wrap: wrap; }
+  .top-controls { flex-wrap: wrap; }
+}
