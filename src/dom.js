@@ -14,6 +14,8 @@ export const els = {
   endField: byId('endField'),
   bucketField: byId('bucketField'),
   noteField: byId('noteField'),
+  notePreview: byId('notePreview'),
+  notePreviewToggle: byId('notePreviewToggle'),
   modalForm: byId('modalForm'),
   modalCancel: byId('modalCancel'),
   modalClose: byId('modalClose'),

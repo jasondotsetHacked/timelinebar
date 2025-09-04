@@ -70,6 +70,10 @@ body {
 .punch { position: absolute; top: 16px; bottom: 16px; border-radius: 10px; background: linear-gradient(180deg, var(--brand), var(--brand-2)); box-shadow: inset 0 0 0 1px rgba(255,255,255,.15), 0 6px 16px rgba(0,0,0,.35); display: block; align-items: center; overflow: hidden; cursor: default; padding-left: 10px; padding-right: 10px; }
 .punch-label { font-weight: 600; font-size: 11px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; color: #08121f; filter: drop-shadow(0 1px 0 rgba(255,255,255,.3)); display: block; margin: 0 auto; }
 
+/* small indicator for notes inside a punch */
+.punch .note-dot { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%; background: #ffd046; box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 0 6px rgba(255,208,70,.6); border: 0; cursor: pointer; padding: 0; display: inline-block; z-index: 40; }
+.punch .note-dot:hover { filter: brightness(1.1); }
+
 /* handles are grid children (first and last column). They sit entirely inside the block and match the dark inner edge */
 .handle { position: absolute; top: 0; bottom: 0; width: 12px; display: block; cursor: ew-resize; background: transparent; z-index: 30; pointer-events: auto; }
 .handle.left { left: 0; }
@@ -125,6 +129,17 @@ body {
 /* Remove in-block and popper controls entirely */
 .punch .controls, .label-popper .controls { display: none !important; }
 
+/* Floating popover for full note content */
+.note-popover { position: absolute; max-width: 520px; min-width: 260px; background: #0b1227; color: var(--text); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; box-shadow: var(--shadow); padding: 10px 12px; z-index: 60; }
+.note-popover .note-content { max-height: 260px; overflow: auto; }
+.note-popover .note-close { position: absolute; top: 6px; right: 6px; appearance: none; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px; border-radius: 8px; }
+.note-popover .note-close:hover { background: rgba(255,255,255,.06); color: var(--text); }
+.note-popover a { color: var(--brand-2); }
+.note-popover pre { background: rgba(255,255,255,.06); border-radius: 8px; padding: 8px; overflow: auto; }
+.note-popover code { background: rgba(255,255,255,.08); border-radius: 4px; padding: 0 3px; }
+.note-popover h1, .note-popover h2, .note-popover h3 { margin: .4em 0 .2em; }
+.note-popover p { margin: .4em 0; }
+
 /* Hover highlight syncing between track blocks and table rows */
 .punch.is-hovered { outline: 2px solid rgba(255,255,255,.35); box-shadow: inset 0 0 0 1px rgba(255,255,255,.15), 0 8px 20px rgba(0,0,0,.5); }
 tbody tr.is-hovered { background: rgba(255,255,255,.06); }
@@ -145,6 +160,12 @@ tbody tr.is-hovered { background: rgba(255,255,255,.06); }
 label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
 input[type="text"], textarea, input[readonly] { width: 100%; border: 1px solid rgba(255,255,255,.12); background: #0b1227; color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 14px; }
 textarea { resize: vertical; min-height: 72px; }
+.note-foot { margin-top: 6px; display: flex; gap: 6px; align-items: center; }
+.note-foot a { color: var(--brand-2); text-decoration: none; }
+.note-foot a:hover { text-decoration: underline; }
+.note-preview { margin-top: 8px; border: 1px dashed rgba(255,255,255,.12); border-radius: 10px; padding: 10px 12px; background: rgba(255,255,255,.04); font-size: 14px; max-height: 200px; overflow: auto; }
+.note-preview pre { background: rgba(0,0,0,.35); padding: 8px; border-radius: 8px; overflow: auto; }
+.note-preview code { background: rgba(0,0,0,.35); padding: 0 3px; border-radius: 4px; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
 .modal-title { font-weight: 700; letter-spacing:.2px; }
 .icon-btn { appearance: none; border: 0; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; padding: 6px; border-radius: 8px; }

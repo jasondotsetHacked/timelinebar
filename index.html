@@ -103,7 +103,13 @@
             </div>
             <div>
               <label>Note</label>
-              <input type="text" id="noteField" placeholder="Optional details" />
+              <textarea id="noteField" placeholder="Write a note… Markdown supported"></textarea>
+              <div class="note-foot subtle">
+                <span>Markdown supported</span>
+                <span aria-hidden="true"> · </span>
+                <a id="notePreviewToggle" href="#" role="button">Preview</a>
+              </div>
+              <div id="notePreview" class="note-preview" style="display:none;"></div>
             </div>
           </div>
           <div class="row">
@@ -134,6 +140,9 @@
 
   <!-- Floating calendar toggle removed: click the day label or use header controls -->
 
+  <!-- Lightweight Markdown + sanitizer for rich note rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js" crossorigin="anonymous"></script>
   <script type="module" src="app.js"></script>
   
 </body>

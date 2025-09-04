@@ -8,6 +8,63 @@ import { calendar } from './calendar.js';
 
 const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
 
+// Render Markdown to safe HTML (fallback to plain text)
+function markdownToHtml(md) {
+  const text = String(md || '');
+  if (!text.trim()) return '';
+  try {
+    if (window.marked && typeof window.marked.parse === 'function') {
+      const raw = window.marked.parse(text);
+      if (window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') return window.DOMPurify.sanitize(raw);
+      return raw;
+    }
+  } catch {}
+  return escapeHtml(text).replace(/\n/g, '<br>');
+}
+
+function hideNotePopover() {
+  const existing = document.querySelector('.note-popover');
+  if (existing) existing.remove();
+}
+
+function toggleNotePopover(id) {
+  const punchEl = els.track.querySelector(`.punch[data-id="${id}"]`);
+  if (!punchEl) return;
+  const existing = document.querySelector('.note-popover');
+  if (existing && Number(existing.dataset.id) === Number(id)) {
+    existing.remove();
+    return;
+  }
+  if (existing) existing.remove();
+  const p = state.punches.find((x) => x.id === id);
+  if (!p || !p.note) return;
+  const pop = document.createElement('div');
+  pop.className = 'note-popover';
+  pop.dataset.id = String(id);
+  pop.innerHTML = `<button class="note-close" aria-label="Close">\u2715</button><div class="note-content"></div>`;
+  const content = pop.querySelector('.note-content');
+  content.innerHTML = markdownToHtml(p.note);
+  els.track.appendChild(pop);
+  const trackRect = els.track.getBoundingClientRect();
+  const elRect = punchEl.getBoundingClientRect();
+  // initial position roughly centered
+  pop.style.left = Math.max(8, elRect.left + elRect.width / 2 - trackRect.left - 140) + 'px';
+  pop.style.top = '6px';
+  requestAnimationFrame(() => {
+    const pr = pop.getBoundingClientRect();
+    let left = elRect.left + elRect.width / 2 - trackRect.left - pr.width / 2;
+    left = Math.max(6, Math.min(left, trackRect.width - pr.width - 6));
+    let top = elRect.top - trackRect.top - pr.height - 10; // above if possible
+    if (top < -pr.height * 0.15) top = elRect.bottom - trackRect.top + 10; // below
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+  });
+  pop.addEventListener('click', (e) => {
+    if (e.target.closest('.note-close')) hideNotePopover();
+    e.stopPropagation();
+  });
+}
+
 function getView() {
   const start = Math.max(0, Math.min(24 * 60, Number(state.viewStartMin)));
   const end = Math.max(0, Math.min(24 * 60, Number(state.viewEndMin)));
@@ -54,6 +111,7 @@ function currentDay() {
 }
 
 function renderTimeline() {
+  hideNotePopover();
   els.track.querySelectorAll('.punch').forEach((n) => n.remove());
   const existingLayer = els.track.querySelector('.label-layer');
   if (existingLayer) existingLayer.remove();
@@ -163,6 +221,16 @@ function renderTimeline() {
         console.log('HANDLE_DEBUG', { id: p.id, pxWidth, edgeW, leftPct, widthPct });
       }
     } catch {}
+
+    // non-intrusive note indicator
+    if (p.note && String(p.note).trim()) {
+      const noteBtn = document.createElement('button');
+      noteBtn.className = 'note-dot';
+      noteBtn.title = 'Show note';
+      noteBtn.type = 'button';
+      noteBtn.dataset.id = p.id;
+      el.appendChild(noteBtn);
+    }
 
     els.track.appendChild(el);
 
@@ -396,6 +464,18 @@ function openModal(range) {
   els.endField.value = time.toLabel(range.endMin);
   els.bucketField.value = '';
   els.noteField.value = '';
+  try {
+    if (els.notePreview) {
+      els.notePreview.style.display = 'none';
+      els.notePreview.innerHTML = '';
+    }
+    if (els.notePreviewToggle) els.notePreviewToggle.textContent = 'Preview';
+    if (els.noteField) {
+      els.noteField.style.height = 'auto';
+      const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
+      els.noteField.style.height = h + 'px';
+    }
+  } catch {}
   if (els.modalStatusBtn) {
     els.modalStatusBtn.dataset.value = 'default';
     els.modalStatusBtn.className = 'status-btn status-default';
@@ -431,6 +511,8 @@ export const ui = {
   renderTimeline,
   renderTable,
   renderTotal,
+  toggleNotePopover,
+  hideNotePopover,
   showGhost,
   hideGhost,
   showTips,

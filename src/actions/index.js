@@ -9,6 +9,21 @@ import { resizeActions } from './resize.js';
 import { calendarActions } from './calendar.js';
 import { overlapsAny } from './helpers.js';
 
+// helpers for modal note preview
+const escapeHtml = (s) => (s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
+const mdToHtml = (text) => {
+  const t = String(text || '');
+  if (!t.trim()) return '';
+  try {
+    if (window.marked && typeof window.marked.parse === 'function') {
+      const raw = window.marked.parse(t);
+      if (window.DOMPurify && typeof window.DOMPurify.sanitize === 'function') return window.DOMPurify.sanitize(raw);
+      return raw;
+    }
+  } catch {}
+  return escapeHtml(t).replace(/\n/g, '<br>');
+};
+
 const saveNewFromModal = async (e) => {
   e.preventDefault();
   if (!state.pendingRange) return;
@@ -133,6 +148,18 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      try {
+        if (els.notePreview) {
+          els.notePreview.style.display = 'none';
+          els.notePreview.innerHTML = '';
+        }
+        if (els.notePreviewToggle) els.notePreviewToggle.textContent = 'Preview';
+        if (els.noteField) {
+          els.noteField.style.height = 'auto';
+          const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
+          els.noteField.style.height = h + 'px';
+        }
+      } catch {}
       if (els.modalStatusBtn) {
         const st = p.status || 'default';
         els.modalStatusBtn.dataset.value = st;
@@ -278,6 +305,9 @@ const attachEvents = () => {
       els.rows.querySelectorAll('.status-wrap.open').forEach((w) => w.classList.remove('open'));
       els.modalStatusWrap?.classList.remove('open');
     }
+    if (!e.target.closest('.note-popover') && !e.target.closest('.note-dot')) {
+      ui.hideNotePopover?.();
+    }
   });
 
   els.track.addEventListener('mouseover', (e) => {
@@ -328,6 +358,53 @@ const attachEvents = () => {
 
   els.view24?.addEventListener('click', () => setView(0, 24 * 60));
   els.viewDefault?.addEventListener('click', () => setView(6 * 60, 18 * 60));
+
+  // track click: open note popover when appropriate
+  els.track.addEventListener('click', (e) => {
+    const dot = e.target.closest('.note-dot');
+    if (dot) {
+      const id = Number(dot.dataset.id);
+      if (id) ui.toggleNotePopover?.(id);
+      e.stopPropagation();
+      return;
+    }
+    const punch = e.target.closest('.punch');
+    if (punch) {
+      const id = Number(punch.dataset.id);
+      if (!id) return;
+      const p = state.punches.find((x) => x.id === id);
+      if (p?.note) {
+        ui.toggleNotePopover?.(id);
+        e.stopPropagation();
+      }
+    }
+  });
+
+  // Modal note field: autosize and preview toggle
+  els.noteField?.addEventListener('input', () => {
+    try {
+      els.noteField.style.height = 'auto';
+      const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
+      els.noteField.style.height = h + 'px';
+      if (els.notePreview && els.notePreview.style.display !== 'none') {
+        els.notePreview.innerHTML = mdToHtml(els.noteField.value);
+      }
+    } catch {}
+  });
+  els.notePreviewToggle?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (!els.notePreview) return;
+    const showing = els.notePreview.style.display !== 'none';
+    if (showing) {
+      els.notePreview.style.display = 'none';
+      els.notePreview.innerHTML = '';
+      if (els.notePreviewToggle) els.notePreviewToggle.textContent = 'Preview';
+    } else {
+      els.notePreview.innerHTML = mdToHtml(els.noteField?.value || '');
+      els.notePreview.style.display = '';
+      if (els.notePreviewToggle) els.notePreviewToggle.textContent = 'Hide preview';
+    }
+  });
 };
 
 export const actions = {
