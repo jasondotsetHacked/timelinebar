@@ -1065,7 +1065,7 @@
       return;
     }
     if (state.viewMode === "bucket") {
-      els.viewHelp.textContent = "Bucket: click Back to return A\uFFFD Use Delete Bucket to remove all entries";
+      els.viewHelp.textContent = "Bucket: click Back to Calendar to return A\uFFFD Use Delete Bucket to remove all entries";
       return;
     }
     els.viewHelp.textContent = "Drag to create \xB7 Resize with side handles \xB7 Snaps to 15m \xB7 Scroll to zoom \xB7 Shift+Scroll to pan \xB7 Click the day title to open calendar";
@@ -2790,11 +2790,11 @@
       ui.renderAll();
     });
     (_k = els.btnBucketBack) == null ? void 0 : _k.addEventListener("click", () => {
-      state.viewMode = state.lastViewMode || "day";
+      state.viewMode = "calendar";
       ui.renderAll();
     });
     (_l = els.btnBucketBackTop) == null ? void 0 : _l.addEventListener("click", () => {
-      state.viewMode = state.lastViewMode || "day";
+      state.viewMode = "calendar";
       ui.renderAll();
     });
     (_m = els.btnBucketDelete) == null ? void 0 : _m.addEventListener("click", async () => {

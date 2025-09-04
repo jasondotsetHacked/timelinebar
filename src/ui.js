@@ -593,7 +593,7 @@ function updateHelpText() {
     return;
   }
   if (state.viewMode === 'bucket') {
-    els.viewHelp.textContent = 'Bucket: click Back to return A� Use Delete Bucket to remove all entries';
+    els.viewHelp.textContent = 'Bucket: click Back to Calendar to return A� Use Delete Bucket to remove all entries';
     return;
   }
   // Day (timeline) view
@@ -797,4 +797,5 @@ export const ui = {
   renderBucketView,
   renderMobileControls,
 };
+
 

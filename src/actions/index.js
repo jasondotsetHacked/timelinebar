@@ -648,13 +648,13 @@ const attachEvents = () => {
 
   // Bucket View controls
   els.btnBucketBack?.addEventListener('click', () => {
-    state.viewMode = state.lastViewMode || 'day';
-    ui.renderAll();
-  });
+        state.viewMode = 'calendar';
+            ui.renderAll();
+           });
   els.btnBucketBackTop?.addEventListener('click', () => {
-    state.viewMode = state.lastViewMode || 'day';
-    ui.renderAll();
-  });
+        state.viewMode = 'calendar';
+            ui.renderAll();
+            });
   els.btnBucketDelete?.addEventListener('click', async () => {
     const name = String(state.bucketFilter || '');
     const label = name || '(no bucket)';
@@ -863,3 +863,4 @@ const attachEvents = () => {
 export const actions = {
   attachEvents,
 };
+
