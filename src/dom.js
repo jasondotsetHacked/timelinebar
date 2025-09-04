@@ -41,4 +41,12 @@ export const els = {
   calMonthLabel: byId('calMonthLabel'),
   calPrev: byId('calPrev'),
   calNext: byId('calNext'),
+  // Bucket reports
+  bucketDayCard: byId('bucketDayCard'),
+  bucketDayBody: byId('bucketDayBody'),
+  bucketDayEmpty: byId('bucketDayEmpty'),
+  bucketMonthCard: byId('bucketMonthCard'),
+  bucketMonthBody: byId('bucketMonthBody'),
+  bucketMonthEmpty: byId('bucketMonthEmpty'),
+  bucketMonthTitle: byId('bucketMonthTitle'),
 };

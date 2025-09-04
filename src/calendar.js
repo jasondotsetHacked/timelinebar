@@ -87,6 +87,7 @@ function renderCalendar() {
       requestAnimationFrame(() => {
         try { els.calendarGrid.style.opacity = '1'; } catch {}
       });
+      try { window.dispatchEvent(new Event('calendar:rendered')); } catch { window.dispatchEvent(new Event('calendar:rendered')); }
       return;
     }
 
@@ -130,6 +131,7 @@ function renderCalendar() {
     requestAnimationFrame(() => {
       try { els.calendarGrid.style.opacity = '1'; } catch {}
     });
+    try { window.dispatchEvent(new Event('calendar:rendered')); } catch { window.dispatchEvent(new Event('calendar:rendered')); }
     return;
   }
 
@@ -196,6 +198,7 @@ function renderCalendar() {
 
     els.calendarGrid.appendChild(cell);
   }
+  try { window.dispatchEvent(new Event('calendar:rendered')); } catch { window.dispatchEvent(new Event('calendar:rendered')); }
 }
 
 function nextMonth() {

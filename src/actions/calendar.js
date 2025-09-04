@@ -113,6 +113,10 @@ export const calendarActions = {
       });
     }
     window.addEventListener('calendar:daySelected', () => ui.updateViewMode());
-    window.addEventListener('calendar:modeChanged', () => ui.updateHelpText());
+    window.addEventListener('calendar:modeChanged', () => {
+      ui.updateHelpText();
+      ui.renderBucketMonth?.();
+    });
+    window.addEventListener('calendar:rendered', () => ui.renderBucketMonth?.());
   },
 };

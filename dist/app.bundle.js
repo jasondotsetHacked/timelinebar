@@ -41,7 +41,15 @@
     calWeekdays: byId("calWeekdays"),
     calMonthLabel: byId("calMonthLabel"),
     calPrev: byId("calPrev"),
-    calNext: byId("calNext")
+    calNext: byId("calNext"),
+    // Bucket reports
+    bucketDayCard: byId("bucketDayCard"),
+    bucketDayBody: byId("bucketDayBody"),
+    bucketDayEmpty: byId("bucketDayEmpty"),
+    bucketMonthCard: byId("bucketMonthCard"),
+    bucketMonthBody: byId("bucketMonthBody"),
+    bucketMonthEmpty: byId("bucketMonthEmpty"),
+    bucketMonthTitle: byId("bucketMonthTitle")
   };
 
   // src/state.js
@@ -249,6 +257,11 @@
           } catch (e) {
           }
         });
+        try {
+          window.dispatchEvent(new Event("calendar:rendered"));
+        } catch (e) {
+          window.dispatchEvent(new Event("calendar:rendered"));
+        }
         return;
       }
       const start = state.yearGridStart || Math.floor(state.calendarYear / 12) * 12;
@@ -288,6 +301,11 @@
         } catch (e) {
         }
       });
+      try {
+        window.dispatchEvent(new Event("calendar:rendered"));
+      } catch (e) {
+        window.dispatchEvent(new Event("calendar:rendered"));
+      }
       return;
     }
     if (els.calWeekdays) els.calWeekdays.style.display = "grid";
@@ -344,6 +362,11 @@
         }
       });
       els.calendarGrid.appendChild(cell);
+    }
+    try {
+      window.dispatchEvent(new Event("calendar:rendered"));
+    } catch (e) {
+      window.dispatchEvent(new Event("calendar:rendered"));
     }
   }
   function nextMonth() {
@@ -699,6 +722,65 @@
     const totalMin = state.punches.filter((p) => getPunchDate(p) === day).reduce((s, p) => s + (p.end - p.start), 0);
     els.total.textContent = totalMin ? `Total: ${time.durationLabel(totalMin)}` : "";
   }
+  function summarizeByBucket(punches) {
+    const map = /* @__PURE__ */ new Map();
+    for (const p of punches) {
+      const key = String(p.bucket || "").trim();
+      const prev = map.get(key) || { totalMin: 0, count: 0 };
+      const add2 = Math.max(0, (p.end || 0) - (p.start || 0));
+      map.set(key, { totalMin: prev.totalMin + add2, count: prev.count + 1 });
+    }
+    return map;
+  }
+  function renderBucketDay() {
+    if (!els.bucketDayBody || !els.bucketDayCard) return;
+    const day = currentDay();
+    const items = state.punches.filter((p) => getPunchDate(p) === day);
+    const sums = summarizeByBucket(items);
+    const sorted = Array.from(sums.entries()).filter(([_, v]) => v.totalMin > 0).sort((a, b) => b[1].totalMin - a[1].totalMin || a[0].localeCompare(b[0]));
+    els.bucketDayBody.innerHTML = "";
+    for (const [bucket, info] of sorted) {
+      const tr = document.createElement("tr");
+      const label = bucket || "(no bucket)";
+      tr.innerHTML = `<td>${escapeHtml(label)}</td><td>${time.durationLabel(info.totalMin)}</td>`;
+      els.bucketDayBody.appendChild(tr);
+    }
+    if (els.bucketDayEmpty) els.bucketDayEmpty.style.display = sorted.length ? "none" : "block";
+    els.bucketDayCard.style.display = state.viewMode === "calendar" ? "none" : "";
+  }
+  function renderBucketMonth() {
+    if (!els.bucketMonthBody || !els.bucketMonthCard) return;
+    const y = state.calendarYear;
+    const m = state.calendarMonth;
+    const items = state.punches.filter((p) => {
+      const d = (p.date || "").split("-");
+      if (d.length !== 3) return false;
+      const yy = Number(d[0]);
+      const mm = Number(d[1]) - 1;
+      return yy === y && mm === m;
+    });
+    const sums = summarizeByBucket(items);
+    const sorted = Array.from(sums.entries()).filter(([_, v]) => v.totalMin > 0).sort((a, b) => b[1].totalMin - a[1].totalMin || a[0].localeCompare(b[0]));
+    els.bucketMonthBody.innerHTML = "";
+    for (const [bucket, info] of sorted) {
+      const tr = document.createElement("tr");
+      const label = bucket || "(no bucket)";
+      tr.innerHTML = `<td>${escapeHtml(label)}</td><td>${time.durationLabel(info.totalMin)}</td>`;
+      els.bucketMonthBody.appendChild(tr);
+    }
+    if (els.bucketMonthEmpty) els.bucketMonthEmpty.style.display = sorted.length ? "none" : "block";
+    if (els.bucketMonthTitle) {
+      try {
+        const d = new Date(y, m, 1);
+        const monthName = d.toLocaleString(void 0, { month: "long", year: "numeric" });
+        els.bucketMonthTitle.textContent = `\u2013 ${monthName}`;
+      } catch (e) {
+        els.bucketMonthTitle.textContent = "";
+      }
+    }
+    const show = state.viewMode === "calendar" && (state.calendarMode || "days") === "days";
+    els.bucketMonthCard.style.display = show ? "" : "none";
+  }
   function renderDayLabel() {
     if (!els.dayLabel) return;
     if (state.viewMode === "calendar") {
@@ -736,7 +818,7 @@
   }
   function updateViewMode() {
     const timelineCard = document.querySelector(".timeline");
-    const tableCard = document.querySelector(".table-card");
+    const mainTableCard = els.rows ? els.rows.closest(".table-card") : document.querySelector(".table-card");
     if (state.viewMode === "calendar") {
       const d = parseDate(currentDay());
       if (d) {
@@ -744,20 +826,29 @@
         state.calendarMonth = d.getMonth();
       }
       if (timelineCard) timelineCard.style.display = "none";
-      if (tableCard) tableCard.style.display = "none";
+      if (mainTableCard) mainTableCard.style.display = "none";
+      if (els.bucketDayCard) els.bucketDayCard.style.display = "none";
       if (els.calendarCard) els.calendarCard.style.display = "block";
       if (els.btnCalendar) els.btnCalendar.textContent = "Back to Day";
       calendar.renderCalendar();
+      if (els.bucketMonthCard) {
+        const show = (state.calendarMode || "days") === "days";
+        els.bucketMonthCard.style.display = show ? "" : "none";
+      }
+      renderBucketMonth();
     } else {
       if (timelineCard) timelineCard.style.display = "";
-      if (tableCard) tableCard.style.display = "";
+      if (mainTableCard) mainTableCard.style.display = "";
       if (els.calendarCard) els.calendarCard.style.display = "none";
       if (els.btnCalendar) els.btnCalendar.textContent = "Calendar";
+      if (els.bucketDayCard) els.bucketDayCard.style.display = "";
+      if (els.bucketMonthCard) els.bucketMonthCard.style.display = "none";
       renderTicks();
       renderTimeline();
       renderTable();
       renderTotal();
       nowIndicator.update();
+      renderBucketDay();
     }
     renderDayLabel();
     updateHelpText();
@@ -856,7 +947,9 @@
     toast,
     renderDayLabel,
     updateViewMode,
-    updateHelpText
+    updateHelpText,
+    renderBucketDay,
+    renderBucketMonth
   };
 
   // src/storage.js
@@ -1289,7 +1382,15 @@
         });
       }
       window.addEventListener("calendar:daySelected", () => ui.updateViewMode());
-      window.addEventListener("calendar:modeChanged", () => ui.updateHelpText());
+      window.addEventListener("calendar:modeChanged", () => {
+        var _a, _b;
+        ui.updateHelpText();
+        (_b = (_a = ui).renderBucketMonth) == null ? void 0 : _b.call(_a);
+      });
+      window.addEventListener("calendar:rendered", () => {
+        var _a, _b;
+        return (_b = (_a = ui).renderBucketMonth) == null ? void 0 : _b.call(_a);
+      });
     }
   };
 
