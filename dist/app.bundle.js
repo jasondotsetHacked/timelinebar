@@ -14,9 +14,14 @@
     startField: byId("startField"),
     endField: byId("endField"),
     bucketField: byId("bucketField"),
-    noteField: byId("noteField"),
-    notePreview: byId("notePreview"),
-    notePreviewToggle: byId("notePreviewToggle"),
+    // Prefer new dual-editor note field when present
+    noteField: document.getElementById("noteField2") || byId("noteField"),
+    notePreview: document.getElementById("notePreview2") || byId("notePreview"),
+    notePreviewToggle: document.getElementById("notePreviewToggle2") || byId("notePreviewToggle"),
+    // Bucket persistent note (edit modal)
+    bucketNoteField: byId("bucketNoteField"),
+    bucketNotePreview: byId("bucketNotePreview"),
+    bucketNotePreviewToggle: byId("bucketNotePreviewToggle"),
     modalForm: byId("modalForm"),
     modalCancel: byId("modalCancel"),
     modalClose: byId("modalClose"),
@@ -30,9 +35,14 @@
     noteModal: byId("noteModal"),
     noteModalTitle: document.getElementById("noteModalTitle"),
     noteModalClose: byId("noteModalClose"),
+    // Punch note viewer/editor (note modal)
     noteViewer: byId("noteViewer"),
     noteEditorWrap: byId("noteEditorWrap"),
     noteEditor: byId("noteEditor"),
+    // Bucket note viewer/editor (note modal)
+    bucketNoteViewer: byId("bucketNoteViewer"),
+    bucketNoteEditorWrap: byId("bucketNoteEditorWrap"),
+    bucketNoteEditor: byId("bucketNoteEditor"),
     noteEditToggle: byId("noteEditToggle"),
     noteSave: byId("noteSave"),
     noteCancel: byId("noteCancel"),
@@ -509,25 +519,35 @@
   var calendar = { renderCalendar, nextMonth, prevMonth, nextYear, prevYear };
 
   // src/storage.js
+  var DB_NAME = "timeTrackerDB";
+  var DB_VERSION = 2;
   var openDb = () => new Promise((resolve, reject) => {
-    const req = indexedDB.open("timeTrackerDB", 1);
-    req.onupgradeneeded = () => req.result.createObjectStore("punches", { keyPath: "id", autoIncrement: true });
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains("punches")) {
+        db.createObjectStore("punches", { keyPath: "id", autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains("buckets")) {
+        db.createObjectStore("buckets", { keyPath: "name" });
+      }
+    };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
-  var withStore = (mode, fn) => openDb().then(
+  var withStore = (storeName, mode, fn) => openDb().then(
     (db) => new Promise((resolve, reject) => {
-      const tx = db.transaction("punches", mode);
-      const store = tx.objectStore("punches");
+      const tx = db.transaction(storeName, mode);
+      const store = tx.objectStore(storeName);
       fn(store);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     })
   );
-  var add = (punch) => withStore("readwrite", (store) => store.add(punch));
-  var put = (punch) => withStore("readwrite", (store) => store.put(punch));
-  var remove = (id) => withStore("readwrite", (store) => store.delete(id));
-  var clear = () => withStore("readwrite", (store) => store.clear());
+  var add = (punch) => withStore("punches", "readwrite", (store) => store.add(punch));
+  var put = (punch) => withStore("punches", "readwrite", (store) => store.put(punch));
+  var remove = (id) => withStore("punches", "readwrite", (store) => store.delete(id));
+  var clear = () => withStore("punches", "readwrite", (store) => store.clear());
   var all = () => openDb().then(
     (db) => new Promise((resolve, reject) => {
       const tx = db.transaction("punches", "readonly");
@@ -537,7 +557,47 @@
       req.onerror = () => reject(req.error);
     })
   );
-  var idb = { add, put, remove, clear, all };
+  var getBucket = (name) => openDb().then(
+    (db) => new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction("buckets", "readonly");
+        const store = tx.objectStore("buckets");
+        const req = store.get(String(name != null ? name : ""));
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      } catch (err) {
+        resolve(null);
+      }
+    })
+  );
+  var setBucketNote = (name, note) => withStore("buckets", "readwrite", (store) => {
+    const key = String(name != null ? name : "");
+    const rec = { name: key, note: String(note != null ? note : "") };
+    if (!rec.note.trim()) {
+      try {
+        store.delete(key);
+      } catch (e) {
+      }
+    } else {
+      store.put(rec);
+    }
+  });
+  var deleteBucket = (name) => withStore("buckets", "readwrite", (store) => store.delete(String(name != null ? name : "")));
+  var allBuckets = () => openDb().then(
+    (db) => new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction("buckets", "readonly");
+        const store = tx.objectStore("buckets");
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      } catch (err) {
+        resolve([]);
+      }
+    })
+  );
+  var clearBuckets = () => withStore("buckets", "readwrite", (store) => store.clear());
+  var idb = { add, put, remove, clear, all, getBucket, setBucketNote, deleteBucket, allBuckets, clearBuckets };
 
   // src/ui.js
   var escapeHtml = (s) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
@@ -686,6 +746,26 @@
     }
     return quillInstance;
   }
+  var quillBucket = null;
+  function ensureBucketQuill() {
+    try {
+      if (!quillBucket && window.Quill && els.bucketNoteEditor) {
+        quillBucket = new window.Quill(els.bucketNoteEditor, {
+          theme: "snow",
+          modules: {
+            toolbar: [
+              ["bold", "italic", "underline"],
+              [{ list: "ordered" }, { list: "bullet" }],
+              ["link", "code-block"],
+              [{ header: [2, 3, false] }]
+            ]
+          }
+        });
+      }
+    } catch (e) {
+    }
+    return quillBucket;
+  }
   function openNoteModal(id) {
     const p = state.punches.find((x) => x.id === id);
     if (!p) return;
@@ -720,6 +800,34 @@
       els.noteEditToggle.textContent = "View";
     }
     els.noteModal.style.display = "flex";
+    try {
+      const bucketName = String(p.bucket || "");
+      const bq = ensureBucketQuill();
+      if (els.bucketNoteViewer) els.bucketNoteViewer.innerHTML = "";
+      idb.getBucket(bucketName).then((rec) => {
+        const raw = rec && rec.note || "";
+        const html2 = markdownToHtml(raw || "");
+        try {
+          if (els.bucketNoteViewer) els.bucketNoteViewer.innerHTML = html2;
+        } catch (e) {
+        }
+        try {
+          if (bq) {
+            bq.setContents([]);
+            bq.clipboard.dangerouslyPasteHTML(html2 || "");
+          }
+        } catch (e) {
+          try {
+            if (bq == null ? void 0 : bq.root) bq.root.innerHTML = html2 || "";
+          } catch (e2) {
+          }
+        }
+      }).catch(() => {
+      });
+      if (els.bucketNoteEditorWrap) els.bucketNoteEditorWrap.style.display = "";
+      if (els.bucketNoteViewer) els.bucketNoteViewer.style.display = "none";
+    } catch (e) {
+    }
   }
   function closeNoteModal() {
     if (els.noteModal) {
@@ -1250,6 +1358,15 @@
     els.endField.value = time.toLabel(range.endMin);
     els.bucketField.value = "";
     els.noteField.value = "";
+    try {
+      if (els.bucketNoteField) els.bucketNoteField.value = "";
+      if (els.bucketNotePreview) {
+        els.bucketNotePreview.style.display = "none";
+        els.bucketNotePreview.innerHTML = "";
+      }
+      if (els.bucketNotePreviewToggle) els.bucketNotePreviewToggle.textContent = "Preview";
+    } catch (e) {
+    }
     try {
       if (els.repeatEnabled) els.repeatEnabled.checked = false;
       if (els.repeatFields) els.repeatFields.style.display = "none";
@@ -1850,15 +1967,18 @@
     }
   }
   async function exportData() {
+    var _a, _b;
     try {
       const punches = await idb.all();
+      const buckets = await (((_b = (_a = idb).allBuckets) == null ? void 0 : _b.call(_a)) || Promise.resolve([]));
       const payload = {
         app: "timelinebar",
         kind: "time-tracker-backup",
-        version: 1,
+        version: 2,
         exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
         count: punches.length,
-        punches
+        punches,
+        buckets
       };
       const json = JSON.stringify(payload, null, 2);
       const blob = new Blob([json], { type: "application/json" });
@@ -1918,6 +2038,7 @@
     };
   }
   async function importDataFromFile(file) {
+    var _a, _b;
     try {
       const text = await file.text();
       let data;
@@ -1930,27 +2051,47 @@
       let items = Array.isArray(data) ? data : Array.isArray(data == null ? void 0 : data.punches) ? data.punches : [];
       if (!Array.isArray(items) || items.length === 0) {
         ui.toast("No punches to import");
-        return;
       }
       let added = 0;
-      for (const it of items) {
-        const clean = sanitizeItem(it);
-        if (!clean) continue;
-        await idb.add(clean);
-        added++;
+      if (Array.isArray(items) && items.length) {
+        for (const it of items) {
+          const clean = sanitizeItem(it);
+          if (!clean) continue;
+          await idb.add(clean);
+          added++;
+        }
+      }
+      const bks = Array.isArray(data == null ? void 0 : data.buckets) ? data.buckets : [];
+      let bAdded = 0;
+      for (const b of bks) {
+        const name = ((_a = b == null ? void 0 : b.name) != null ? _a : "").toString();
+        const note = ((_b = b == null ? void 0 : b.note) != null ? _b : "").toString();
+        if (name != null) {
+          try {
+            await idb.setBucketNote(name, note);
+            bAdded++;
+          } catch (e) {
+          }
+        }
       }
       state.punches = await idb.all();
       ui.renderAll();
-      ui.toast(`Imported ${added} entr${added === 1 ? "y" : "ies"}`);
+      const msg = `Imported ${added} entr${added === 1 ? "y" : "ies"}${bAdded ? `, ${bAdded} bucket note${bAdded === 1 ? "" : "s"}` : ""}`;
+      ui.toast(msg);
     } catch (err) {
       console.error(err);
       ui.toast("Import failed");
     }
   }
   async function eraseAll() {
+    var _a, _b;
     if (!confirm("Erase ALL tracked data? This cannot be undone.")) return;
     try {
       await idb.clear();
+      try {
+        await ((_b = (_a = idb).clearBuckets) == null ? void 0 : _b.call(_a));
+      } catch (e) {
+      }
       state.punches = await idb.all();
       ui.renderAll();
       ui.toast("All data erased");
@@ -2261,6 +2402,29 @@
     }
     return escapeHtml2(t).replace(/\n/g, "<br>");
   };
+  async function loadBucketNoteIntoEditor(name) {
+    try {
+      const key = String(name || "").trim();
+      if (!els.bucketNoteField) return;
+      let text = "";
+      try {
+        const rec = await idb.getBucket(key);
+        text = rec && rec.note || "";
+      } catch (e) {
+      }
+      els.bucketNoteField.value = text;
+      try {
+        els.bucketNoteField.style.height = "auto";
+        const h = Math.max(72, Math.min(320, els.bucketNoteField.scrollHeight || 72));
+        els.bucketNoteField.style.height = h + "px";
+        if (els.bucketNotePreview && els.bucketNotePreview.style.display !== "none") {
+          els.bucketNotePreview.innerHTML = mdToHtml(text);
+        }
+      } catch (e) {
+      }
+    } catch (e) {
+    }
+  }
   function genRecurrenceId() {
     return "r" + Math.random().toString(36).slice(2, 10);
   }
@@ -2319,7 +2483,7 @@
     }
   }
   var saveNewFromModal = async (e) => {
-    var _a, _b;
+    var _a, _b, _c, _d;
     e.preventDefault();
     if (!state.pendingRange) return;
     const { startMin, endMin } = state.pendingRange;
@@ -2333,7 +2497,7 @@
       start: s,
       end: eMin,
       bucket: els.bucketField.value.trim(),
-      note: els.noteField.value.trim(),
+      note: (((_a = els.noteField) == null ? void 0 : _a.value) || "").trim(),
       date: state.currentDate || todayStr(),
       status: (() => {
         var _a2;
@@ -2341,8 +2505,14 @@
         return val === "default" ? null : val;
       })()
     };
+    try {
+      const bname = payload.bucket;
+      const bnote = String(((_b = els.bucketNoteField) == null ? void 0 : _b.value) || "").trim();
+      if (bname != null) await idb.setBucketNote(bname, bnote);
+    } catch (e2) {
+    }
     const rec = readRecurrenceFromUI();
-    if (((_a = els.repeatEnabled) == null ? void 0 : _a.checked) && !rec) {
+    if (((_c = els.repeatEnabled) == null ? void 0 : _c.checked) && !rec) {
       ui.toast("Pick an end date for the series");
       return;
     }
@@ -2355,7 +2525,7 @@
       }
       const prev = state.punches[idx];
       const updated = { ...prev, ...payload };
-      const applyToSeries = !!((_b = els.applyScopeSeries) == null ? void 0 : _b.checked) && !!prev.recurrenceId;
+      const applyToSeries = !!((_d = els.applyScopeSeries) == null ? void 0 : _d.checked) && !!prev.recurrenceId;
       if (applyToSeries) {
         const deltaStart = updated.start - prev.start;
         const deltaEnd = updated.end - prev.end;
@@ -2566,7 +2736,7 @@
     ui.closeModal();
   };
   var attachEvents = () => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I;
     dragActions.attach();
     resizeActions.attach();
     calendarActions.attach();
@@ -2664,6 +2834,10 @@
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
         try {
+          await loadBucketNoteIntoEditor(els.bucketField.value);
+        } catch (e2) {
+        }
+        try {
           const hasRec = !!p.recurrenceId;
           if (els.repeatEnabled) els.repeatEnabled.checked = hasRec;
           if (els.repeatFields) els.repeatFields.style.display = hasRec ? "" : "none";
@@ -2745,6 +2919,10 @@
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
         try {
+          await loadBucketNoteIntoEditor(els.bucketField.value);
+        } catch (e2) {
+        }
+        try {
           const hasRec = !!p.recurrenceId;
           if (els.repeatEnabled) els.repeatEnabled.checked = hasRec;
           if (els.repeatFields) els.repeatFields.style.display = hasRec ? "" : "none";
@@ -2801,6 +2979,10 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        try {
+          await loadBucketNoteIntoEditor(els.bucketField.value);
+        } catch (e2) {
+        }
         try {
           const hasRec = !!p.recurrenceId;
           if (els.repeatEnabled) els.repeatEnabled.checked = hasRec;
@@ -2867,6 +3049,10 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        try {
+          await loadBucketNoteIntoEditor(els.bucketField.value);
+        } catch (e2) {
+        }
         if (els.modalStatusBtn) {
           const st = p.status || "default";
           els.modalStatusBtn.dataset.value = st;
@@ -3309,29 +3495,65 @@
         if (els.notePreviewToggle) els.notePreviewToggle.textContent = "Hide preview";
       }
     });
-    (_C = els.noteModalClose) == null ? void 0 : _C.addEventListener("click", () => {
+    (_C = els.bucketNoteField) == null ? void 0 : _C.addEventListener("input", () => {
+      try {
+        els.bucketNoteField.style.height = "auto";
+        const h = Math.max(72, Math.min(320, els.bucketNoteField.scrollHeight || 72));
+        els.bucketNoteField.style.height = h + "px";
+        if (els.bucketNotePreview && els.bucketNotePreview.style.display !== "none") {
+          els.bucketNotePreview.innerHTML = mdToHtml(els.bucketNoteField.value);
+        }
+      } catch (e) {
+      }
+    });
+    (_D = els.bucketNotePreviewToggle) == null ? void 0 : _D.addEventListener("click", (e) => {
+      var _a2;
+      e.preventDefault();
+      if (!els.bucketNotePreview) return;
+      const showing = els.bucketNotePreview.style.display !== "none";
+      if (showing) {
+        els.bucketNotePreview.style.display = "none";
+        els.bucketNotePreview.innerHTML = "";
+        if (els.bucketNotePreviewToggle) els.bucketNotePreviewToggle.textContent = "Preview";
+      } else {
+        els.bucketNotePreview.innerHTML = mdToHtml(((_a2 = els.bucketNoteField) == null ? void 0 : _a2.value) || "");
+        els.bucketNotePreview.style.display = "";
+        if (els.bucketNotePreviewToggle) els.bucketNotePreviewToggle.textContent = "Hide preview";
+      }
+    });
+    (_E = els.bucketField) == null ? void 0 : _E.addEventListener("input", () => {
+      try {
+        loadBucketNoteIntoEditor(els.bucketField.value);
+      } catch (e) {
+      }
+    });
+    (_F = els.noteModalClose) == null ? void 0 : _F.addEventListener("click", () => {
       var _a2, _b2;
       return (_b2 = (_a2 = ui).closeNoteModal) == null ? void 0 : _b2.call(_a2);
     });
-    (_D = els.noteCancel) == null ? void 0 : _D.addEventListener("click", () => {
+    (_G = els.noteCancel) == null ? void 0 : _G.addEventListener("click", () => {
       var _a2, _b2;
       return (_b2 = (_a2 = ui).closeNoteModal) == null ? void 0 : _b2.call(_a2);
     });
-    (_E = els.noteEditToggle) == null ? void 0 : _E.addEventListener("click", () => {
+    (_H = els.noteEditToggle) == null ? void 0 : _H.addEventListener("click", () => {
       var _a2;
       if (!els.noteModal) return;
       const editing = ((_a2 = els.noteEditorWrap) == null ? void 0 : _a2.style.display) !== "none";
       if (editing) {
         if (els.noteEditorWrap) els.noteEditorWrap.style.display = "none";
         if (els.noteViewer) els.noteViewer.style.display = "";
+        if (els.bucketNoteEditorWrap) els.bucketNoteEditorWrap.style.display = "none";
+        if (els.bucketNoteViewer) els.bucketNoteViewer.style.display = "";
         if (els.noteEditToggle) els.noteEditToggle.textContent = "Edit";
       } else {
         if (els.noteEditorWrap) els.noteEditorWrap.style.display = "";
         if (els.noteViewer) els.noteViewer.style.display = "none";
+        if (els.bucketNoteEditorWrap) els.bucketNoteEditorWrap.style.display = "";
+        if (els.bucketNoteViewer) els.bucketNoteViewer.style.display = "none";
         if (els.noteEditToggle) els.noteEditToggle.textContent = "View";
       }
     });
-    (_F = els.noteSave) == null ? void 0 : _F.addEventListener("click", async () => {
+    (_I = els.noteSave) == null ? void 0 : _I.addEventListener("click", async () => {
       var _a2, _b2, _c2, _d2;
       if (!els.noteModal) return;
       const id = Number(els.noteModal.dataset.id);
@@ -3342,11 +3564,21 @@
         if (q && q.root) html = q.root.innerHTML || "";
       } catch (e) {
       }
+      let bhtml = "";
+      try {
+        const qb = window.Quill && els.bucketNoteEditor && els.bucketNoteEditor.__quill ? els.bucketNoteEditor.__quill : null;
+        if (qb && qb.root) bhtml = qb.root.innerHTML || "";
+      } catch (e) {
+      }
       const idx = state.punches.findIndex((p) => p.id === id);
       if (idx !== -1) {
         const updated = { ...state.punches[idx], note: String(html || "") };
         await idb.put(updated);
         state.punches[idx] = updated;
+        try {
+          await idb.setBucketNote(updated.bucket || "", String(bhtml || ""));
+        } catch (e) {
+        }
         ui.renderAll();
         (_b2 = (_a2 = ui).toast) == null ? void 0 : _b2.call(_a2, "Saved");
         (_d2 = (_c2 = ui).closeNoteModal) == null ? void 0 : _d2.call(_c2);

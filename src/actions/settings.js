@@ -16,13 +16,15 @@ function applyTheme(theme) {
 async function exportData() {
   try {
     const punches = await idb.all();
+    const buckets = await (idb.allBuckets?.() || Promise.resolve([]));
     const payload = {
       app: 'timelinebar',
       kind: 'time-tracker-backup',
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       count: punches.length,
       punches,
+      buckets,
     };
     const json = JSON.stringify(payload, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
@@ -95,19 +97,29 @@ async function importDataFromFile(file) {
     let items = Array.isArray(data) ? data : (Array.isArray(data?.punches) ? data.punches : []);
     if (!Array.isArray(items) || items.length === 0) {
       ui.toast('No punches to import');
-      return;
+      // still try buckets, if present
     }
     let added = 0;
-    for (const it of items) {
-      const clean = sanitizeItem(it);
-      if (!clean) continue;
-      // Merge import: ignore incoming id, let DB assign new one
-      await idb.add(clean);
-      added++;
+    if (Array.isArray(items) && items.length) {
+      for (const it of items) {
+        const clean = sanitizeItem(it);
+        if (!clean) continue;
+        await idb.add(clean);
+        added++;
+      }
+    }
+    // Buckets
+    const bks = Array.isArray(data?.buckets) ? data.buckets : [];
+    let bAdded = 0;
+    for (const b of bks) {
+      const name = (b?.name ?? '').toString();
+      const note = (b?.note ?? '').toString();
+      if (name != null) { try { await idb.setBucketNote(name, note); bAdded++; } catch {} }
     }
     state.punches = await idb.all();
     ui.renderAll();
-    ui.toast(`Imported ${added} entr${added === 1 ? 'y' : 'ies'}`);
+    const msg = `Imported ${added} entr${added === 1 ? 'y' : 'ies'}${bAdded ? `, ${bAdded} bucket note${bAdded===1?'':'s'}` : ''}`;
+    ui.toast(msg);
   } catch (err) {
     console.error(err);
     ui.toast('Import failed');
@@ -118,6 +130,7 @@ async function eraseAll() {
   if (!confirm('Erase ALL tracked data? This cannot be undone.')) return;
   try {
     await idb.clear();
+    try { await idb.clearBuckets?.(); } catch {}
     state.punches = await idb.all();
     ui.renderAll();
     ui.toast('All data erased');

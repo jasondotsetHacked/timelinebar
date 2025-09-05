@@ -160,6 +160,27 @@ function ensureQuill() {
   return quillInstance;
 }
 
+// Second editor for bucket persistent notes (Note modal)
+let quillBucket = null;
+function ensureBucketQuill() {
+  try {
+    if (!quillBucket && window.Quill && els.bucketNoteEditor) {
+      quillBucket = new window.Quill(els.bucketNoteEditor, {
+        theme: 'snow',
+        modules: {
+          toolbar: [
+            ['bold', 'italic', 'underline'],
+            [{ list: 'ordered' }, { list: 'bullet' }],
+            ['link', 'code-block'],
+            [{ header: [2, 3, false] }]
+          ],
+        },
+      });
+    }
+  } catch {}
+  return quillBucket;
+}
+
 function openNoteModal(id) {
   const p = state.punches.find((x) => x.id === id);
   if (!p) return;
@@ -180,6 +201,27 @@ function openNoteModal(id) {
   if (els.noteViewer) els.noteViewer.style.display = 'none';
   if (els.noteEditToggle) { els.noteEditToggle.style.display = ''; els.noteEditToggle.textContent = 'View'; }
   els.noteModal.style.display = 'flex';
+  // Initialize bucket persistent note viewer/editor
+  try {
+    const bucketName = String(p.bucket || '');
+    const bq = ensureBucketQuill();
+    if (els.bucketNoteViewer) els.bucketNoteViewer.innerHTML = '';
+    // Load bucket note asynchronously
+    idb.getBucket(bucketName).then((rec) => {
+      const raw = (rec && rec.note) || '';
+      const html = markdownToHtml(raw || '');
+      try { if (els.bucketNoteViewer) els.bucketNoteViewer.innerHTML = html; } catch {}
+      try {
+        if (bq) {
+          bq.setContents([]);
+          bq.clipboard.dangerouslyPasteHTML(html || '');
+        }
+      } catch { try { if (bq?.root) bq.root.innerHTML = html || ''; } catch {} }
+    }).catch(() => {});
+    // Default to showing editors for both sections
+    if (els.bucketNoteEditorWrap) els.bucketNoteEditorWrap.style.display = '';
+    if (els.bucketNoteViewer) els.bucketNoteViewer.style.display = 'none';
+  } catch {}
 }
 
 function closeNoteModal() {
@@ -753,6 +795,11 @@ function openModal(range) {
   els.endField.value = time.toLabel(range.endMin);
   els.bucketField.value = '';
   els.noteField.value = '';
+  try {
+    if (els.bucketNoteField) els.bucketNoteField.value = '';
+    if (els.bucketNotePreview) { els.bucketNotePreview.style.display = 'none'; els.bucketNotePreview.innerHTML = ''; }
+    if (els.bucketNotePreviewToggle) els.bucketNotePreviewToggle.textContent = 'Preview';
+  } catch {}
   // Reset recurrence controls for new item
   try {
     if (els.repeatEnabled) els.repeatEnabled.checked = false;

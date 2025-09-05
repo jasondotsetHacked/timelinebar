@@ -212,6 +212,28 @@
               <div id="notePreview" class="note-preview" style="display:none;"></div>
             </div>
           </div>
+          <div class="row note-dual">
+            <div class="note-section">
+              <div class="note-section-title">Bucket Note (persistent)</div>
+              <textarea id="bucketNoteField" placeholder="Write a persistent note for this bucket..."></textarea>
+              <div class="note-foot subtle">
+                <span>Rich text available in Note modal</span>
+                <span aria-hidden="true"> • </span>
+                <a id="bucketNotePreviewToggle" href="#" role="button">Preview</a>
+              </div>
+              <div id="bucketNotePreview" class="note-preview" style="display:none;"></div>
+            </div>
+            <div class="note-section">
+              <div class="note-section-title">Punch Note</div>
+              <textarea id="noteField2" placeholder="Write a note... Markdown supported"></textarea>
+              <div class="note-foot subtle">
+                <span>Markdown supported</span>
+                <span aria-hidden="true"> • </span>
+                <a id="notePreviewToggle2" href="#" role="button">Preview</a>
+              </div>
+              <div id="notePreview2" class="note-preview" style="display:none;"></div>
+            </div>
+          </div>
           <div class="row" id="repeatRow" style="grid-template-columns: 1fr;">
             <div>
               <label>Repeat</label>
@@ -331,9 +353,21 @@
         <button class="icon-btn" id="noteModalClose" aria-label="Close">&#x2715;</button>
       </div>
       <div class="body">
-        <div id="noteViewer" class="note-view" style="display:none;"></div>
-        <div id="noteEditorWrap">
-          <div id="noteEditor" class="rich-editor"></div>
+        <div class="note-dual">
+          <div class="note-section">
+            <div class="note-section-title">Bucket Note (persistent)</div>
+            <div id="bucketNoteViewer" class="note-view" style="display:none;"></div>
+            <div id="bucketNoteEditorWrap">
+              <div id="bucketNoteEditor" class="rich-editor"></div>
+            </div>
+          </div>
+          <div class="note-section">
+            <div class="note-section-title">Punch Note</div>
+            <div id="noteViewer" class="note-view" style="display:none;"></div>
+            <div id="noteEditorWrap">
+              <div id="noteEditor" class="rich-editor"></div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="modal-footer">

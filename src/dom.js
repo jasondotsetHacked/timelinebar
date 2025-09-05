@@ -13,9 +13,14 @@ export const els = {
   startField: byId('startField'),
   endField: byId('endField'),
   bucketField: byId('bucketField'),
-  noteField: byId('noteField'),
-  notePreview: byId('notePreview'),
-  notePreviewToggle: byId('notePreviewToggle'),
+  // Prefer new dual-editor note field when present
+  noteField: document.getElementById('noteField2') || byId('noteField'),
+  notePreview: document.getElementById('notePreview2') || byId('notePreview'),
+  notePreviewToggle: document.getElementById('notePreviewToggle2') || byId('notePreviewToggle'),
+  // Bucket persistent note (edit modal)
+  bucketNoteField: byId('bucketNoteField'),
+  bucketNotePreview: byId('bucketNotePreview'),
+  bucketNotePreviewToggle: byId('bucketNotePreviewToggle'),
   modalForm: byId('modalForm'),
   modalCancel: byId('modalCancel'),
   modalClose: byId('modalClose'),
@@ -29,9 +34,14 @@ export const els = {
   noteModal: byId('noteModal'),
   noteModalTitle: document.getElementById('noteModalTitle'),
   noteModalClose: byId('noteModalClose'),
+  // Punch note viewer/editor (note modal)
   noteViewer: byId('noteViewer'),
   noteEditorWrap: byId('noteEditorWrap'),
   noteEditor: byId('noteEditor'),
+  // Bucket note viewer/editor (note modal)
+  bucketNoteViewer: byId('bucketNoteViewer'),
+  bucketNoteEditorWrap: byId('bucketNoteEditorWrap'),
+  bucketNoteEditor: byId('bucketNoteEditor'),
   noteEditToggle: byId('noteEditToggle'),
   noteSave: byId('noteSave'),
   noteCancel: byId('noteCancel'),

@@ -30,6 +30,27 @@ const mdToHtml = (text) => {
   return escapeHtml(t).replace(/\n/g, '<br>');
 };
 
+async function loadBucketNoteIntoEditor(name) {
+  try {
+    const key = String(name || '').trim();
+    if (!els.bucketNoteField) return;
+    let text = '';
+    try {
+      const rec = await idb.getBucket(key);
+      text = (rec && rec.note) || '';
+    } catch {}
+    els.bucketNoteField.value = text;
+    try {
+      els.bucketNoteField.style.height = 'auto';
+      const h = Math.max(72, Math.min(320, els.bucketNoteField.scrollHeight || 72));
+      els.bucketNoteField.style.height = h + 'px';
+      if (els.bucketNotePreview && els.bucketNotePreview.style.display !== 'none') {
+        els.bucketNotePreview.innerHTML = mdToHtml(text);
+      }
+    } catch {}
+  } catch {}
+}
+
 function genRecurrenceId() {
   return 'r' + Math.random().toString(36).slice(2, 10);
 }
@@ -104,13 +125,19 @@ const saveNewFromModal = async (e) => {
     start: s,
     end: eMin,
     bucket: els.bucketField.value.trim(),
-    note: els.noteField.value.trim(),
+    note: (els.noteField?.value || '').trim(),
     date: state.currentDate || todayStr(),
     status: (() => {
       const val = els.modalStatusBtn?.dataset.value || 'default';
       return val === 'default' ? null : val;
     })(),
   };
+  // Upsert bucket persistent note
+  try {
+    const bname = payload.bucket;
+    const bnote = String(els.bucketNoteField?.value || '').trim();
+    if (bname != null) await idb.setBucketNote(bname, bnote);
+  } catch {}
   const rec = readRecurrenceFromUI();
   if (els.repeatEnabled?.checked && !rec) {
     ui.toast('Pick an end date for the series');
@@ -379,6 +406,8 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      // Load bucket persistent note
+      try { await loadBucketNoteIntoEditor(els.bucketField.value); } catch {}
       // Recurrence UI state
       try {
         const hasRec = !!p.recurrenceId;
@@ -463,6 +492,7 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      try { await loadBucketNoteIntoEditor(els.bucketField.value); } catch {}
       try {
         const hasRec = !!p.recurrenceId;
         if (els.repeatEnabled) els.repeatEnabled.checked = hasRec;
@@ -521,6 +551,7 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      try { await loadBucketNoteIntoEditor(els.bucketField.value); } catch {}
       try {
         const hasRec = !!p.recurrenceId;
         if (els.repeatEnabled) els.repeatEnabled.checked = hasRec;
@@ -587,6 +618,7 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      try { await loadBucketNoteIntoEditor(els.bucketField.value); } catch {}
       if (els.modalStatusBtn) {
         const st = p.status || 'default';
         els.modalStatusBtn.dataset.value = st;
@@ -1000,6 +1032,37 @@ const attachEvents = () => {
     }
   });
 
+  // Bucket persistent note autosize + preview
+  els.bucketNoteField?.addEventListener('input', () => {
+    try {
+      els.bucketNoteField.style.height = 'auto';
+      const h = Math.max(72, Math.min(320, els.bucketNoteField.scrollHeight || 72));
+      els.bucketNoteField.style.height = h + 'px';
+      if (els.bucketNotePreview && els.bucketNotePreview.style.display !== 'none') {
+        els.bucketNotePreview.innerHTML = mdToHtml(els.bucketNoteField.value);
+      }
+    } catch {}
+  });
+  els.bucketNotePreviewToggle?.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (!els.bucketNotePreview) return;
+    const showing = els.bucketNotePreview.style.display !== 'none';
+    if (showing) {
+      els.bucketNotePreview.style.display = 'none';
+      els.bucketNotePreview.innerHTML = '';
+      if (els.bucketNotePreviewToggle) els.bucketNotePreviewToggle.textContent = 'Preview';
+    } else {
+      els.bucketNotePreview.innerHTML = mdToHtml(els.bucketNoteField?.value || '');
+      els.bucketNotePreview.style.display = '';
+      if (els.bucketNotePreviewToggle) els.bucketNotePreviewToggle.textContent = 'Hide preview';
+    }
+  });
+
+  // Update bucket note when bucket name changes
+  els.bucketField?.addEventListener('input', () => {
+    try { loadBucketNoteIntoEditor(els.bucketField.value); } catch {}
+  });
+
   // Note modal controls
   els.noteModalClose?.addEventListener('click', () => ui.closeNoteModal?.());
   els.noteCancel?.addEventListener('click', () => ui.closeNoteModal?.());
@@ -1007,13 +1070,17 @@ const attachEvents = () => {
     if (!els.noteModal) return;
     const editing = els.noteEditorWrap?.style.display !== 'none';
     if (editing) {
-      // switch to viewer
+      // switch to viewer for both sections
       if (els.noteEditorWrap) els.noteEditorWrap.style.display = 'none';
       if (els.noteViewer) els.noteViewer.style.display = '';
+      if (els.bucketNoteEditorWrap) els.bucketNoteEditorWrap.style.display = 'none';
+      if (els.bucketNoteViewer) els.bucketNoteViewer.style.display = '';
       if (els.noteEditToggle) els.noteEditToggle.textContent = 'Edit';
     } else {
       if (els.noteEditorWrap) els.noteEditorWrap.style.display = '';
       if (els.noteViewer) els.noteViewer.style.display = 'none';
+      if (els.bucketNoteEditorWrap) els.bucketNoteEditorWrap.style.display = '';
+      if (els.bucketNoteViewer) els.bucketNoteViewer.style.display = 'none';
       if (els.noteEditToggle) els.noteEditToggle.textContent = 'View';
     }
   });
@@ -1027,12 +1094,20 @@ const attachEvents = () => {
       const q = window.Quill && els.noteEditor && els.noteEditor.__quill ? els.noteEditor.__quill : null;
       if (q && q.root) html = q.root.innerHTML || '';
     } catch {}
+    // Read bucket note HTML
+    let bhtml = '';
+    try {
+      const qb = window.Quill && els.bucketNoteEditor && els.bucketNoteEditor.__quill ? els.bucketNoteEditor.__quill : null;
+      if (qb && qb.root) bhtml = qb.root.innerHTML || '';
+    } catch {}
     // Store as plain string (HTML is allowed; rendering uses DOMPurify)
     const idx = state.punches.findIndex((p) => p.id === id);
     if (idx !== -1) {
       const updated = { ...state.punches[idx], note: String(html || '') };
       await idb.put(updated);
       state.punches[idx] = updated;
+      // Save bucket note
+      try { await idb.setBucketNote(updated.bucket || '', String(bhtml || '')); } catch {}
       ui.renderAll();
       ui.toast?.('Saved');
       // Close the note modal after saving

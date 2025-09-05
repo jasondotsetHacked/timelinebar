@@ -1589,3 +1589,14 @@ a.bucket-link:visited { color: inherit; }
 .table-card::-webkit-scrollbar-track { background: rgba(255,255,255,.06); border-radius: 999px; }
 .table-card::-webkit-scrollbar-thumb { background: linear-gradient(180deg, var(--brand), var(--brand-2)); border-radius: 999px; }
 .table-card::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, var(--brand-2), var(--brand)); }
+
+/* Dual note editors */
+.note-dual { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.note-section { display: block; }
+.note-section-title { font-weight: 600; margin-bottom: 6px; opacity: 0.85; }
+.note-section textarea { width: 100%; min-height: 72px; resize: vertical; }
+@media (max-width: 720px) { .note-dual { grid-template-columns: 1fr; } }
+/* Hide legacy note column next to Bucket in edit modal */
+.row:has(#bucketField) { grid-template-columns: 1fr; }
+.row:has(#bucketField) > div:nth-child(2) { display: none; }
+
