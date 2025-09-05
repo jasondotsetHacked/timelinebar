@@ -1600,3 +1600,17 @@ a.bucket-link:visited { color: inherit; }
 .row:has(#bucketField) { grid-template-columns: 1fr; }
 .row:has(#bucketField) > div:nth-child(2) { display: none; }
 
+/* Note modal: keep modal fixed-height and scroll inside each editor */
+#noteModal .modal { display: flex; flex-direction: column; height: 80vh; max-height: 90vh; }
+#noteModal .modal .body { flex: 1; overflow: hidden; display: flex; }
+#noteModal .note-dual { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; flex: 1; min-height: 0; }
+#noteModal .note-section { display: flex; flex-direction: column; min-height: 0; }
+#noteModal .note-section .note-view { flex: 1; min-height: 0; overflow: auto; }
+#noteModal #noteEditorWrap, #noteModal #bucketNoteEditorWrap { flex: 1; min-height: 0; overflow: auto; }
+#noteModal .rich-editor, #noteModal .rich-editor .ql-container { height: 100%; }
+#noteModal .ql-editor { min-height: 0; }
+@media (max-width: 720px) { #noteModal .note-dual { grid-template-columns: 1fr; } }
+
+
+#noteModal .ql-container { overflow: auto; }
+
