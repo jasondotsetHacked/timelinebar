@@ -580,6 +580,8 @@ tbody tr.is-hovered { background: rgba(255,255,255,.06); }
 /* Modal */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
 .modal { width: 520px; max-width: 96vw; }
+.modal.modal-lg { width: 760px; }
+.modal.modal-xl { width: 960px; }
 .modal .body { padding: 18px; display: grid; gap: 12px; max-height: 70vh; overflow: auto; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
@@ -705,6 +707,44 @@ td.status-cell, th.status-cell { padding-left: 10px; padding-right: 10px; width:
 .row-action.delete { background: var(--danger); color: #091019; }
 tbody tr { cursor: pointer; }
 tbody tr .row-action { cursor: pointer; }
+
+/* Copyable cells in the table */
+#entriesTable td.copy-cell { cursor: copy; }
+#entriesTable td.copy-cell:hover { background: rgba(255,255,255,.06); }
+:root[data-theme='light'] #entriesTable td.copy-cell:hover { background: rgba(16,24,40,.06); }
+
+/* Note modal: viewer and editor */
+#noteModal .modal .body { max-height: 70vh; overflow: hidden; display: flex; flex-direction: column; }
+#noteModal #noteViewer { max-height: none; }
+#noteEditorWrap { display: flex; flex-direction: column; min-height: 0; }
+#noteEditor { display: flex; flex-direction: column; min-height: 0; }
+#noteEditor .ql-container { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#noteModal #noteEditor .ql-editor { flex: 1; min-height: 0; }
+#noteViewer { max-height: 70vh; overflow: auto; }
+#noteViewer p { margin: .5em 0; }
+#noteViewer pre { background: rgba(255,255,255,.06); border-radius: 8px; padding: 8px; overflow: auto; }
+:root[data-theme='light'] #noteViewer pre { background: rgba(16,24,40,.06); }
+#noteViewer code { background: rgba(255,255,255,.08); border-radius: 4px; padding: 0 3px; }
+
+/* Quill editor height inside note modal */
+#noteEditor .ql-editor { min-height: 320px; }
+
+/* Mini date picker popover */
+.date-popover { position: fixed; min-width: 260px; background: var(--panel); color: var(--text); border: 1px solid rgba(0,255,102,0.3); border-radius: 12px; box-shadow: var(--shadow); z-index: 300; padding: 10px; }
+.date-popover .date-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.date-popover .date-title { font-weight: 700; letter-spacing: .2px; }
+.date-popover .date-nav { display: flex; gap: 6px; }
+.date-popover .date-btn { appearance: none; border: 0; background: rgba(255,255,255,.06); color: var(--text); border-radius: 8px; padding: 4px 8px; cursor: pointer; }
+.date-popover .date-btn:hover { background: rgba(255,255,255,.1); }
+.date-popover .date-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.date-popover .date-wd { text-align: center; font-size: 12px; color: var(--muted); }
+.date-popover .date-day { text-align: center; padding: 6px 0; border-radius: 8px; cursor: pointer; background: rgba(255,255,255,.04); }
+.date-popover .date-day:hover { background: rgba(255,255,255,.1); }
+.date-popover .date-day.other { opacity: .5; }
+.date-popover .date-day.today { outline: 2px solid var(--brand-2); outline-offset: 2px; }
+.date-popover .date-day.selected { background: var(--brand); color: #091019; }
+:root[data-theme='light'] .date-popover .date-btn { background: rgba(16,24,40,.06); color: #0d1321; }
+:root[data-theme='light'] .date-popover .date-btn:hover { background: rgba(16,24,40,.10); }
 
 /* Toast */
 .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #111b37; color: var(--text); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 10px 14px; font-size: 14px; display: none; z-index: 60; box-shadow: var(--shadow); }

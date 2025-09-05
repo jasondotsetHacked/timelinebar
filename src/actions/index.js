@@ -3,7 +3,7 @@ import { state } from '../state.js';
 import { time } from '../time.js';
 import { ui } from '../ui.js';
 import { idb } from '../storage.js';
-import { todayStr } from '../dates.js';
+import { todayStr, parseDate, toDateStr } from '../dates.js';
 import { getPunchDate } from '../dates.js';
 import { expandDates } from '../recur.js';
 import { dragActions } from './drag.js';
@@ -12,6 +12,7 @@ import { calendarActions } from './calendar.js';
 import { settingsActions } from './settings.js';
 import { overlapsAny, pxToMinutes } from './helpers.js';
 import { copyActions } from '../copy.js';
+import { copyText } from '../copy.js';
 import { SNAP_MIN } from '../config.js';
 
 // helpers for modal note preview
@@ -199,7 +200,87 @@ const saveNewFromModal = async (e) => {
   ui.renderAll();
 };
 
-const closeModal = () => ui.closeModal();
+// Mini date picker popover
+let datePopover = null;
+function hideDatePicker() {
+  try { if (datePopover) datePopover.remove(); } catch {}
+  datePopover = null;
+  window.removeEventListener('resize', hideDatePicker);
+  window.removeEventListener('scroll', hideDatePicker, true);
+  document.removeEventListener('keydown', onDateKey);
+}
+function onDateKey(e) { if (e.key === 'Escape') hideDatePicker(); }
+function buildMonthGridLocal(year, monthIndex) {
+  const first = new Date(year, monthIndex, 1);
+  const start = new Date(first);
+  start.setDate(first.getDate() - first.getDay()); // start on Sunday
+  const days = [];
+  for (let i = 0; i < 42; i++) { const d = new Date(start); d.setDate(start.getDate() + i); days.push(d); }
+  return days;
+}
+function showDatePicker(anchor, inputEl) {
+  if (!anchor || !inputEl) return;
+  const existing = datePopover;
+  if (existing && existing._for === inputEl) { hideDatePicker(); return; }
+  hideDatePicker();
+  const today = todayStr();
+  const selStr = String(inputEl.value || '').trim();
+  const sel = parseDate(selStr) || new Date();
+  let y = sel.getFullYear();
+  let m = sel.getMonth();
+  const pop = document.createElement('div');
+  pop.className = 'date-popover';
+  pop._for = inputEl;
+  const render = () => {
+    pop.innerHTML = '';
+    const header = document.createElement('div'); header.className = 'date-header';
+    const title = document.createElement('div'); title.className = 'date-title';
+    title.textContent = new Date(y, m, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' });
+    const nav = document.createElement('div'); nav.className = 'date-nav';
+    const prev = document.createElement('button'); prev.className = 'date-btn'; prev.textContent = '\u2039'; prev.title = 'Previous month';
+    const next = document.createElement('button'); next.className = 'date-btn'; next.textContent = '\u203A'; next.title = 'Next month';
+    prev.addEventListener('click', (e) => { e.preventDefault(); m -= 1; if (m < 0) { m = 11; y -= 1; } render(); });
+    next.addEventListener('click', (e) => { e.preventDefault(); m += 1; if (m > 11) { m = 0; y += 1; } render(); });
+    nav.append(prev, next); header.append(title, nav); pop.appendChild(header);
+    const grid = document.createElement('div'); grid.className = 'date-grid';
+    const wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    for (const w of wd) { const el = document.createElement('div'); el.className = 'date-wd'; el.textContent = w; grid.appendChild(el); }
+    const days = buildMonthGridLocal(y, m);
+    for (const d of days) {
+      const ds = toDateStr(d);
+      const cell = document.createElement('div'); cell.className = 'date-day';
+      if (d.getMonth() !== m) cell.classList.add('other');
+      if (ds === today) cell.classList.add('today');
+      if (selStr && ds === selStr) cell.classList.add('selected');
+      cell.textContent = String(d.getDate());
+      cell.addEventListener('click', () => {
+        inputEl.value = ds;
+        try { inputEl.dispatchEvent(new Event('input', { bubbles: true })); } catch {}
+        try { inputEl.dispatchEvent(new Event('change', { bubbles: true })); } catch {}
+        hideDatePicker();
+      });
+      grid.appendChild(cell);
+    }
+    pop.appendChild(grid);
+  };
+  document.body.appendChild(pop);
+  render();
+  const rect = anchor.getBoundingClientRect();
+  const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+  const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+  const pr = pop.getBoundingClientRect();
+  let left = Math.min(rect.left, vw - pr.width - 6);
+  let top = rect.bottom + 6;
+  if (top + pr.height + 6 > vh) top = Math.max(6, rect.top - pr.height - 6);
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+  datePopover = pop;
+  window.addEventListener('resize', hideDatePicker);
+  window.addEventListener('scroll', hideDatePicker, true);
+  document.addEventListener('keydown', onDateKey);
+}
+
+const closeModal = () => { hideDatePicker(); ui.closeModal(); };
 
 const attachEvents = () => {
   dragActions.attach();
@@ -263,20 +344,31 @@ const attachEvents = () => {
       ui.toast('Deleted');
       return;
     }
-    // Show markdown popover when clicking the note cell
+    // Copy on click for Start/Stop/Duration/Bucket cells
+    const copyCell = e.target.closest('td.copy-cell');
+    if (copyCell) {
+      const text = (copyCell.textContent || '').trim();
+      try { await copyText(text); ui.toast?.('Copied to clipboard'); } catch {}
+      e.stopPropagation();
+      return;
+    }
+    // Open Note modal when clicking the note cell
     const noteCell = e.target.closest('td.note');
     if (noteCell) {
       const tr = noteCell.closest('tr[data-id]');
       const id = Number(tr?.dataset.id);
       if (id) {
-        ui.toggleNotePopover?.(id, noteCell);
+        ui.openNoteModal?.(id);
         e.stopPropagation();
         return;
       }
     }
     const editBtn = e.target.closest('.row-action.edit');
+    // Only open edit modal when clicking the edit button or empty areas (non-copyable, non-note, non-status, non-actions cells)
     const row = e.target.closest('tr');
-    if (editBtn || row) {
+    const td = e.target.closest('td');
+    const allowRowOpen = !!row && td && !td.classList.contains('copy-cell') && !td.classList.contains('note') && !td.classList.contains('status-cell') && !td.classList.contains('table-actions');
+    if (editBtn || allowRowOpen) {
       const id = Number(editBtn?.dataset.id || row?.dataset.id);
       if (!id) return;
       const p = state.punches.find((px) => px.id === id);
@@ -812,10 +904,14 @@ const attachEvents = () => {
   els.btnCopyChartTop?.addEventListener('click', doCopy);
   els.btnCopyChartTable?.addEventListener('click', doCopy);
 
-  // track click: open note popover when appropriate
+  // track click: open note modal when appropriate
   els.track.addEventListener('click', (e) => {
     if (e.shiftKey) {
       // Already handled by earlier listener
+      return;
+    }
+    // Ignore clicks on handles or inline controls used for resize/edit/delete
+    if (e.target.closest('.handle') || e.target.closest('.control-btn')) {
       return;
     }
     // Ignore clicks on the label area; label opens the edit modal only
@@ -825,7 +921,7 @@ const attachEvents = () => {
     const dot = e.target.closest('.note-dot');
     if (dot) {
       const id = Number(dot.dataset.id);
-      if (id) ui.toggleNotePopover?.(id);
+      if (id) ui.openNoteModal?.(id);
       e.stopPropagation();
       return;
     }
@@ -835,9 +931,21 @@ const attachEvents = () => {
       if (!id) return;
       const p = state.punches.find((x) => x.id === id);
       if (p?.note) {
-        ui.toggleNotePopover?.(id);
+        ui.openNoteModal?.(id);
         e.stopPropagation();
       }
+    }
+  });
+
+  // Bucket View: open note modal on note cell click
+  els.bucketViewBody?.addEventListener('click', (e) => {
+    const noteCell = e.target.closest('td.note');
+    if (!noteCell) return;
+    const tr = noteCell.closest('tr');
+    const id = Number(tr?.dataset?.id);
+    if (id) {
+      ui.openNoteModal?.(id);
+      e.stopPropagation();
     }
   });
 
@@ -866,6 +974,69 @@ const attachEvents = () => {
       if (els.notePreviewToggle) els.notePreviewToggle.textContent = 'Hide preview';
     }
   });
+
+  // Note modal controls
+  els.noteModalClose?.addEventListener('click', () => ui.closeNoteModal?.());
+  els.noteCancel?.addEventListener('click', () => ui.closeNoteModal?.());
+  els.noteEditToggle?.addEventListener('click', () => {
+    if (!els.noteModal) return;
+    const editing = els.noteEditorWrap?.style.display !== 'none';
+    if (editing) {
+      // switch to viewer
+      if (els.noteEditorWrap) els.noteEditorWrap.style.display = 'none';
+      if (els.noteViewer) els.noteViewer.style.display = '';
+      if (els.noteEditToggle) els.noteEditToggle.textContent = 'Edit';
+    } else {
+      if (els.noteEditorWrap) els.noteEditorWrap.style.display = '';
+      if (els.noteViewer) els.noteViewer.style.display = 'none';
+      if (els.noteEditToggle) els.noteEditToggle.textContent = 'View';
+    }
+  });
+  els.noteSave?.addEventListener('click', async () => {
+    if (!els.noteModal) return;
+    const id = Number(els.noteModal.dataset.id);
+    if (!id) return;
+    // Read HTML from Quill if available; fallback to viewer text
+    let html = '';
+    try {
+      const q = window.Quill && els.noteEditor && els.noteEditor.__quill ? els.noteEditor.__quill : null;
+      if (q && q.root) html = q.root.innerHTML || '';
+    } catch {}
+    // Store as plain string (HTML is allowed; rendering uses DOMPurify)
+    const idx = state.punches.findIndex((p) => p.id === id);
+    if (idx !== -1) {
+      const updated = { ...state.punches[idx], note: String(html || '') };
+      await idb.put(updated);
+      state.punches[idx] = updated;
+      ui.renderAll();
+      ui.toast?.('Saved');
+      // Close the note modal after saving
+      ui.closeNoteModal?.();
+    }
+  });
+
+  // Date picker: open mini calendar when clicking anywhere on the End on date field/wrap
+  const endWrap = els.repeatUntilWrap;
+  const endInput = els.repeatUntil;
+  const openPicker = (e) => {
+    if (!endInput) return;
+    // Allow typing as well; just show picker
+    showDatePicker(endInput, endInput);
+    e.stopPropagation();
+  };
+  endWrap?.addEventListener('click', (e) => {
+    const clickedInput = e.target === endInput || e.target.closest('#repeatUntil');
+    // If the native picker icon was clicked, let browser handle too
+    openPicker(e);
+  });
+  endInput?.addEventListener('focus', openPicker);
+  // Close picker on outside click (handled by global scroll/resize/Escape); clicking elsewhere in modal should close it
+  document.addEventListener('click', (e) => {
+    if (!datePopover) return;
+    const inside = e.target === datePopover || (datePopover && datePopover.contains(e.target));
+    const isEndField = e.target === endInput || (endWrap && endWrap.contains(e.target));
+    if (!inside && !isEndField) hideDatePicker();
+  }, true);
 };
 
 export const actions = {

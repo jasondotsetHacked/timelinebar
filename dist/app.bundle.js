@@ -26,6 +26,16 @@
     modalStatusWrap: byId("modalStatusWrap"),
     modalStatusBtn: byId("modalStatusBtn"),
     modalStatusMenu: byId("modalStatusMenu"),
+    // Note modal
+    noteModal: byId("noteModal"),
+    noteModalTitle: document.getElementById("noteModalTitle"),
+    noteModalClose: byId("noteModalClose"),
+    noteViewer: byId("noteViewer"),
+    noteEditorWrap: byId("noteEditorWrap"),
+    noteEditor: byId("noteEditor"),
+    noteEditToggle: byId("noteEditToggle"),
+    noteSave: byId("noteSave"),
+    noteCancel: byId("noteCancel"),
     // Recurrence controls
     repeatEnabled: byId("repeatEnabled"),
     repeatFields: byId("repeatFields"),
@@ -656,6 +666,67 @@
       e.stopPropagation();
     });
   }
+  var quillInstance = null;
+  function ensureQuill() {
+    try {
+      if (!quillInstance && window.Quill && els.noteEditor) {
+        quillInstance = new window.Quill(els.noteEditor, {
+          theme: "snow",
+          modules: {
+            toolbar: [
+              ["bold", "italic", "underline"],
+              [{ list: "ordered" }, { list: "bullet" }],
+              ["link", "code-block"],
+              [{ header: [2, 3, false] }]
+            ]
+          }
+        });
+      }
+    } catch (e) {
+    }
+    return quillInstance;
+  }
+  function openNoteModal(id) {
+    const p = state.punches.find((x) => x.id === id);
+    if (!p) return;
+    hideNotePopover();
+    if (!els.noteModal) return;
+    els.noteModal.dataset.id = String(id);
+    try {
+      if (els.noteModalTitle) els.noteModalTitle.textContent = `Note \u2014 ${p.bucket || "(no bucket)"}`;
+    } catch (e) {
+    }
+    const html = markdownToHtml(p.note || "");
+    if (els.noteViewer) els.noteViewer.innerHTML = html;
+    const q = ensureQuill();
+    if (q) {
+      try {
+        q.setContents([]);
+      } catch (e) {
+      }
+      try {
+        q.clipboard.dangerouslyPasteHTML(html || "");
+      } catch (e) {
+        try {
+          q.root.innerHTML = html || "";
+        } catch (e2) {
+        }
+      }
+    }
+    if (els.noteEditorWrap) els.noteEditorWrap.style.display = "";
+    if (els.noteViewer) els.noteViewer.style.display = "none";
+    if (els.noteEditToggle) {
+      els.noteEditToggle.style.display = "";
+      els.noteEditToggle.textContent = "View";
+    }
+    els.noteModal.style.display = "flex";
+  }
+  function closeNoteModal() {
+    if (els.noteModal) {
+      els.noteModal.style.display = "none";
+      delete els.noteModal.dataset.id;
+    }
+  }
   function getView2() {
     const start = Math.max(0, Math.min(24 * 60, Number(state.viewStartMin)));
     const end = Math.max(0, Math.min(24 * 60, Number(state.viewEndMin)));
@@ -923,10 +994,10 @@
           <div class="status-option" data-value="purple" title="Purple (transparent)"></div>
           <div class="status-option" data-value="purple-solid" title="Purple"></div>
         </div></div></td>
-      <td class="cell-start">${time.toLabel(p.start)}</td>
-      <td class="cell-end">${time.toLabel(p.end)}</td>
-      <td>${time.durationLabel(dur)}</td>
-      <td>${escapeHtml(p.bucket || "")}</td>
+      <td class="cell-start copy-cell" title="Click to copy start">${time.toLabel(p.start)}</td>
+      <td class="cell-end copy-cell" title="Click to copy stop">${time.toLabel(p.end)}</td>
+      <td class="cell-duration copy-cell" title="Click to copy duration">${time.durationLabel(dur)}</td>
+      <td class="cell-bucket copy-cell" title="Click to copy bucket">${escapeHtml(p.bucket || "")}</td>
       <td class="note"><div class="note-window" role="region" aria-label="Note preview"><div class="note-html">${markdownToHtml(p.note || "")}</div></div></td>
       <td class="table-actions">
         <button class="row-action edit" title="Edit" data-id="${p.id}">Edit</button>
@@ -1020,6 +1091,7 @@
     els.bucketViewBody.innerHTML = "";
     for (const p of items) {
       const tr = document.createElement("tr");
+      tr.dataset.id = p.id;
       const dur = Math.max(0, (p.end || 0) - (p.start || 0));
       tr.innerHTML = `
       <td>${escapeHtml(p.date || "")}</td>
@@ -1261,6 +1333,8 @@
     renderTotal,
     toggleNotePopover,
     hideNotePopover,
+    openNoteModal,
+    closeNoteModal,
     showGhost,
     hideGhost,
     showTips,
@@ -2145,6 +2219,32 @@
     else (_h = (_g = ui).toast) == null ? void 0 : _h.call(_g, "Copy failed");
   }
   var copyActions = { copyChart };
+  async function copyText(text) {
+    var _a;
+    const s = String(text || "");
+    try {
+      if ((_a = navigator.clipboard) == null ? void 0 : _a.writeText) {
+        await navigator.clipboard.writeText(s);
+        return true;
+      }
+    } catch (e) {
+    }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = s;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      ta.style.pointerEvents = "none";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand && document.execCommand("copy");
+      document.body.removeChild(ta);
+      return !!ok;
+    } catch (e) {
+    }
+    return false;
+  }
 
   // src/actions/index.js
   var escapeHtml2 = (s) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
@@ -2331,15 +2431,148 @@
     ui.closeModal();
     ui.renderAll();
   };
-  var closeModal2 = () => ui.closeModal();
+  var datePopover = null;
+  function hideDatePicker() {
+    try {
+      if (datePopover) datePopover.remove();
+    } catch (e) {
+    }
+    datePopover = null;
+    window.removeEventListener("resize", hideDatePicker);
+    window.removeEventListener("scroll", hideDatePicker, true);
+    document.removeEventListener("keydown", onDateKey);
+  }
+  function onDateKey(e) {
+    if (e.key === "Escape") hideDatePicker();
+  }
+  function buildMonthGridLocal(year, monthIndex) {
+    const first = new Date(year, monthIndex, 1);
+    const start = new Date(first);
+    start.setDate(first.getDate() - first.getDay());
+    const days = [];
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }
+  function showDatePicker(anchor, inputEl) {
+    if (!anchor || !inputEl) return;
+    const existing = datePopover;
+    if (existing && existing._for === inputEl) {
+      hideDatePicker();
+      return;
+    }
+    hideDatePicker();
+    const today = todayStr();
+    const selStr = String(inputEl.value || "").trim();
+    const sel = parseDate(selStr) || /* @__PURE__ */ new Date();
+    let y = sel.getFullYear();
+    let m = sel.getMonth();
+    const pop = document.createElement("div");
+    pop.className = "date-popover";
+    pop._for = inputEl;
+    const render = () => {
+      pop.innerHTML = "";
+      const header = document.createElement("div");
+      header.className = "date-header";
+      const title = document.createElement("div");
+      title.className = "date-title";
+      title.textContent = new Date(y, m, 1).toLocaleString(void 0, { month: "long", year: "numeric" });
+      const nav = document.createElement("div");
+      nav.className = "date-nav";
+      const prev = document.createElement("button");
+      prev.className = "date-btn";
+      prev.textContent = "\u2039";
+      prev.title = "Previous month";
+      const next = document.createElement("button");
+      next.className = "date-btn";
+      next.textContent = "\u203A";
+      next.title = "Next month";
+      prev.addEventListener("click", (e) => {
+        e.preventDefault();
+        m -= 1;
+        if (m < 0) {
+          m = 11;
+          y -= 1;
+        }
+        render();
+      });
+      next.addEventListener("click", (e) => {
+        e.preventDefault();
+        m += 1;
+        if (m > 11) {
+          m = 0;
+          y += 1;
+        }
+        render();
+      });
+      nav.append(prev, next);
+      header.append(title, nav);
+      pop.appendChild(header);
+      const grid = document.createElement("div");
+      grid.className = "date-grid";
+      const wd = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      for (const w of wd) {
+        const el = document.createElement("div");
+        el.className = "date-wd";
+        el.textContent = w;
+        grid.appendChild(el);
+      }
+      const days = buildMonthGridLocal(y, m);
+      for (const d of days) {
+        const ds = toDateStr(d);
+        const cell = document.createElement("div");
+        cell.className = "date-day";
+        if (d.getMonth() !== m) cell.classList.add("other");
+        if (ds === today) cell.classList.add("today");
+        if (selStr && ds === selStr) cell.classList.add("selected");
+        cell.textContent = String(d.getDate());
+        cell.addEventListener("click", () => {
+          inputEl.value = ds;
+          try {
+            inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+          } catch (e) {
+          }
+          try {
+            inputEl.dispatchEvent(new Event("change", { bubbles: true }));
+          } catch (e) {
+          }
+          hideDatePicker();
+        });
+        grid.appendChild(cell);
+      }
+      pop.appendChild(grid);
+    };
+    document.body.appendChild(pop);
+    render();
+    const rect = anchor.getBoundingClientRect();
+    const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+    const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+    const pr = pop.getBoundingClientRect();
+    let left = Math.min(rect.left, vw - pr.width - 6);
+    let top = rect.bottom + 6;
+    if (top + pr.height + 6 > vh) top = Math.max(6, rect.top - pr.height - 6);
+    pop.style.left = left + "px";
+    pop.style.top = top + "px";
+    datePopover = pop;
+    window.addEventListener("resize", hideDatePicker);
+    window.addEventListener("scroll", hideDatePicker, true);
+    document.addEventListener("keydown", onDateKey);
+  }
+  var closeModal2 = () => {
+    hideDatePicker();
+    ui.closeModal();
+  };
   var attachEvents = () => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F;
     dragActions.attach();
     resizeActions.attach();
     calendarActions.attach();
     settingsActions.attach();
     els.rows.addEventListener("click", async (e) => {
-      var _a2, _b2;
+      var _a2, _b2, _c2, _d2;
       const btn = e.target.closest(".status-btn");
       if (btn) {
         const wrap = btn.closest(".status-wrap");
@@ -2394,19 +2627,32 @@
         ui.toast("Deleted");
         return;
       }
+      const copyCell = e.target.closest("td.copy-cell");
+      if (copyCell) {
+        const text = (copyCell.textContent || "").trim();
+        try {
+          await copyText(text);
+          (_b2 = (_a2 = ui).toast) == null ? void 0 : _b2.call(_a2, "Copied to clipboard");
+        } catch (e2) {
+        }
+        e.stopPropagation();
+        return;
+      }
       const noteCell = e.target.closest("td.note");
       if (noteCell) {
         const tr = noteCell.closest("tr[data-id]");
         const id = Number(tr == null ? void 0 : tr.dataset.id);
         if (id) {
-          (_b2 = (_a2 = ui).toggleNotePopover) == null ? void 0 : _b2.call(_a2, id, noteCell);
+          (_d2 = (_c2 = ui).openNoteModal) == null ? void 0 : _d2.call(_c2, id);
           e.stopPropagation();
           return;
         }
       }
       const editBtn = e.target.closest(".row-action.edit");
       const row = e.target.closest("tr");
-      if (editBtn || row) {
+      const td = e.target.closest("td");
+      const allowRowOpen = !!row && td && !td.classList.contains("copy-cell") && !td.classList.contains("note") && !td.classList.contains("status-cell") && !td.classList.contains("table-actions");
+      if (editBtn || allowRowOpen) {
         const id = Number((editBtn == null ? void 0 : editBtn.dataset.id) || (row == null ? void 0 : row.dataset.id));
         if (!id) return;
         const p = state.punches.find((px) => px.id === id);
@@ -2957,13 +3203,16 @@
       if (e.shiftKey) {
         return;
       }
+      if (e.target.closest(".handle") || e.target.closest(".control-btn")) {
+        return;
+      }
       if (e.target.closest(".punch-label")) {
         return;
       }
       const dot = e.target.closest(".note-dot");
       if (dot) {
         const id = Number(dot.dataset.id);
-        if (id) (_b2 = (_a2 = ui).toggleNotePopover) == null ? void 0 : _b2.call(_a2, id);
+        if (id) (_b2 = (_a2 = ui).openNoteModal) == null ? void 0 : _b2.call(_a2, id);
         e.stopPropagation();
         return;
       }
@@ -2973,12 +3222,23 @@
         if (!id) return;
         const p = state.punches.find((x) => x.id === id);
         if (p == null ? void 0 : p.note) {
-          (_d2 = (_c2 = ui).toggleNotePopover) == null ? void 0 : _d2.call(_c2, id);
+          (_d2 = (_c2 = ui).openNoteModal) == null ? void 0 : _d2.call(_c2, id);
           e.stopPropagation();
         }
       }
     });
-    (_z = els.noteField) == null ? void 0 : _z.addEventListener("input", () => {
+    (_z = els.bucketViewBody) == null ? void 0 : _z.addEventListener("click", (e) => {
+      var _a2, _b2, _c2;
+      const noteCell = e.target.closest("td.note");
+      if (!noteCell) return;
+      const tr = noteCell.closest("tr");
+      const id = Number((_a2 = tr == null ? void 0 : tr.dataset) == null ? void 0 : _a2.id);
+      if (id) {
+        (_c2 = (_b2 = ui).openNoteModal) == null ? void 0 : _c2.call(_b2, id);
+        e.stopPropagation();
+      }
+    });
+    (_A = els.noteField) == null ? void 0 : _A.addEventListener("input", () => {
       try {
         els.noteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
@@ -2989,7 +3249,7 @@
       } catch (e) {
       }
     });
-    (_A = els.notePreviewToggle) == null ? void 0 : _A.addEventListener("click", (e) => {
+    (_B = els.notePreviewToggle) == null ? void 0 : _B.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.notePreview) return;
@@ -3004,6 +3264,67 @@
         if (els.notePreviewToggle) els.notePreviewToggle.textContent = "Hide preview";
       }
     });
+    (_C = els.noteModalClose) == null ? void 0 : _C.addEventListener("click", () => {
+      var _a2, _b2;
+      return (_b2 = (_a2 = ui).closeNoteModal) == null ? void 0 : _b2.call(_a2);
+    });
+    (_D = els.noteCancel) == null ? void 0 : _D.addEventListener("click", () => {
+      var _a2, _b2;
+      return (_b2 = (_a2 = ui).closeNoteModal) == null ? void 0 : _b2.call(_a2);
+    });
+    (_E = els.noteEditToggle) == null ? void 0 : _E.addEventListener("click", () => {
+      var _a2;
+      if (!els.noteModal) return;
+      const editing = ((_a2 = els.noteEditorWrap) == null ? void 0 : _a2.style.display) !== "none";
+      if (editing) {
+        if (els.noteEditorWrap) els.noteEditorWrap.style.display = "none";
+        if (els.noteViewer) els.noteViewer.style.display = "";
+        if (els.noteEditToggle) els.noteEditToggle.textContent = "Edit";
+      } else {
+        if (els.noteEditorWrap) els.noteEditorWrap.style.display = "";
+        if (els.noteViewer) els.noteViewer.style.display = "none";
+        if (els.noteEditToggle) els.noteEditToggle.textContent = "View";
+      }
+    });
+    (_F = els.noteSave) == null ? void 0 : _F.addEventListener("click", async () => {
+      var _a2, _b2, _c2, _d2;
+      if (!els.noteModal) return;
+      const id = Number(els.noteModal.dataset.id);
+      if (!id) return;
+      let html = "";
+      try {
+        const q = window.Quill && els.noteEditor && els.noteEditor.__quill ? els.noteEditor.__quill : null;
+        if (q && q.root) html = q.root.innerHTML || "";
+      } catch (e) {
+      }
+      const idx = state.punches.findIndex((p) => p.id === id);
+      if (idx !== -1) {
+        const updated = { ...state.punches[idx], note: String(html || "") };
+        await idb.put(updated);
+        state.punches[idx] = updated;
+        ui.renderAll();
+        (_b2 = (_a2 = ui).toast) == null ? void 0 : _b2.call(_a2, "Saved");
+        (_d2 = (_c2 = ui).closeNoteModal) == null ? void 0 : _d2.call(_c2);
+      }
+    });
+    const endWrap = els.repeatUntilWrap;
+    const endInput = els.repeatUntil;
+    const openPicker = (e) => {
+      if (!endInput) return;
+      showDatePicker(endInput, endInput);
+      e.stopPropagation();
+    };
+    endWrap == null ? void 0 : endWrap.addEventListener("click", (e) => {
+      const clickedInput = e.target === endInput || e.target.closest("#repeatUntil");
+      openPicker(e);
+    });
+    endInput == null ? void 0 : endInput.addEventListener("focus", openPicker);
+    document.addEventListener("click", (e) => {
+      if (!datePopover) return;
+      const inside = e.target === datePopover || datePopover && datePopover.contains(e.target);
+      const isEndField = e.target === endInput || endWrap && endWrap.contains(e.target);
+      if (!inside && !isEndField) hideDatePicker();
+    }, true);
   };
   var actions = {
     attachEvents

@@ -139,6 +139,56 @@ function toggleNotePopover(id, anchorEl = null) {
   });
 }
 
+// Note modal (replaces popover for table/track notes)
+let quillInstance = null;
+function ensureQuill() {
+  try {
+    if (!quillInstance && window.Quill && els.noteEditor) {
+      quillInstance = new window.Quill(els.noteEditor, {
+        theme: 'snow',
+        modules: {
+          toolbar: [
+            ['bold', 'italic', 'underline'],
+            [{ list: 'ordered' }, { list: 'bullet' }],
+            ['link', 'code-block'],
+            [{ header: [2, 3, false] }]
+          ],
+        },
+      });
+    }
+  } catch {}
+  return quillInstance;
+}
+
+function openNoteModal(id) {
+  const p = state.punches.find((x) => x.id === id);
+  if (!p) return;
+  hideNotePopover();
+  if (!els.noteModal) return;
+  els.noteModal.dataset.id = String(id);
+  try { if (els.noteModalTitle) els.noteModalTitle.textContent = `Note — ${p.bucket || '(no bucket)'}`; } catch {}
+  const html = markdownToHtml(p.note || '');
+  if (els.noteViewer) els.noteViewer.innerHTML = html;
+  // Initialize editor with HTML
+  const q = ensureQuill();
+  if (q) {
+    try { q.setContents([]); } catch {}
+    try { q.clipboard.dangerouslyPasteHTML(html || ''); } catch { try { q.root.innerHTML = html || ''; } catch {} }
+  }
+  // Show editor by default for easy editing
+  if (els.noteEditorWrap) els.noteEditorWrap.style.display = '';
+  if (els.noteViewer) els.noteViewer.style.display = 'none';
+  if (els.noteEditToggle) { els.noteEditToggle.style.display = ''; els.noteEditToggle.textContent = 'View'; }
+  els.noteModal.style.display = 'flex';
+}
+
+function closeNoteModal() {
+  if (els.noteModal) {
+    els.noteModal.style.display = 'none';
+    delete els.noteModal.dataset.id;
+  }
+}
+
 function getView() {
   const start = Math.max(0, Math.min(24 * 60, Number(state.viewStartMin)));
   const end = Math.max(0, Math.min(24 * 60, Number(state.viewEndMin)));
@@ -439,10 +489,10 @@ function renderTable() {
           <div class="status-option" data-value="purple" title="Purple (transparent)"></div>
           <div class="status-option" data-value="purple-solid" title="Purple"></div>
         </div></div></td>
-      <td class="cell-start">${time.toLabel(p.start)}</td>
-      <td class="cell-end">${time.toLabel(p.end)}</td>
-      <td>${time.durationLabel(dur)}</td>
-      <td>${escapeHtml(p.bucket || '')}</td>
+      <td class="cell-start copy-cell" title="Click to copy start">${time.toLabel(p.start)}</td>
+      <td class="cell-end copy-cell" title="Click to copy stop">${time.toLabel(p.end)}</td>
+      <td class="cell-duration copy-cell" title="Click to copy duration">${time.durationLabel(dur)}</td>
+      <td class="cell-bucket copy-cell" title="Click to copy bucket">${escapeHtml(p.bucket || '')}</td>
       <td class="note"><div class="note-window" role="region" aria-label="Note preview"><div class="note-html">${markdownToHtml(p.note || '')}</div></div></td>
       <td class="table-actions">
         <button class="row-action edit" title="Edit" data-id="${p.id}">Edit</button>
@@ -551,6 +601,7 @@ function renderBucketView() {
   els.bucketViewBody.innerHTML = '';
   for (const p of items) {
     const tr = document.createElement('tr');
+    tr.dataset.id = p.id;
     const dur = Math.max(0, (p.end || 0) - (p.start || 0));
     tr.innerHTML = `
       <td>${escapeHtml(p.date || '')}</td>
@@ -788,6 +839,8 @@ export const ui = {
   renderTotal,
   toggleNotePopover,
   hideNotePopover,
+  openNoteModal,
+  closeNoteModal,
   showGhost,
   hideGhost,
   showTips,

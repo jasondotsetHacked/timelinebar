@@ -25,6 +25,16 @@ export const els = {
   modalStatusWrap: byId('modalStatusWrap'),
   modalStatusBtn: byId('modalStatusBtn'),
   modalStatusMenu: byId('modalStatusMenu'),
+  // Note modal
+  noteModal: byId('noteModal'),
+  noteModalTitle: document.getElementById('noteModalTitle'),
+  noteModalClose: byId('noteModalClose'),
+  noteViewer: byId('noteViewer'),
+  noteEditorWrap: byId('noteEditorWrap'),
+  noteEditor: byId('noteEditor'),
+  noteEditToggle: byId('noteEditToggle'),
+  noteSave: byId('noteSave'),
+  noteCancel: byId('noteCancel'),
   // Recurrence controls
   repeatEnabled: byId('repeatEnabled'),
   repeatFields: byId('repeatFields'),

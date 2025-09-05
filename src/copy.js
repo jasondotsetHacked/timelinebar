@@ -239,3 +239,25 @@ async function copyChart() {
 }
 
 export const copyActions = { copyChart };
+
+// Lightweight text copy helper for clicking table cells
+export async function copyText(text) {
+  const s = String(text || '');
+  try {
+    if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(s); return true; }
+  } catch {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = s;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    ta.style.pointerEvents = 'none';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand && document.execCommand('copy');
+    document.body.removeChild(ta);
+    return !!ok;
+  } catch {}
+  return false;
+}
