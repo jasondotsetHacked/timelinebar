@@ -1606,10 +1606,27 @@ a.bucket-link:visited { color: inherit; }
 #noteModal .note-dual { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; flex: 1; min-height: 0; }
 #noteModal .note-section { display: flex; flex-direction: column; min-height: 0; }
 #noteModal .note-section .note-view { flex: 1; min-height: 0; overflow: auto; }
-#noteModal #noteEditorWrap, #noteModal #bucketNoteEditorWrap { flex: 1; min-height: 0; overflow: auto; }
-#noteModal .rich-editor, #noteModal .rich-editor .ql-container { height: 100%; }
-#noteModal .ql-editor { min-height: 0; }
+/* Editor wrappers fill and do not scroll; content inside editor scrolls */
+#noteModal #noteEditorWrap, #noteModal #bucketNoteEditorWrap { flex: 1; min-height: 0; overflow: hidden; }
+#noteModal .rich-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+#noteModal .rich-editor .ql-toolbar { flex: 0 0 auto; }
+#noteModal .rich-editor .ql-container { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+#noteModal .rich-editor .ql-editor { height: 100%; min-height: 0; overflow: auto; }
+/* Ensure any earlier overflow on ql-container is overridden */
+#noteModal .ql-container { overflow: hidden; }
 @media (max-width: 720px) { #noteModal .note-dual { grid-template-columns: 1fr; } }
+
+/* Make bucket editor match punch editor sizing */
+#bucketNoteEditorWrap { display: flex; flex-direction: column; min-height: 0; }
+#bucketNoteEditor { display: flex; flex-direction: column; min-height: 0; }
+#bucketNoteEditor .ql-container { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#noteModal #bucketNoteEditor .ql-editor { flex: 1; min-height: 0; }
+#bucketNoteEditor .ql-editor { min-height: 320px; }
+
+/* Prevent horizontal growth; scroll horizontally inside editor/viewer */
+#noteModal .note-section, #noteModal .rich-editor, #noteModal .rich-editor .ql-container, #noteModal .rich-editor .ql-editor { min-width: 0; max-width: 100%; }
+#noteModal .rich-editor .ql-editor { overflow-x: auto; }
+#noteModal .note-section .note-view { overflow-x: auto; }
 
 
 #noteModal .ql-container { overflow: auto; }
