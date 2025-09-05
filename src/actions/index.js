@@ -698,13 +698,38 @@ const attachEvents = () => {
     els.modalStatusWrap?.classList.remove('open');
   });
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      // Close modal if open; otherwise, exit Bucket View for a quick way back
-      let modalOpen = false;
-      try { modalOpen = !!(els.modal && getComputedStyle(els.modal).display !== 'none'); } catch {}
-      if (modalOpen) { closeModal(); return; }
-      if (state.viewMode === 'bucket') { state.viewMode = state.lastViewMode || 'day'; ui.renderAll(); return; }
-    }
+    if (e.key !== 'Escape') return;
+
+    // 1) If any app modal is open, close it (always allow ESC to close modals)
+    let mainModalOpen = false;
+    try { mainModalOpen = !!(els.modal && getComputedStyle(els.modal).display !== 'none'); } catch {}
+    if (mainModalOpen) { closeModal(); try { e.preventDefault(); e.stopPropagation(); } catch {} return; }
+
+    let noteModalOpen = false;
+    try { noteModalOpen = !!(els.noteModal && getComputedStyle(els.noteModal).display !== 'none'); } catch {}
+    if (noteModalOpen) { ui.closeNoteModal?.(); try { e.preventDefault(); e.stopPropagation(); } catch {} return; }
+
+    let settingsOpen = false;
+    try { settingsOpen = !!(els.settingsModal && getComputedStyle(els.settingsModal).display !== 'none'); } catch {}
+    if (settingsOpen) { try { els.settingsModal.style.display = 'none'; e.preventDefault(); e.stopPropagation(); } catch {} return; }
+
+    // 2) If focus is in an editable control and no modal is open, do nothing
+    try {
+      const ae = document.activeElement;
+      const tn = (ae && ae.tagName ? ae.tagName : '').toLowerCase();
+      const isEditable = !!(ae && (ae.isContentEditable || tn === 'input' || tn === 'textarea' || tn === 'select'));
+      if (isEditable) return;
+    } catch {}
+
+    // 3) Close transient popups/menus (date picker, status menu, note popover)
+    try { hideDatePicker(); } catch {}
+    try {
+      els.rows?.querySelectorAll('.status-wrap.open')?.forEach((w) => w.classList.remove('open'));
+      els.modalStatusWrap?.classList.remove('open');
+    } catch {}
+    ui.hideNotePopover?.();
+
+    // 4) Do NOT navigate away from Bucket View on Escape
   });
   window.addEventListener('resize', () => ui.renderAll());
 

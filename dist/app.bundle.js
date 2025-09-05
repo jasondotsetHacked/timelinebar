@@ -2992,22 +2992,67 @@
       (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.remove("open");
     });
     window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        let modalOpen = false;
+      var _a2, _b2, _c2, _d2, _e2, _f2, _g2;
+      if (e.key !== "Escape") return;
+      let mainModalOpen = false;
+      try {
+        mainModalOpen = !!(els.modal && getComputedStyle(els.modal).display !== "none");
+      } catch (e2) {
+      }
+      if (mainModalOpen) {
+        closeModal2();
         try {
-          modalOpen = !!(els.modal && getComputedStyle(els.modal).display !== "none");
+          e.preventDefault();
+          e.stopPropagation();
         } catch (e2) {
         }
-        if (modalOpen) {
-          closeModal2();
-          return;
-        }
-        if (state.viewMode === "bucket") {
-          state.viewMode = state.lastViewMode || "day";
-          ui.renderAll();
-          return;
-        }
+        return;
       }
+      let noteModalOpen = false;
+      try {
+        noteModalOpen = !!(els.noteModal && getComputedStyle(els.noteModal).display !== "none");
+      } catch (e2) {
+      }
+      if (noteModalOpen) {
+        (_b2 = (_a2 = ui).closeNoteModal) == null ? void 0 : _b2.call(_a2);
+        try {
+          e.preventDefault();
+          e.stopPropagation();
+        } catch (e2) {
+        }
+        return;
+      }
+      let settingsOpen = false;
+      try {
+        settingsOpen = !!(els.settingsModal && getComputedStyle(els.settingsModal).display !== "none");
+      } catch (e2) {
+      }
+      if (settingsOpen) {
+        try {
+          els.settingsModal.style.display = "none";
+          e.preventDefault();
+          e.stopPropagation();
+        } catch (e2) {
+        }
+        return;
+      }
+      try {
+        const ae = document.activeElement;
+        const tn = (ae && ae.tagName ? ae.tagName : "").toLowerCase();
+        const isEditable = !!(ae && (ae.isContentEditable || tn === "input" || tn === "textarea" || tn === "select"));
+        if (isEditable) return;
+      } catch (e2) {
+      }
+      try {
+        hideDatePicker();
+      } catch (e2) {
+      }
+      try {
+        (_d2 = (_c2 = els.rows) == null ? void 0 : _c2.querySelectorAll(".status-wrap.open")) == null ? void 0 : _d2.forEach((w) => w.classList.remove("open"));
+        (_e2 = els.modalStatusWrap) == null ? void 0 : _e2.classList.remove("open");
+      } catch (e2) {
+      }
+      (_g2 = (_f2 = ui).hideNotePopover) == null ? void 0 : _g2.call(_f2);
     });
     window.addEventListener("resize", () => ui.renderAll());
     window.addEventListener("click", (e) => {
