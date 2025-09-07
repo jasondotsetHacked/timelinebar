@@ -27,7 +27,15 @@
 
     <div class="top-controls" id="topControls" style="display:flex; justify-content: space-between; align-items:center; gap:8px;">
       <div id="dayLabel" class="subtle" title="Open calendar" tabindex="0" role="button"></div>
-      <div style="display:flex; gap:8px; align-items:center;">
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <div class="subtle" style="display:flex; align-items:center; gap:6px;">
+          <span>Schedule</span>
+          <select id="scheduleSelect" title="Select schedule" style="max-width:200px;"></select>
+          <button id="btnAddSchedule" class="btn ghost" title="Add schedule">Add</button>
+          <button id="btnRenameSchedule" class="btn ghost" title="Rename schedule">Rename</button>
+          <button id="btnDeleteSchedule" class="btn ghost" title="Delete schedule">Delete</button>
+        </div>
+        <button id="btnDashboard" class="btn ghost" title="Open dashboard">Dashboard</button>
         <button id="btnCalendar" class="btn ghost" title="Open calendar">Calendar</button>
         <button id="btnCopyChartTop" class="btn ghost" title="Copy timeline chart to clipboard">⧉ Copy</button>
       </div>
@@ -49,6 +57,16 @@
         <div class="cal-weekday">Sat</div>
       </div>
       <div class="calendar-grid" id="calendarGrid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:6px;"></div>
+    </section>
+
+    <section class="card" id="dashboardCard" style="display:none;">
+      <div class="card-head">
+        <div class="card-title">Dashboard</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="btnAddModule" class="btn">Add Module</button>
+        </div>
+      </div>
+      <div id="dashboardGrid" class="card-body" style="display:grid; grid-template-columns: 1fr; gap:12px;"></div>
     </section>
 
     <section class="card timeline">
@@ -82,7 +100,12 @@
       </div>
     </section>
 
-    <section class="card table-card">
+    <section class="card table-card" id="entriesCard">
+      <div class="card-head">
+        <div class="card-title">Time Entries</div>
+        <button id="entriesToggle" class="collapse-btn" aria-expanded="true" aria-controls="entriesBody" title="Collapse">▾</button>
+      </div>
+      <div id="entriesBody" class="card-body scrollable">
       <table id="entriesTable">
         <thead>
           <tr>
@@ -98,12 +121,15 @@
         <tbody id="rows"></tbody>
       </table>
       <div class="empty" id="empty">No entries yet. Create your first by dragging on the timeline.</div>
+      </div>
     </section>
 
     <section class="card table-card" id="bucketDayCard">
-      <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px 0 14px;">
-        <div class="subtle" style="font-weight:700; letter-spacing:.2px;">Bucket Report (Day)</div>
+      <div class="card-head">
+        <div class="card-title subtle">Bucket Report (Day)</div>
+        <button id="bucketDayToggle" class="collapse-btn" aria-expanded="true" aria-controls="bucketDayBodyWrap" title="Collapse">▾</button>
       </div>
+      <div id="bucketDayBodyWrap" class="card-body scrollable">
       <table>
         <thead>
           <tr>
@@ -114,6 +140,7 @@
         <tbody id="bucketDayBody"></tbody>
       </table>
       <div class="empty" id="bucketDayEmpty">No time tracked for this day.</div>
+      </div>
     </section>
 
     <section class="card table-card" id="bucketMonthCard" style="display:none;">
@@ -155,6 +182,44 @@
       </table>
       <div class="empty" id="bucketViewEmpty">No entries found for this bucket.</div>
     </section>
+  </div>
+
+  <!-- Module modal -->
+  <div class="modal-backdrop" id="moduleModal" style="display:none;">
+    <div class="card modal">
+      <div class="modal-header">
+        <div class="modal-title">Add Module</div>
+        <button class="icon-btn" id="moduleClose" aria-label="Close">&#x2715;</button>
+      </div>
+      <form id="moduleForm">
+        <div class="body">
+          <div class="row" style="grid-template-columns: 1fr 1fr;">
+            <div>
+              <label>Type</label>
+              <select id="moduleType">
+                <option value="timeline">Timeline</option>
+                <option value="entries">Time Entries</option>
+                <option value="bucket">Bucket Report</option>
+              </select>
+            </div>
+            <div>
+              <label>Title (optional)</label>
+              <input id="moduleTitle" type="text" placeholder="Custom title" />
+            </div>
+          </div>
+          <div class="row" style="grid-template-columns: 1fr;">
+            <div>
+              <label>Schedules</label>
+              <div id="moduleScheduleList" style="display:flex; gap:12px; flex-wrap:wrap;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn ghost" id="moduleCancel">Cancel</button>
+          <button type="submit" class="btn primary">Add</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <div class="modal-backdrop" id="modal">
@@ -312,6 +377,53 @@
         <button class="icon-btn" id="settingsClose" aria-label="Close">&#x2715;</button>
       </div>
       <div class="body" style="padding-top: 4px;">
+        <div class="row" style="grid-template-columns: 1fr;">
+          <div>
+            <label>Schedules</label>
+            <div style="display:grid; gap:10px;">
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <select id="settingsSchedList" title="Schedules" style="min-width:220px;"></select>
+                <button id="settingsAddSched" class="btn">Add</button>
+                <button id="settingsRenameSched" class="btn ghost">Rename</button>
+                <button id="settingsDeleteSched" class="btn danger">Delete</button>
+              </div>
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div>
+                  <div class="subtle" style="margin-bottom:6px;">Move Entries Between Schedules</div>
+                  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; align-items:end;">
+                    <div>
+                      <label>From</label>
+                      <select id="settingsMoveFrom"></select>
+                    </div>
+                    <div>
+                      <label>To</label>
+                      <select id="settingsMoveTo"></select>
+                    </div>
+                    <div>
+                      <label>Start Date (optional)</label>
+                      <input type="date" id="settingsMoveStart" />
+                    </div>
+                    <div>
+                      <label>End Date (optional)</label>
+                      <input type="date" id="settingsMoveEnd" />
+                    </div>
+                    <div style="grid-column: 1 / -1; display:flex; gap:8px; align-items:center;">
+                      <button id="settingsMoveBtn" class="btn">Move</button>
+                      <div class="subtle">Overlaps in destination are detected and skipped.</div>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div class="subtle" style="margin-bottom:6px;">Dashboard</div>
+                  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <button id="settingsCustomizeDashboard" class="btn">Customize Dashboard…</button>
+                    <div class="subtle">Opens Dashboard and Add Module dialog.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="row" style="grid-template-columns: 1fr;">
           <div>
             <label>Theme</label>

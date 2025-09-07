@@ -296,6 +296,17 @@ function currentDay() {
   return state.currentDate || todayStr();
 }
 
+// Schedule helpers
+function getScheduleFilterIds() {
+  const id = state.currentScheduleId;
+  return id == null ? null : [Number(id)];
+}
+function filterBySchedules(items, scheduleIds = null) {
+  if (!scheduleIds) return items;
+  const set = new Set(scheduleIds.map(Number));
+  return items.filter((p) => p && p.scheduleId != null && set.has(Number(p.scheduleId)));
+}
+
 function renderTimeline() {
   hideNotePopover();
   els.track.querySelectorAll('.punch').forEach((n) => n.remove());
@@ -310,8 +321,11 @@ function renderTimeline() {
 
   const view = getView();
   const day = currentDay();
-  const sorted = [...state.punches]
-    .filter((p) => getPunchDate(p) === day)
+  const scheduleIds = getScheduleFilterIds();
+  const sorted = filterBySchedules(
+    [...state.punches].filter((p) => getPunchDate(p) === day),
+    scheduleIds
+  )
     .sort((a, b) => a.start - b.start);
   for (const p of sorted) {
     const startClamped = Math.max(p.start, view.start);
@@ -506,8 +520,11 @@ function renderTimeline() {
 function renderTable() {
   els.rows.innerHTML = '';
   const day = currentDay();
-  const sorted = [...state.punches]
-    .filter((p) => getPunchDate(p) === day)
+  const scheduleIds = getScheduleFilterIds();
+  const sorted = filterBySchedules(
+    [...state.punches].filter((p) => getPunchDate(p) === day),
+    scheduleIds
+  )
     .sort((a, b) => a.start - b.start);
   for (const p of sorted) {
     const tr = document.createElement('tr');
@@ -547,8 +564,9 @@ function renderTable() {
 
 function renderTotal() {
   const day = currentDay();
-  const totalMin = state.punches
-    .filter((p) => getPunchDate(p) === day)
+  const scheduleIds = getScheduleFilterIds();
+  const totalMin = filterBySchedules(state.punches
+    .filter((p) => getPunchDate(p) === day), scheduleIds)
     .reduce((s, p) => s + (p.end - p.start), 0);
   els.total.textContent = totalMin ? `Total: ${time.durationLabel(totalMin)}` : '';
 }
@@ -567,7 +585,8 @@ function summarizeByBucket(punches) {
 function renderBucketDay() {
   if (!els.bucketDayBody || !els.bucketDayCard) return;
   const day = currentDay();
-  const items = state.punches.filter((p) => getPunchDate(p) === day);
+  const scheduleIds = getScheduleFilterIds();
+  const items = filterBySchedules(state.punches.filter((p) => getPunchDate(p) === day), scheduleIds);
   const sums = summarizeByBucket(items);
   const sorted = Array.from(sums.entries())
     .filter(([_, v]) => v.totalMin > 0)
@@ -588,13 +607,14 @@ function renderBucketMonth() {
   if (!els.bucketMonthBody || !els.bucketMonthCard) return;
   const y = state.calendarYear;
   const m = state.calendarMonth; // 0-11
-  const items = state.punches.filter((p) => {
+  const scheduleIds = getScheduleFilterIds();
+  const items = filterBySchedules(state.punches.filter((p) => {
     const d = (p.date || '').split('-');
     if (d.length !== 3) return false;
     const yy = Number(d[0]);
     const mm = Number(d[1]) - 1;
     return yy === y && mm === m;
-  });
+  }), scheduleIds);
   const sums = summarizeByBucket(items);
   const sorted = Array.from(sums.entries())
     .filter(([_, v]) => v.totalMin > 0)
@@ -627,8 +647,11 @@ function renderBucketView() {
   const name = String(state.bucketFilter || '');
   const label = name || '(no bucket)';
   if (els.bucketViewTitle) els.bucketViewTitle.textContent = label;
-  const items = state.punches
-    .filter((p) => String(p.bucket || '').trim() === name)
+  const scheduleIds = getScheduleFilterIds();
+  const items = filterBySchedules(
+    state.punches.filter((p) => String(p.bucket || '').trim() === name),
+    scheduleIds
+  )
     .slice()
     .sort((a, b) => {
       const ad = String(a.date || '').localeCompare(String(b.date || ''));
@@ -724,6 +747,16 @@ function updateViewMode() {
     if (els.bucketMonthCard) els.bucketMonthCard.style.display = 'none';
     if (els.bucketViewCard) els.bucketViewCard.style.display = '';
     try { renderBucketView(); } catch {}
+  } else if (state.viewMode === 'dashboard') {
+    if (timelineCard) timelineCard.style.display = 'none';
+    if (mainTableCard) mainTableCard.style.display = 'none';
+    if (els.calendarCard) els.calendarCard.style.display = 'none';
+    if (els.btnCalendar) els.btnCalendar.textContent = 'Calendar';
+    if (els.bucketDayCard) els.bucketDayCard.style.display = 'none';
+    if (els.bucketMonthCard) els.bucketMonthCard.style.display = 'none';
+    if (els.bucketViewCard) els.bucketViewCard.style.display = 'none';
+    if (els.dashboardCard) els.dashboardCard.style.display = '';
+    try { renderDashboard(); } catch {}
   } else {
     if (timelineCard) timelineCard.style.display = '';
     if (mainTableCard) mainTableCard.style.display = '';
@@ -732,6 +765,7 @@ function updateViewMode() {
     if (els.bucketDayCard) els.bucketDayCard.style.display = '';
     if (els.bucketMonthCard) els.bucketMonthCard.style.display = 'none';
     if (els.bucketViewCard) els.bucketViewCard.style.display = 'none';
+    if (els.dashboardCard) els.dashboardCard.style.display = 'none';
     renderTicks();
     renderTimeline();
     renderTable();
@@ -855,6 +889,7 @@ function toast(msg) {
 }
 
 function renderAll() {
+  try { renderScheduleSelect(); } catch {}
   updateViewMode();
 }
 
@@ -876,6 +911,134 @@ function fitMobileViewport() {
   const available = Math.max(120, vh - headerH - topH - mobileH - margins);
   const desired = Math.max(96, Math.min(180, Math.floor(available)));
   els.track.style.height = desired + 'px';
+}
+
+// --- Schedules / Dashboard helpers ---
+function renderScheduleSelect() {
+  const sel = els.scheduleSelect;
+  if (!sel) return;
+  const cur = Number(state.currentScheduleId);
+  sel.innerHTML = '';
+  const optAll = document.createElement('option');
+  optAll.value = '';
+  optAll.textContent = 'All Schedules';
+  if (state.currentScheduleId == null) optAll.selected = true;
+  sel.appendChild(optAll);
+  for (const s of state.schedules || []) {
+    const opt = document.createElement('option');
+    opt.value = String(s.id);
+    opt.textContent = s.name || `Schedule ${s.id}`;
+    if (Number(s.id) === cur) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+function renderModuleTimeline(container, scheduleIds) {
+  const view = getView();
+  const day = currentDay();
+  const items = filterBySchedules((state.punches || []).filter((p) => getPunchDate(p) === day), scheduleIds)
+    .sort((a, b) => a.start - b.start);
+  const track = document.createElement('div');
+  track.className = 'module-track';
+  for (const p of items) {
+    const startClamped = Math.max(p.start, view.start);
+    const endClamped = Math.min(p.end, view.end);
+    if (endClamped <= startClamped) continue;
+    const leftPct = ((startClamped - view.start) / view.minutes) * 100;
+    const widthPct = ((endClamped - startClamped) / view.minutes) * 100;
+    const el = document.createElement('div');
+    el.className = 'module-punch';
+    const st = p.status || 'default';
+    el.classList.add(`status-${st}`);
+    el.style.left = leftPct + '%';
+    el.style.width = widthPct + '%';
+    el.title = `${p.bucket || '(no bucket)'} — ${time.toLabel(p.start)}–${time.toLabel(p.end)}`;
+    track.appendChild(el);
+  }
+  container.appendChild(track);
+}
+
+function renderModuleEntries(container, scheduleIds) {
+  const day = currentDay();
+  const items = filterBySchedules((state.punches || []).filter((p) => getPunchDate(p) === day), scheduleIds)
+    .sort((a, b) => a.start - b.start);
+  const table = document.createElement('table');
+  table.className = 'mini-table';
+  const thead = document.createElement('thead');
+  thead.innerHTML = '<tr><th style="width:120px">Start</th><th style="width:120px">Stop</th><th style="width:140px">Duration</th><th>Bucket</th></tr>';
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  for (const p of items) {
+    const tr = document.createElement('tr');
+    const dur = (p.end || 0) - (p.start || 0);
+    tr.innerHTML = `<td>${time.toLabel(p.start || 0)}</td><td>${time.toLabel(p.end || 0)}</td><td>${time.durationLabel(dur)}</td><td>${escapeHtml(p.bucket || '')}</td>`;
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  container.appendChild(table);
+}
+
+function renderModuleBucket(container, scheduleIds) {
+  const day = currentDay();
+  const items = filterBySchedules((state.punches || []).filter((p) => getPunchDate(p) === day), scheduleIds);
+  const sums = new Map();
+  for (const p of items) {
+    const key = String(p.bucket || '');
+    const prev = sums.get(key) || { totalMin: 0, count: 0 };
+    sums.set(key, { totalMin: prev.totalMin + Math.max(0, (p.end || 0) - (p.start || 0)), count: prev.count + 1 });
+  }
+  const sorted = Array.from(sums.entries()).filter(([_, v]) => v.totalMin > 0).sort((a, b) => b[1].totalMin - a[1].totalMin || a[0].localeCompare(b[0]));
+  const table = document.createElement('table');
+  table.className = 'mini-table';
+  table.innerHTML = '<thead><tr><th>Bucket</th><th style="width:140px">Total</th></tr></thead>';
+  const tbody = document.createElement('tbody');
+  for (const [bucket, info] of sorted) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(bucket || '(no bucket)')}</td><td>${time.durationLabel(info.totalMin)}</td>`;
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  container.appendChild(table);
+}
+
+function renderDashboard() {
+  const grid = els.dashboardGrid;
+  if (!grid) return;
+  grid.innerHTML = '';
+  const mods = Array.isArray(state.dashboardModules) ? state.dashboardModules : [];
+  for (const m of mods) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const head = document.createElement('div'); head.className = 'card-head';
+    const title = document.createElement('div'); title.className = 'card-title';
+    const schedNames = (state.schedules || []).filter((s) => (m.scheduleIds||[]).some((id) => Number(id)===Number(s.id))).map((s) => s.name).join(', ');
+    title.textContent = m.title || `${m.type[0].toUpperCase()+m.type.slice(1)} — ${schedNames || 'No schedules'}`;
+    const actions = document.createElement('div'); actions.style.display = 'flex'; actions.style.gap = '8px'; actions.style.alignItems = 'center';
+    const btnRemove = document.createElement('button'); btnRemove.className = 'btn danger'; btnRemove.textContent = 'Remove';
+    btnRemove.addEventListener('click', () => {
+      state.dashboardModules = (state.dashboardModules||[]).filter((x) => x.id !== m.id);
+      try { localStorage.setItem('dashboard.modules.v1', JSON.stringify(state.dashboardModules)); } catch {}
+      renderDashboard();
+    });
+    const btnOpen = document.createElement('button'); btnOpen.className = 'btn ghost'; btnOpen.textContent = 'Open';
+    btnOpen.addEventListener('click', () => {
+      if (Array.isArray(m.scheduleIds) && m.scheduleIds.length) {
+        state.currentScheduleId = Number(m.scheduleIds[0]);
+        try { if (els.scheduleSelect) els.scheduleSelect.value = String(state.currentScheduleId); } catch {}
+        try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId)); } catch {}
+      }
+      state.viewMode = 'day';
+      updateViewMode();
+    });
+    actions.appendChild(btnOpen); actions.appendChild(btnRemove);
+    head.append(title, actions);
+    const body = document.createElement('div'); body.className = 'card-body';
+    if (m.type === 'timeline') renderModuleTimeline(body, m.scheduleIds || null);
+    else if (m.type === 'entries') renderModuleEntries(body, m.scheduleIds || null);
+    else if (m.type === 'bucket') renderModuleBucket(body, m.scheduleIds || null);
+    card.append(head, body);
+    grid.appendChild(card);
+  }
 }
 
 export const ui = {
@@ -902,6 +1065,8 @@ export const ui = {
   renderBucketMonth,
   renderBucketView,
   renderMobileControls,
+  renderScheduleSelect,
+  renderDashboard,
 };
 
 

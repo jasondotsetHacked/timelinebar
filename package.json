@@ -5,7 +5,9 @@
   "main": "app.js",
   "scripts": {
     "build": "node scripts/build.js",
-    "test": "echo \"No tests\" && exit 0"
+    "test": "echo \"No tests\" && exit 0",
+    "check:console": "node scripts/console-check.js",
+    "check": "node scripts/console-check.js"
   },
   "repository": {
     "type": "git",
@@ -19,6 +21,7 @@
   },
   "homepage": "https://github.com/jasondotsetHacked/timelinebar#readme",
   "devDependencies": {
-    "esbuild": "^0.25.9"
+    "esbuild": "^0.25.9",
+    "puppeteer": "^24.19.0"
   }
 }

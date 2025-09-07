@@ -2,7 +2,7 @@ import { els } from '../dom.js';
 import { state } from '../state.js';
 import { time } from '../time.js';
 import { ui } from '../ui.js';
-import { idb } from '../storage.js';
+import { idb, schedulesDb } from '../storage.js';
 import { todayStr, parseDate, toDateStr } from '../dates.js';
 import { getPunchDate } from '../dates.js';
 import { expandDates } from '../recur.js';
@@ -71,9 +71,13 @@ function readRecurrenceFromUI() {
   return base;
 }
 
-function overlapsOnDate(dateStr, start, end, excludeId = null) {
+function overlapsOnDate(dateStr, start, end, excludeId = null, scheduleId = null) {
+  const sched = (scheduleId != null) ? Number(scheduleId) : (state.currentScheduleId == null ? null : Number(state.currentScheduleId));
   return state.punches.some(
-    (p) => p.id !== excludeId && getPunchDate(p) === dateStr && start < p.end && end > p.start
+    (p) => p.id !== excludeId
+      && getPunchDate(p) === dateStr
+      && (sched == null || Number(p.scheduleId) === sched)
+      && start < (p.end || 0) && end > (p.start || 0)
   );
 }
 
@@ -97,7 +101,7 @@ async function splitPunchAtClick(e, punchEl) {
     const chosen = candidates.length === 1
       ? candidates[0]
       : (Math.abs(candidates[0] - rawMin) <= Math.abs(candidates[1] - rawMin) ? candidates[0] : candidates[1]);
-    const base = { bucket: p.bucket, note: p.note, status: p.status || null, date: p.date || getPunchDate(p) };
+    const base = { bucket: p.bucket, note: p.note, status: p.status || null, date: p.date || getPunchDate(p), scheduleId: p.scheduleId };
     const left = { ...base, start: p.start, end: chosen, createdAt: new Date().toISOString() };
     const right = { ...base, start: chosen, end: p.end, createdAt: new Date().toISOString() };
     await idb.remove(p.id);
@@ -127,6 +131,7 @@ const saveNewFromModal = async (e) => {
     bucket: els.bucketField.value.trim(),
     note: (els.noteField?.value || '').trim(),
     date: state.currentDate || todayStr(),
+    scheduleId: (state.currentScheduleId != null ? state.currentScheduleId : (state.schedules?.[0]?.id ?? null)),
     status: (() => {
       const val = els.modalStatusBtn?.dataset.value || 'default';
       return val === 'default' ? null : val;
@@ -151,7 +156,7 @@ const saveNewFromModal = async (e) => {
       return;
     }
     const prev = state.punches[idx];
-    const updated = { ...prev, ...payload };
+    const updated = { ...prev, ...payload, scheduleId: prev.scheduleId };
     const applyToSeries = !!els.applyScopeSeries?.checked && !!prev.recurrenceId;
     if (applyToSeries) {
       const deltaStart = updated.start - prev.start;
@@ -162,7 +167,7 @@ const saveNewFromModal = async (e) => {
       for (const p of toUpdate) {
         const newStart = p.start + deltaStart;
         const newEnd = p.end + deltaEnd;
-        if (overlapsOnDate(p.date || getPunchDate(p), newStart, newEnd, p.id)) {
+        if (overlapsOnDate(p.date || getPunchDate(p), newStart, newEnd, p.id, p.scheduleId)) {
           ui.toast('Change would overlap another block in the series.');
           return;
         }
@@ -172,7 +177,7 @@ const saveNewFromModal = async (e) => {
         await idb.put(upd);
       }
     } else {
-      if (overlapsOnDate(updated.date, updated.start, updated.end, updated.id)) {
+      if (overlapsOnDate(updated.date, updated.start, updated.end, updated.id, updated.scheduleId)) {
         ui.toast('That range overlaps another block.');
         return;
       }
@@ -184,8 +189,8 @@ const saveNewFromModal = async (e) => {
         for (const d of dates) {
           const start = updated.start;
           const end = updated.end;
-          if (overlapsOnDate(d, start, end, prev.id)) continue;
-          const base = { start, end, bucket: updated.bucket, note: updated.note, status: updated.status, date: d, recurrenceId, recurrence: rec, seq };
+          if (overlapsOnDate(d, start, end, prev.id, prev.scheduleId)) continue;
+        const base = { start, end, bucket: updated.bucket, note: updated.note, status: updated.status, date: d, recurrenceId, recurrence: rec, seq, scheduleId: updated.scheduleId };
           if (d === prev.date) {
             await idb.put({ ...prev, ...base });
           } else {
@@ -206,14 +211,14 @@ const saveNewFromModal = async (e) => {
       let skipped = 0;
       let seq = 0;
       for (const d of dates) {
-        if (overlapsOnDate(d, payload.start, payload.end)) { skipped++; continue; }
+        if (overlapsOnDate(d, payload.start, payload.end, null, payload.scheduleId)) { skipped++; continue; }
         const item = { ...payload, date: d, recurrenceId, recurrence: rec, seq, createdAt: new Date().toISOString() };
         await idb.add(item);
         added++; seq++;
       }
       if (skipped) ui.toast(`Created ${added}, skipped ${skipped} overlapping`);
     } else {
-      if (overlapsOnDate(payload.date, payload.start, payload.end)) {
+      if (overlapsOnDate(payload.date, payload.start, payload.end, null, payload.scheduleId)) {
         ui.toast('That range overlaps another block.');
         return;
       }
@@ -314,6 +319,133 @@ const attachEvents = () => {
   resizeActions.attach();
   calendarActions.attach();
   settingsActions.attach();
+
+  // Schedules: select / add / rename / delete
+  try {
+    els.scheduleSelect?.addEventListener('change', (e) => {
+      const raw = String(e.target.value || '');
+      if (raw === '') {
+        state.currentScheduleId = null;
+        try { localStorage.setItem('currentScheduleId', ''); } catch {}
+        ui.renderAll();
+        return;
+      }
+      const val = Number(raw);
+      if (!Number.isNaN(val)) {
+        state.currentScheduleId = val;
+        try { localStorage.setItem('currentScheduleId', String(val)); } catch {}
+        ui.renderAll();
+      }
+    });
+    els.btnAddSchedule?.addEventListener('click', async () => {
+      const name = prompt('New schedule name:', 'New Schedule');
+      if (!name) return;
+      await schedulesDb.addSchedule({ name: String(name).trim() });
+      state.schedules = await schedulesDb.allSchedules();
+      state.currentScheduleId = state.schedules[state.schedules.length - 1]?.id ?? state.currentScheduleId;
+      try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId)); } catch {}
+      ui.renderScheduleSelect();
+      ui.renderAll();
+    });
+    els.btnRenameSchedule?.addEventListener('click', async () => {
+      const curId = state.currentScheduleId;
+      const cur = (state.schedules || []).find((s) => Number(s.id) === Number(curId));
+      if (!cur) { alert('No schedule selected.'); return; }
+      const name = prompt('Rename schedule:', cur.name || '');
+      if (!name) return;
+      const rec = { ...cur, name: String(name).trim() };
+      await schedulesDb.putSchedule(rec);
+      state.schedules = await schedulesDb.allSchedules();
+      ui.renderScheduleSelect();
+      ui.renderAll();
+    });
+    els.btnDeleteSchedule?.addEventListener('click', async () => {
+      const curId = Number(state.currentScheduleId);
+      const list = state.schedules || [];
+      if (!list.length || Number.isNaN(curId)) { alert('No schedule selected.'); return; }
+      if (list.length <= 1) { alert('Cannot delete the only schedule.'); return; }
+      const used = state.punches.some((p) => Number(p.scheduleId) === curId);
+      if (used) { alert('Schedule has entries. Delete or move entries first.'); return; }
+      const cur = list.find((s) => Number(s.id) === curId);
+      if (!confirm(`Delete schedule "${cur?.name || curId}"?`)) return;
+      await schedulesDb.removeSchedule(curId);
+      state.schedules = await schedulesDb.allSchedules();
+      state.currentScheduleId = state.schedules[0]?.id ?? null;
+      try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId ?? '')); } catch {}
+      ui.renderScheduleSelect();
+      ui.renderAll();
+    });
+  } catch {}
+
+  // Dashboard toggle
+  try {
+    els.btnDashboard?.addEventListener('click', (e) => {
+      e.preventDefault();
+      state.viewMode = 'dashboard';
+      ui.updateViewMode();
+    });
+  } catch {}
+
+  // Module modal
+  function openModuleModal() {
+    const wrap = els.moduleScheduleList;
+    if (wrap) {
+      wrap.innerHTML = '';
+      for (const s of state.schedules || []) {
+        const lbl = document.createElement('label'); lbl.style.display = 'inline-flex'; lbl.style.alignItems = 'center'; lbl.style.gap = '6px';
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = String(s.id);
+        lbl.appendChild(cb);
+        const span = document.createElement('span'); span.textContent = s.name || `Schedule ${s.id}`; lbl.appendChild(span);
+        wrap.appendChild(lbl);
+      }
+    }
+    if (els.moduleTitle) els.moduleTitle.value = '';
+    if (els.moduleType) els.moduleType.value = 'timeline';
+    if (els.moduleModal) els.moduleModal.style.display = 'flex';
+  }
+  function closeModuleModal() { if (els.moduleModal) els.moduleModal.style.display = 'none'; }
+  els.btnAddModule?.addEventListener('click', openModuleModal);
+  els.moduleClose?.addEventListener('click', closeModuleModal);
+  els.moduleCancel?.addEventListener('click', closeModuleModal);
+  els.moduleForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const type = els.moduleType?.value || 'timeline';
+    const title = String(els.moduleTitle?.value || '').trim();
+    const ids = Array.from(els.moduleScheduleList?.querySelectorAll('input[type="checkbox"]') || [])
+      .filter((c) => c.checked)
+      .map((c) => Number(c.value));
+    const mod = { id: 'm' + Math.random().toString(36).slice(2, 9), type, title: title || undefined, scheduleIds: ids };
+    state.dashboardModules = Array.isArray(state.dashboardModules) ? [...state.dashboardModules, mod] : [mod];
+    try { localStorage.setItem('dashboard.modules.v1', JSON.stringify(state.dashboardModules)); } catch {}
+    closeModuleModal();
+    ui.renderDashboard?.();
+  });
+
+  // Collapsible: Time Entries
+  try {
+    const card = els.entriesCard;
+    const btn = els.entriesToggle;
+    if (card && btn) {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const collapsed = card.classList.toggle('collapsed');
+        try { btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true'); } catch {}
+      });
+    }
+  } catch {}
+
+  // Collapsible: Bucket Report (Day)
+  try {
+    const card = els.bucketDayCard;
+    const btn = els.bucketDayToggle;
+    if (card && btn) {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const collapsed = card.classList.toggle('collapsed');
+        try { btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true'); } catch {}
+      });
+    }
+  } catch {}
 
   els.rows.addEventListener('click', async (e) => {
     // Status swatch open/close
@@ -708,7 +840,7 @@ const attachEvents = () => {
     for (const d of dates) {
       if (state.punches.some((x) => x.recurrenceId === p.recurrenceId && x.date === d)) continue; // don't duplicate
       if (overlapsOnDate(d, p.start, p.end)) continue;
-      await idb.add({ start: p.start, end: p.end, bucket: p.bucket, note: p.note, status: p.status || null, date: d, recurrenceId: p.recurrenceId, recurrence: p.recurrence, seq, createdAt: new Date().toISOString() });
+      await idb.add({ start: p.start, end: p.end, bucket: p.bucket, note: p.note, status: p.status || null, date: d, recurrenceId: p.recurrenceId, recurrence: p.recurrence, seq, createdAt: new Date().toISOString(), scheduleId: p.scheduleId });
       seq++; added++;
     }
     state.punches = await idb.all();
@@ -761,7 +893,12 @@ const attachEvents = () => {
     } catch {}
     ui.hideNotePopover?.();
 
-    // 4) Do NOT navigate away from Bucket View on Escape
+    // 4) Navigate to Calendar from any main view on Escape
+    if (state.viewMode !== 'calendar') {
+      state.viewMode = 'calendar';
+      ui.updateViewMode();
+      try { e.preventDefault(); e.stopPropagation(); } catch {}
+    }
   });
   window.addEventListener('resize', () => ui.renderAll());
 
@@ -811,7 +948,9 @@ const attachEvents = () => {
   els.btnBucketDelete?.addEventListener('click', async () => {
     const name = String(state.bucketFilter || '');
     const label = name || '(no bucket)';
-    const items = state.punches.filter((p) => String(p.bucket || '').trim() === name);
+    const sched = state.currentScheduleId == null ? null : Number(state.currentScheduleId);
+    if (sched == null) { alert('Select a specific schedule to delete a bucket.'); return; }
+    const items = state.punches.filter((p) => String(p.bucket || '').trim() === name && Number(p.scheduleId) === sched);
     if (!items.length) { ui.toast('No entries for this bucket.'); return; }
     if (!confirm(`Delete all ${items.length} entries for bucket "${label}"?`)) return;
     for (const p of items) {

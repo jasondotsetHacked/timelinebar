@@ -10,6 +10,10 @@
     ticks: byId("ticks"),
     rows: byId("rows"),
     empty: byId("empty"),
+    // Collapsible sections
+    entriesCard: byId("entriesCard"),
+    entriesToggle: byId("entriesToggle"),
+    entriesBody: byId("entriesBody"),
     modal: byId("modal"),
     startField: byId("startField"),
     endField: byId("endField"),
@@ -77,6 +81,11 @@
     btnCopyChartTable: byId("btnCopyChartTable"),
     dayLabel: byId("dayLabel"),
     calendarCard: byId("calendarCard"),
+    // Dashboard
+    dashboardCard: byId("dashboardCard"),
+    dashboardGrid: byId("dashboardGrid"),
+    btnDashboard: byId("btnDashboard"),
+    btnAddModule: byId("btnAddModule"),
     calendarGrid: byId("calendarGrid"),
     calWeekdays: byId("calWeekdays"),
     calMonthLabel: byId("calMonthLabel"),
@@ -91,6 +100,7 @@
     mobileZoomRange: byId("mobileZoomRange"),
     // Bucket reports
     bucketDayCard: byId("bucketDayCard"),
+    bucketDayToggle: byId("bucketDayToggle"),
     bucketDayBody: byId("bucketDayBody"),
     bucketDayEmpty: byId("bucketDayEmpty"),
     bucketMonthCard: byId("bucketMonthCard"),
@@ -116,12 +126,42 @@
     btnEraseAll: byId("btnEraseAll"),
     themeSelect: byId("themeSelect"),
     lblBackup: byId("lblBackup"),
-    lblRestore: byId("lblRestore")
+    lblRestore: byId("lblRestore"),
+    // Settings: schedules and dashboard
+    settingsSchedList: byId("settingsSchedList"),
+    settingsAddSched: byId("settingsAddSched"),
+    settingsRenameSched: byId("settingsRenameSched"),
+    settingsDeleteSched: byId("settingsDeleteSched"),
+    settingsMoveFrom: byId("settingsMoveFrom"),
+    settingsMoveTo: byId("settingsMoveTo"),
+    settingsMoveStart: byId("settingsMoveStart"),
+    settingsMoveEnd: byId("settingsMoveEnd"),
+    settingsMoveBtn: byId("settingsMoveBtn"),
+    settingsCustomizeDashboard: byId("settingsCustomizeDashboard"),
+    // Schedules
+    scheduleSelect: byId("scheduleSelect"),
+    btnAddSchedule: byId("btnAddSchedule"),
+    btnRenameSchedule: byId("btnRenameSchedule"),
+    btnDeleteSchedule: byId("btnDeleteSchedule"),
+    // Module modal
+    moduleModal: byId("moduleModal"),
+    moduleClose: byId("moduleClose"),
+    moduleCancel: byId("moduleCancel"),
+    moduleForm: byId("moduleForm"),
+    moduleType: byId("moduleType"),
+    moduleTitle: byId("moduleTitle"),
+    moduleScheduleList: byId("moduleScheduleList")
   };
 
   // src/state.js
   var state = {
     punches: [],
+    schedules: [],
+    currentScheduleId: null,
+    // active schedule for main views
+    // Dashboard modules (persisted in localStorage)
+    dashboardModules: [],
+    // [{ id, type: 'timeline'|'entries'|'bucket', scheduleIds: number[], title?: string }]
     dragging: null,
     resizing: null,
     moving: null,
@@ -138,7 +178,7 @@
     currentDate: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
     // YYYY-MM-DD selected day
     viewMode: "calendar",
-    // 'day' | 'calendar' | 'bucket'
+    // 'day' | 'calendar' | 'bucket' | 'dashboard'
     calendarYear: (/* @__PURE__ */ new Date()).getFullYear(),
     calendarMonth: (/* @__PURE__ */ new Date()).getMonth(),
     // 0-11
@@ -520,7 +560,7 @@
 
   // src/storage.js
   var DB_NAME = "timeTrackerDB";
-  var DB_VERSION = 2;
+  var DB_VERSION = 3;
   var openDb = () => new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
@@ -531,17 +571,24 @@
       if (!db.objectStoreNames.contains("buckets")) {
         db.createObjectStore("buckets", { keyPath: "name" });
       }
+      if (!db.objectStoreNames.contains("schedules")) {
+        db.createObjectStore("schedules", { keyPath: "id", autoIncrement: true });
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
   var withStore = (storeName, mode, fn) => openDb().then(
     (db) => new Promise((resolve, reject) => {
-      const tx = db.transaction(storeName, mode);
-      const store = tx.objectStore(storeName);
-      fn(store);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
+      try {
+        const tx = db.transaction(storeName, mode);
+        const store = tx.objectStore(storeName);
+        const ret = fn(store);
+        tx.oncomplete = () => resolve(ret);
+        tx.onerror = () => reject(tx.error);
+      } catch (err) {
+        reject(err);
+      }
     })
   );
   var add = (punch) => withStore("punches", "readwrite", (store) => store.add(punch));
@@ -598,6 +645,23 @@
   );
   var clearBuckets = () => withStore("buckets", "readwrite", (store) => store.clear());
   var idb = { add, put, remove, clear, all, getBucket, setBucketNote, deleteBucket, allBuckets, clearBuckets };
+  var addSchedule = (rec) => withStore("schedules", "readwrite", (store) => store.add(rec));
+  var putSchedule = (rec) => withStore("schedules", "readwrite", (store) => store.put(rec));
+  var removeSchedule = (id) => withStore("schedules", "readwrite", (store) => store.delete(id));
+  var allSchedules = () => openDb().then(
+    (db) => new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction("schedules", "readonly");
+        const store = tx.objectStore("schedules");
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      } catch (err) {
+        resolve([]);
+      }
+    })
+  );
+  var schedulesDb = { addSchedule, putSchedule, removeSchedule, allSchedules };
 
   // src/ui.js
   var escapeHtml = (s) => (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[c]);
@@ -891,6 +955,15 @@
   function currentDay() {
     return state.currentDate || todayStr();
   }
+  function getScheduleFilterIds() {
+    const id = state.currentScheduleId;
+    return id == null ? null : [Number(id)];
+  }
+  function filterBySchedules(items, scheduleIds = null) {
+    if (!scheduleIds) return items;
+    const set = new Set(scheduleIds.map(Number));
+    return items.filter((p) => p && p.scheduleId != null && set.has(Number(p.scheduleId)));
+  }
   function renderTimeline() {
     var _a;
     hideNotePopover();
@@ -904,7 +977,11 @@
     const trackWidth = rect.width || 1;
     const view = getView2();
     const day = currentDay();
-    const sorted = [...state.punches].filter((p) => getPunchDate(p) === day).sort((a, b) => a.start - b.start);
+    const scheduleIds = getScheduleFilterIds();
+    const sorted = filterBySchedules(
+      [...state.punches].filter((p) => getPunchDate(p) === day),
+      scheduleIds
+    ).sort((a, b) => a.start - b.start);
     for (const p of sorted) {
       const startClamped = Math.max(p.start, view.start);
       const endClamped = Math.min(p.end, view.end);
@@ -1080,7 +1157,11 @@
   function renderTable() {
     els.rows.innerHTML = "";
     const day = currentDay();
-    const sorted = [...state.punches].filter((p) => getPunchDate(p) === day).sort((a, b) => a.start - b.start);
+    const scheduleIds = getScheduleFilterIds();
+    const sorted = filterBySchedules(
+      [...state.punches].filter((p) => getPunchDate(p) === day),
+      scheduleIds
+    ).sort((a, b) => a.start - b.start);
     for (const p of sorted) {
       const tr = document.createElement("tr");
       tr.dataset.id = p.id;
@@ -1117,7 +1198,8 @@
   }
   function renderTotal() {
     const day = currentDay();
-    const totalMin = state.punches.filter((p) => getPunchDate(p) === day).reduce((s, p) => s + (p.end - p.start), 0);
+    const scheduleIds = getScheduleFilterIds();
+    const totalMin = filterBySchedules(state.punches.filter((p) => getPunchDate(p) === day), scheduleIds).reduce((s, p) => s + (p.end - p.start), 0);
     els.total.textContent = totalMin ? `Total: ${time.durationLabel(totalMin)}` : "";
   }
   function summarizeByBucket(punches) {
@@ -1133,7 +1215,8 @@
   function renderBucketDay() {
     if (!els.bucketDayBody || !els.bucketDayCard) return;
     const day = currentDay();
-    const items = state.punches.filter((p) => getPunchDate(p) === day);
+    const scheduleIds = getScheduleFilterIds();
+    const items = filterBySchedules(state.punches.filter((p) => getPunchDate(p) === day), scheduleIds);
     const sums = summarizeByBucket(items);
     const sorted = Array.from(sums.entries()).filter(([_, v]) => v.totalMin > 0).sort((a, b) => b[1].totalMin - a[1].totalMin || a[0].localeCompare(b[0]));
     els.bucketDayBody.innerHTML = "";
@@ -1151,13 +1234,14 @@
     if (!els.bucketMonthBody || !els.bucketMonthCard) return;
     const y = state.calendarYear;
     const m = state.calendarMonth;
-    const items = state.punches.filter((p) => {
+    const scheduleIds = getScheduleFilterIds();
+    const items = filterBySchedules(state.punches.filter((p) => {
       const d = (p.date || "").split("-");
       if (d.length !== 3) return false;
       const yy = Number(d[0]);
       const mm = Number(d[1]) - 1;
       return yy === y && mm === m;
-    });
+    }), scheduleIds);
     const sums = summarizeByBucket(items);
     const sorted = Array.from(sums.entries()).filter(([_, v]) => v.totalMin > 0).sort((a, b) => b[1].totalMin - a[1].totalMin || a[0].localeCompare(b[0]));
     els.bucketMonthBody.innerHTML = "";
@@ -1186,7 +1270,11 @@
     const name = String(state.bucketFilter || "");
     const label = name || "(no bucket)";
     if (els.bucketViewTitle) els.bucketViewTitle.textContent = label;
-    const items = state.punches.filter((p) => String(p.bucket || "").trim() === name).slice().sort((a, b) => {
+    const scheduleIds = getScheduleFilterIds();
+    const items = filterBySchedules(
+      state.punches.filter((p) => String(p.bucket || "").trim() === name),
+      scheduleIds
+    ).slice().sort((a, b) => {
       const ad = String(a.date || "").localeCompare(String(b.date || ""));
       if (ad !== 0) return ad;
       return (a.start || 0) - (b.start || 0);
@@ -1283,6 +1371,19 @@
         renderBucketView();
       } catch (e) {
       }
+    } else if (state.viewMode === "dashboard") {
+      if (timelineCard) timelineCard.style.display = "none";
+      if (mainTableCard) mainTableCard.style.display = "none";
+      if (els.calendarCard) els.calendarCard.style.display = "none";
+      if (els.btnCalendar) els.btnCalendar.textContent = "Calendar";
+      if (els.bucketDayCard) els.bucketDayCard.style.display = "none";
+      if (els.bucketMonthCard) els.bucketMonthCard.style.display = "none";
+      if (els.bucketViewCard) els.bucketViewCard.style.display = "none";
+      if (els.dashboardCard) els.dashboardCard.style.display = "";
+      try {
+        renderDashboard();
+      } catch (e) {
+      }
     } else {
       if (timelineCard) timelineCard.style.display = "";
       if (mainTableCard) mainTableCard.style.display = "";
@@ -1291,6 +1392,7 @@
       if (els.bucketDayCard) els.bucketDayCard.style.display = "";
       if (els.bucketMonthCard) els.bucketMonthCard.style.display = "none";
       if (els.bucketViewCard) els.bucketViewCard.style.display = "none";
+      if (els.dashboardCard) els.dashboardCard.style.display = "none";
       renderTicks();
       renderTimeline();
       renderTable();
@@ -1421,6 +1523,10 @@
     els.toast._t = setTimeout(() => els.toast.style.display = "none", 2400);
   }
   function renderAll() {
+    try {
+      renderScheduleSelect();
+    } catch (e) {
+    }
     updateViewMode();
   }
   function fitMobileViewport() {
@@ -1441,6 +1547,146 @@
     const available = Math.max(120, vh - headerH - topH - mobileH - margins);
     const desired = Math.max(96, Math.min(180, Math.floor(available)));
     els.track.style.height = desired + "px";
+  }
+  function renderScheduleSelect() {
+    const sel = els.scheduleSelect;
+    if (!sel) return;
+    const cur = Number(state.currentScheduleId);
+    sel.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = "All Schedules";
+    if (state.currentScheduleId == null) optAll.selected = true;
+    sel.appendChild(optAll);
+    for (const s of state.schedules || []) {
+      const opt = document.createElement("option");
+      opt.value = String(s.id);
+      opt.textContent = s.name || `Schedule ${s.id}`;
+      if (Number(s.id) === cur) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
+  function renderModuleTimeline(container, scheduleIds) {
+    const view = getView2();
+    const day = currentDay();
+    const items = filterBySchedules((state.punches || []).filter((p) => getPunchDate(p) === day), scheduleIds).sort((a, b) => a.start - b.start);
+    const track = document.createElement("div");
+    track.className = "module-track";
+    for (const p of items) {
+      const startClamped = Math.max(p.start, view.start);
+      const endClamped = Math.min(p.end, view.end);
+      if (endClamped <= startClamped) continue;
+      const leftPct = (startClamped - view.start) / view.minutes * 100;
+      const widthPct = (endClamped - startClamped) / view.minutes * 100;
+      const el = document.createElement("div");
+      el.className = "module-punch";
+      const st = p.status || "default";
+      el.classList.add(`status-${st}`);
+      el.style.left = leftPct + "%";
+      el.style.width = widthPct + "%";
+      el.title = `${p.bucket || "(no bucket)"} \u2014 ${time.toLabel(p.start)}\u2013${time.toLabel(p.end)}`;
+      track.appendChild(el);
+    }
+    container.appendChild(track);
+  }
+  function renderModuleEntries(container, scheduleIds) {
+    const day = currentDay();
+    const items = filterBySchedules((state.punches || []).filter((p) => getPunchDate(p) === day), scheduleIds).sort((a, b) => a.start - b.start);
+    const table = document.createElement("table");
+    table.className = "mini-table";
+    const thead = document.createElement("thead");
+    thead.innerHTML = '<tr><th style="width:120px">Start</th><th style="width:120px">Stop</th><th style="width:140px">Duration</th><th>Bucket</th></tr>';
+    table.appendChild(thead);
+    const tbody = document.createElement("tbody");
+    for (const p of items) {
+      const tr = document.createElement("tr");
+      const dur = (p.end || 0) - (p.start || 0);
+      tr.innerHTML = `<td>${time.toLabel(p.start || 0)}</td><td>${time.toLabel(p.end || 0)}</td><td>${time.durationLabel(dur)}</td><td>${escapeHtml(p.bucket || "")}</td>`;
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    container.appendChild(table);
+  }
+  function renderModuleBucket(container, scheduleIds) {
+    const day = currentDay();
+    const items = filterBySchedules((state.punches || []).filter((p) => getPunchDate(p) === day), scheduleIds);
+    const sums = /* @__PURE__ */ new Map();
+    for (const p of items) {
+      const key = String(p.bucket || "");
+      const prev = sums.get(key) || { totalMin: 0, count: 0 };
+      sums.set(key, { totalMin: prev.totalMin + Math.max(0, (p.end || 0) - (p.start || 0)), count: prev.count + 1 });
+    }
+    const sorted = Array.from(sums.entries()).filter(([_, v]) => v.totalMin > 0).sort((a, b) => b[1].totalMin - a[1].totalMin || a[0].localeCompare(b[0]));
+    const table = document.createElement("table");
+    table.className = "mini-table";
+    table.innerHTML = '<thead><tr><th>Bucket</th><th style="width:140px">Total</th></tr></thead>';
+    const tbody = document.createElement("tbody");
+    for (const [bucket, info] of sorted) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${escapeHtml(bucket || "(no bucket)")}</td><td>${time.durationLabel(info.totalMin)}</td>`;
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    container.appendChild(table);
+  }
+  function renderDashboard() {
+    const grid = els.dashboardGrid;
+    if (!grid) return;
+    grid.innerHTML = "";
+    const mods = Array.isArray(state.dashboardModules) ? state.dashboardModules : [];
+    for (const m of mods) {
+      const card = document.createElement("div");
+      card.className = "card";
+      const head = document.createElement("div");
+      head.className = "card-head";
+      const title = document.createElement("div");
+      title.className = "card-title";
+      const schedNames = (state.schedules || []).filter((s) => (m.scheduleIds || []).some((id) => Number(id) === Number(s.id))).map((s) => s.name).join(", ");
+      title.textContent = m.title || `${m.type[0].toUpperCase() + m.type.slice(1)} \u2014 ${schedNames || "No schedules"}`;
+      const actions2 = document.createElement("div");
+      actions2.style.display = "flex";
+      actions2.style.gap = "8px";
+      actions2.style.alignItems = "center";
+      const btnRemove = document.createElement("button");
+      btnRemove.className = "btn danger";
+      btnRemove.textContent = "Remove";
+      btnRemove.addEventListener("click", () => {
+        state.dashboardModules = (state.dashboardModules || []).filter((x) => x.id !== m.id);
+        try {
+          localStorage.setItem("dashboard.modules.v1", JSON.stringify(state.dashboardModules));
+        } catch (e) {
+        }
+        renderDashboard();
+      });
+      const btnOpen = document.createElement("button");
+      btnOpen.className = "btn ghost";
+      btnOpen.textContent = "Open";
+      btnOpen.addEventListener("click", () => {
+        if (Array.isArray(m.scheduleIds) && m.scheduleIds.length) {
+          state.currentScheduleId = Number(m.scheduleIds[0]);
+          try {
+            if (els.scheduleSelect) els.scheduleSelect.value = String(state.currentScheduleId);
+          } catch (e) {
+          }
+          try {
+            localStorage.setItem("currentScheduleId", String(state.currentScheduleId));
+          } catch (e) {
+          }
+        }
+        state.viewMode = "day";
+        updateViewMode();
+      });
+      actions2.appendChild(btnOpen);
+      actions2.appendChild(btnRemove);
+      head.append(title, actions2);
+      const body = document.createElement("div");
+      body.className = "card-body";
+      if (m.type === "timeline") renderModuleTimeline(body, m.scheduleIds || null);
+      else if (m.type === "entries") renderModuleEntries(body, m.scheduleIds || null);
+      else if (m.type === "bucket") renderModuleBucket(body, m.scheduleIds || null);
+      card.append(head, body);
+      grid.appendChild(card);
+    }
   }
   var ui = {
     renderAll,
@@ -1465,7 +1711,9 @@
     renderBucketDay,
     renderBucketMonth,
     renderBucketView,
-    renderMobileControls
+    renderMobileControls,
+    renderScheduleSelect,
+    renderDashboard
   };
 
   // src/recur.js
@@ -2107,7 +2355,7 @@
     if (els.settingsModal) els.settingsModal.style.display = "none";
   }
   function attach() {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o;
     try {
       const saved = localStorage.getItem("tt.theme") || "neon";
       applyTheme(saved);
@@ -2133,6 +2381,141 @@
     });
     (_i = els.btnEraseAll) == null ? void 0 : _i.addEventListener("click", eraseAll);
     (_j = els.themeSelect) == null ? void 0 : _j.addEventListener("change", (e) => applyTheme(e.target.value));
+    function populateScheduleSelect(el, allowAll = false) {
+      if (!el) return;
+      el.innerHTML = "";
+      const list = state.schedules || [];
+      if (allowAll) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "All Schedules";
+        el.appendChild(opt);
+      }
+      for (const s of list) {
+        const opt = document.createElement("option");
+        opt.value = String(s.id);
+        opt.textContent = s.name || `Schedule ${s.id}`;
+        el.appendChild(opt);
+      }
+    }
+    function renderSettingsSchedules() {
+      try {
+        populateScheduleSelect(els.settingsSchedList, false);
+        populateScheduleSelect(els.settingsMoveFrom, false);
+        populateScheduleSelect(els.settingsMoveTo, false);
+        if (els.settingsSchedList && state.currentScheduleId != null) {
+          els.settingsSchedList.value = String(state.currentScheduleId);
+        }
+      } catch (e) {
+      }
+    }
+    renderSettingsSchedules();
+    (_k = els.settingsAddSched) == null ? void 0 : _k.addEventListener("click", async () => {
+      var _a2, _b2, _c2, _d2, _e2;
+      const name = prompt("New schedule name:", "New Schedule");
+      if (!name) return;
+      await schedulesDb.addSchedule({ name: String(name).trim() });
+      state.schedules = await schedulesDb.allSchedules();
+      state.currentScheduleId = (_b2 = (_a2 = state.schedules[state.schedules.length - 1]) == null ? void 0 : _a2.id) != null ? _b2 : state.currentScheduleId;
+      try {
+        localStorage.setItem("currentScheduleId", String((_c2 = state.currentScheduleId) != null ? _c2 : ""));
+      } catch (e) {
+      }
+      (_e2 = (_d2 = ui).renderScheduleSelect) == null ? void 0 : _e2.call(_d2);
+      renderSettingsSchedules();
+      ui.renderAll();
+    });
+    (_l = els.settingsRenameSched) == null ? void 0 : _l.addEventListener("click", async () => {
+      var _a2, _b2, _c2;
+      const id = Number(((_a2 = els.settingsSchedList) == null ? void 0 : _a2.value) || "");
+      const cur = (state.schedules || []).find((s) => Number(s.id) === id);
+      if (!cur) {
+        alert("Select a schedule");
+        return;
+      }
+      const name = prompt("Rename schedule:", cur.name || "");
+      if (!name) return;
+      await schedulesDb.putSchedule({ ...cur, name: String(name).trim() });
+      state.schedules = await schedulesDb.allSchedules();
+      (_c2 = (_b2 = ui).renderScheduleSelect) == null ? void 0 : _c2.call(_b2);
+      renderSettingsSchedules();
+    });
+    (_m = els.settingsDeleteSched) == null ? void 0 : _m.addEventListener("click", async () => {
+      var _a2, _b2, _c2, _d2, _e2, _f2;
+      const id = Number(((_a2 = els.settingsSchedList) == null ? void 0 : _a2.value) || "");
+      if (!Number.isFinite(id)) {
+        alert("Select a schedule");
+        return;
+      }
+      const list = state.schedules || [];
+      if (list.length <= 1) {
+        alert("Cannot delete the only schedule.");
+        return;
+      }
+      const used = state.punches.some((p) => Number(p.scheduleId) === id);
+      if (used) {
+        alert("Schedule has entries. Delete or move entries first.");
+        return;
+      }
+      const cur = list.find((s) => Number(s.id) === id);
+      if (!confirm(`Delete schedule "${(cur == null ? void 0 : cur.name) || id}"?`)) return;
+      await schedulesDb.removeSchedule(id);
+      state.schedules = await schedulesDb.allSchedules();
+      if (Number(state.currentScheduleId) === id) {
+        state.currentScheduleId = (_c2 = (_b2 = state.schedules[0]) == null ? void 0 : _b2.id) != null ? _c2 : null;
+        try {
+          localStorage.setItem("currentScheduleId", String((_d2 = state.currentScheduleId) != null ? _d2 : ""));
+        } catch (e) {
+        }
+      }
+      (_f2 = (_e2 = ui).renderScheduleSelect) == null ? void 0 : _f2.call(_e2);
+      renderSettingsSchedules();
+      ui.renderAll();
+    });
+    (_n = els.settingsMoveBtn) == null ? void 0 : _n.addEventListener("click", async () => {
+      var _a2, _b2, _c2, _d2;
+      const fromId = Number(((_a2 = els.settingsMoveFrom) == null ? void 0 : _a2.value) || "");
+      const toId = Number(((_b2 = els.settingsMoveTo) == null ? void 0 : _b2.value) || "");
+      const start = String(((_c2 = els.settingsMoveStart) == null ? void 0 : _c2.value) || "").trim();
+      const end = String(((_d2 = els.settingsMoveEnd) == null ? void 0 : _d2.value) || "").trim();
+      if (!Number.isFinite(fromId) || !Number.isFinite(toId) || fromId === toId) {
+        alert("Pick different source and destination schedules");
+        return;
+      }
+      const inRange = (d) => {
+        if (start && d < start) return false;
+        if (end && d > end) return false;
+        return true;
+      };
+      let moved = 0, skipped = 0;
+      const items = state.punches.filter((p) => Number(p.scheduleId) === fromId && inRange(String(p.date || "")));
+      const overlaps = (p) => state.punches.some((q) => Number(q.scheduleId) === toId && String(q.date || "") === String(p.date || "") && (p.start || 0) < (q.end || 0) && (p.end || 0) > (q.start || 0));
+      for (const p of items) {
+        if (overlaps(p)) {
+          skipped++;
+          continue;
+        }
+        const updated = { ...p, scheduleId: toId };
+        try {
+          await idb.put(updated);
+          moved++;
+        } catch (e) {
+          skipped++;
+        }
+      }
+      state.punches = await idb.all();
+      ui.renderAll();
+      ui.toast(`Moved ${moved}, skipped ${skipped} overlapping`);
+    });
+    (_o = els.settingsCustomizeDashboard) == null ? void 0 : _o.addEventListener("click", () => {
+      var _a2, _b2, _c2;
+      try {
+        state.viewMode = "dashboard";
+        (_b2 = (_a2 = ui).updateViewMode) == null ? void 0 : _b2.call(_a2);
+        (_c2 = els.btnAddModule) == null ? void 0 : _c2.click();
+      } catch (e) {
+      }
+    });
   }
   var settingsActions = { attach };
 
@@ -2442,9 +2825,10 @@
     }
     return base;
   }
-  function overlapsOnDate(dateStr, start, end, excludeId = null) {
+  function overlapsOnDate(dateStr, start, end, excludeId = null, scheduleId = null) {
+    const sched = scheduleId != null ? Number(scheduleId) : state.currentScheduleId == null ? null : Number(state.currentScheduleId);
     return state.punches.some(
-      (p) => p.id !== excludeId && getPunchDate(p) === dateStr && start < p.end && end > p.start
+      (p) => p.id !== excludeId && getPunchDate(p) === dateStr && (sched == null || Number(p.scheduleId) === sched) && start < (p.end || 0) && end > (p.start || 0)
     );
   }
   async function splitPunchAtClick(e, punchEl) {
@@ -2466,7 +2850,7 @@
         return;
       }
       const chosen = candidates.length === 1 ? candidates[0] : Math.abs(candidates[0] - rawMin) <= Math.abs(candidates[1] - rawMin) ? candidates[0] : candidates[1];
-      const base = { bucket: p.bucket, note: p.note, status: p.status || null, date: p.date || getPunchDate(p) };
+      const base = { bucket: p.bucket, note: p.note, status: p.status || null, date: p.date || getPunchDate(p), scheduleId: p.scheduleId };
       const left = { ...base, start: p.start, end: chosen, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
       const right = { ...base, start: chosen, end: p.end, createdAt: (/* @__PURE__ */ new Date()).toISOString() };
       await idb.remove(p.id);
@@ -2483,7 +2867,7 @@
     }
   }
   var saveNewFromModal = async (e) => {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f, _g;
     e.preventDefault();
     if (!state.pendingRange) return;
     const { startMin, endMin } = state.pendingRange;
@@ -2499,6 +2883,7 @@
       bucket: els.bucketField.value.trim(),
       note: (((_a = els.noteField) == null ? void 0 : _a.value) || "").trim(),
       date: state.currentDate || todayStr(),
+      scheduleId: state.currentScheduleId != null ? state.currentScheduleId : (_d = (_c = (_b = state.schedules) == null ? void 0 : _b[0]) == null ? void 0 : _c.id) != null ? _d : null,
       status: (() => {
         var _a2;
         const val = ((_a2 = els.modalStatusBtn) == null ? void 0 : _a2.dataset.value) || "default";
@@ -2507,12 +2892,12 @@
     };
     try {
       const bname = payload.bucket;
-      const bnote = String(((_b = els.bucketNoteField) == null ? void 0 : _b.value) || "").trim();
+      const bnote = String(((_e = els.bucketNoteField) == null ? void 0 : _e.value) || "").trim();
       if (bname != null) await idb.setBucketNote(bname, bnote);
     } catch (e2) {
     }
     const rec = readRecurrenceFromUI();
-    if (((_c = els.repeatEnabled) == null ? void 0 : _c.checked) && !rec) {
+    if (((_f = els.repeatEnabled) == null ? void 0 : _f.checked) && !rec) {
       ui.toast("Pick an end date for the series");
       return;
     }
@@ -2524,8 +2909,8 @@
         return;
       }
       const prev = state.punches[idx];
-      const updated = { ...prev, ...payload };
-      const applyToSeries = !!((_d = els.applyScopeSeries) == null ? void 0 : _d.checked) && !!prev.recurrenceId;
+      const updated = { ...prev, ...payload, scheduleId: prev.scheduleId };
+      const applyToSeries = !!((_g = els.applyScopeSeries) == null ? void 0 : _g.checked) && !!prev.recurrenceId;
       if (applyToSeries) {
         const deltaStart = updated.start - prev.start;
         const deltaEnd = updated.end - prev.end;
@@ -2534,7 +2919,7 @@
         for (const p of toUpdate) {
           const newStart = p.start + deltaStart;
           const newEnd = p.end + deltaEnd;
-          if (overlapsOnDate(p.date || getPunchDate(p), newStart, newEnd, p.id)) {
+          if (overlapsOnDate(p.date || getPunchDate(p), newStart, newEnd, p.id, p.scheduleId)) {
             ui.toast("Change would overlap another block in the series.");
             return;
           }
@@ -2544,7 +2929,7 @@
           await idb.put(upd);
         }
       } else {
-        if (overlapsOnDate(updated.date, updated.start, updated.end, updated.id)) {
+        if (overlapsOnDate(updated.date, updated.start, updated.end, updated.id, updated.scheduleId)) {
           ui.toast("That range overlaps another block.");
           return;
         }
@@ -2555,8 +2940,8 @@
           for (const d of dates) {
             const start = updated.start;
             const end = updated.end;
-            if (overlapsOnDate(d, start, end, prev.id)) continue;
-            const base = { start, end, bucket: updated.bucket, note: updated.note, status: updated.status, date: d, recurrenceId, recurrence: rec, seq };
+            if (overlapsOnDate(d, start, end, prev.id, prev.scheduleId)) continue;
+            const base = { start, end, bucket: updated.bucket, note: updated.note, status: updated.status, date: d, recurrenceId, recurrence: rec, seq, scheduleId: updated.scheduleId };
             if (d === prev.date) {
               await idb.put({ ...prev, ...base });
             } else {
@@ -2577,7 +2962,7 @@
         let skipped = 0;
         let seq = 0;
         for (const d of dates) {
-          if (overlapsOnDate(d, payload.start, payload.end)) {
+          if (overlapsOnDate(d, payload.start, payload.end, null, payload.scheduleId)) {
             skipped++;
             continue;
           }
@@ -2588,7 +2973,7 @@
         }
         if (skipped) ui.toast(`Created ${added}, skipped ${skipped} overlapping`);
       } else {
-        if (overlapsOnDate(payload.date, payload.start, payload.end)) {
+        if (overlapsOnDate(payload.date, payload.start, payload.end, null, payload.scheduleId)) {
           ui.toast("That range overlaps another block.");
           return;
         }
@@ -2736,11 +3121,175 @@
     ui.closeModal();
   };
   var attachEvents = () => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q, _R;
     dragActions.attach();
     resizeActions.attach();
     calendarActions.attach();
     settingsActions.attach();
+    try {
+      (_a = els.scheduleSelect) == null ? void 0 : _a.addEventListener("change", (e) => {
+        const raw = String(e.target.value || "");
+        if (raw === "") {
+          state.currentScheduleId = null;
+          try {
+            localStorage.setItem("currentScheduleId", "");
+          } catch (e2) {
+          }
+          ui.renderAll();
+          return;
+        }
+        const val = Number(raw);
+        if (!Number.isNaN(val)) {
+          state.currentScheduleId = val;
+          try {
+            localStorage.setItem("currentScheduleId", String(val));
+          } catch (e2) {
+          }
+          ui.renderAll();
+        }
+      });
+      (_b = els.btnAddSchedule) == null ? void 0 : _b.addEventListener("click", async () => {
+        var _a2, _b2;
+        const name = prompt("New schedule name:", "New Schedule");
+        if (!name) return;
+        await schedulesDb.addSchedule({ name: String(name).trim() });
+        state.schedules = await schedulesDb.allSchedules();
+        state.currentScheduleId = (_b2 = (_a2 = state.schedules[state.schedules.length - 1]) == null ? void 0 : _a2.id) != null ? _b2 : state.currentScheduleId;
+        try {
+          localStorage.setItem("currentScheduleId", String(state.currentScheduleId));
+        } catch (e) {
+        }
+        ui.renderScheduleSelect();
+        ui.renderAll();
+      });
+      (_c = els.btnRenameSchedule) == null ? void 0 : _c.addEventListener("click", async () => {
+        const curId = state.currentScheduleId;
+        const cur = (state.schedules || []).find((s) => Number(s.id) === Number(curId));
+        if (!cur) {
+          alert("No schedule selected.");
+          return;
+        }
+        const name = prompt("Rename schedule:", cur.name || "");
+        if (!name) return;
+        const rec = { ...cur, name: String(name).trim() };
+        await schedulesDb.putSchedule(rec);
+        state.schedules = await schedulesDb.allSchedules();
+        ui.renderScheduleSelect();
+        ui.renderAll();
+      });
+      (_d = els.btnDeleteSchedule) == null ? void 0 : _d.addEventListener("click", async () => {
+        var _a2, _b2, _c2;
+        const curId = Number(state.currentScheduleId);
+        const list = state.schedules || [];
+        if (!list.length || Number.isNaN(curId)) {
+          alert("No schedule selected.");
+          return;
+        }
+        if (list.length <= 1) {
+          alert("Cannot delete the only schedule.");
+          return;
+        }
+        const used = state.punches.some((p) => Number(p.scheduleId) === curId);
+        if (used) {
+          alert("Schedule has entries. Delete or move entries first.");
+          return;
+        }
+        const cur = list.find((s) => Number(s.id) === curId);
+        if (!confirm(`Delete schedule "${(cur == null ? void 0 : cur.name) || curId}"?`)) return;
+        await schedulesDb.removeSchedule(curId);
+        state.schedules = await schedulesDb.allSchedules();
+        state.currentScheduleId = (_b2 = (_a2 = state.schedules[0]) == null ? void 0 : _a2.id) != null ? _b2 : null;
+        try {
+          localStorage.setItem("currentScheduleId", String((_c2 = state.currentScheduleId) != null ? _c2 : ""));
+        } catch (e) {
+        }
+        ui.renderScheduleSelect();
+        ui.renderAll();
+      });
+    } catch (e) {
+    }
+    try {
+      (_e = els.btnDashboard) == null ? void 0 : _e.addEventListener("click", (e) => {
+        e.preventDefault();
+        state.viewMode = "dashboard";
+        ui.updateViewMode();
+      });
+    } catch (e) {
+    }
+    function openModuleModal() {
+      const wrap = els.moduleScheduleList;
+      if (wrap) {
+        wrap.innerHTML = "";
+        for (const s of state.schedules || []) {
+          const lbl = document.createElement("label");
+          lbl.style.display = "inline-flex";
+          lbl.style.alignItems = "center";
+          lbl.style.gap = "6px";
+          const cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.value = String(s.id);
+          lbl.appendChild(cb);
+          const span = document.createElement("span");
+          span.textContent = s.name || `Schedule ${s.id}`;
+          lbl.appendChild(span);
+          wrap.appendChild(lbl);
+        }
+      }
+      if (els.moduleTitle) els.moduleTitle.value = "";
+      if (els.moduleType) els.moduleType.value = "timeline";
+      if (els.moduleModal) els.moduleModal.style.display = "flex";
+    }
+    function closeModuleModal() {
+      if (els.moduleModal) els.moduleModal.style.display = "none";
+    }
+    (_f = els.btnAddModule) == null ? void 0 : _f.addEventListener("click", openModuleModal);
+    (_g = els.moduleClose) == null ? void 0 : _g.addEventListener("click", closeModuleModal);
+    (_h = els.moduleCancel) == null ? void 0 : _h.addEventListener("click", closeModuleModal);
+    (_i = els.moduleForm) == null ? void 0 : _i.addEventListener("submit", (e) => {
+      var _a2, _b2, _c2, _d2, _e2;
+      e.preventDefault();
+      const type = ((_a2 = els.moduleType) == null ? void 0 : _a2.value) || "timeline";
+      const title = String(((_b2 = els.moduleTitle) == null ? void 0 : _b2.value) || "").trim();
+      const ids = Array.from(((_c2 = els.moduleScheduleList) == null ? void 0 : _c2.querySelectorAll('input[type="checkbox"]')) || []).filter((c) => c.checked).map((c) => Number(c.value));
+      const mod = { id: "m" + Math.random().toString(36).slice(2, 9), type, title: title || void 0, scheduleIds: ids };
+      state.dashboardModules = Array.isArray(state.dashboardModules) ? [...state.dashboardModules, mod] : [mod];
+      try {
+        localStorage.setItem("dashboard.modules.v1", JSON.stringify(state.dashboardModules));
+      } catch (e2) {
+      }
+      closeModuleModal();
+      (_e2 = (_d2 = ui).renderDashboard) == null ? void 0 : _e2.call(_d2);
+    });
+    try {
+      const card = els.entriesCard;
+      const btn = els.entriesToggle;
+      if (card && btn) {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          const collapsed = card.classList.toggle("collapsed");
+          try {
+            btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+          } catch (e2) {
+          }
+        });
+      }
+    } catch (e) {
+    }
+    try {
+      const card = els.bucketDayCard;
+      const btn = els.bucketDayToggle;
+      if (card && btn) {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          const collapsed = card.classList.toggle("collapsed");
+          try {
+            btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+          } catch (e2) {
+          }
+        });
+      }
+    } catch (e) {
+    }
     els.rows.addEventListener("click", async (e) => {
       var _a2, _b2, _c2, _d2;
       const btn = e.target.closest(".status-btn");
@@ -3081,7 +3630,7 @@
     els.modalForm.addEventListener("submit", saveNewFromModal);
     els.modalCancel.addEventListener("click", closeModal2);
     els.modalClose.addEventListener("click", closeModal2);
-    (_a = els.repeatEnabled) == null ? void 0 : _a.addEventListener("change", () => {
+    (_j = els.repeatEnabled) == null ? void 0 : _j.addEventListener("change", () => {
       var _a2;
       const on = !!els.repeatEnabled.checked;
       if (els.repeatFields) els.repeatFields.style.display = on ? "" : "none";
@@ -3090,21 +3639,21 @@
       const isWeekly = (((_a2 = els.repeatFreq) == null ? void 0 : _a2.value) || "weekly") === "weekly";
       if (els.repeatDowWrap) els.repeatDowWrap.style.display = isWeekly ? "" : "none";
     });
-    (_b = els.repeatFreq) == null ? void 0 : _b.addEventListener("change", () => {
+    (_k = els.repeatFreq) == null ? void 0 : _k.addEventListener("change", () => {
       var _a2;
       const val = els.repeatFreq.value;
       if (els.repeatDowWrap) els.repeatDowWrap.style.display = val === "weekly" && ((_a2 = els.repeatEnabled) == null ? void 0 : _a2.checked) ? "" : "none";
     });
-    (_c = els.btnDowWeekdays) == null ? void 0 : _c.addEventListener("click", () => {
+    (_l = els.btnDowWeekdays) == null ? void 0 : _l.addEventListener("click", () => {
       if (!els.repeatDow) return;
       const set = /* @__PURE__ */ new Set([1, 2, 3, 4, 5]);
       els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => c.checked = set.has(Number(c.value)));
     });
-    (_d = els.btnDowAll) == null ? void 0 : _d.addEventListener("click", () => {
+    (_m = els.btnDowAll) == null ? void 0 : _m.addEventListener("click", () => {
       if (!els.repeatDow) return;
       els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => c.checked = true);
     });
-    (_e = els.modalDelete) == null ? void 0 : _e.addEventListener("click", async (e) => {
+    (_n = els.modalDelete) == null ? void 0 : _n.addEventListener("click", async (e) => {
       var _a2;
       if (!state.editingId) return;
       const p = state.punches.find((x) => x.id === state.editingId);
@@ -3125,7 +3674,7 @@
       ui.renderAll();
       ui.toast("Deleted");
     });
-    (_f = els.btnExtendSeries) == null ? void 0 : _f.addEventListener("click", async () => {
+    (_o = els.btnExtendSeries) == null ? void 0 : _o.addEventListener("click", async () => {
       var _a2;
       if (!state.editingId) return;
       const p = state.punches.find((x) => x.id === state.editingId);
@@ -3153,7 +3702,7 @@
       for (const d of dates) {
         if (state.punches.some((x) => x.recurrenceId === p.recurrenceId && x.date === d)) continue;
         if (overlapsOnDate(d, p.start, p.end)) continue;
-        await idb.add({ start: p.start, end: p.end, bucket: p.bucket, note: p.note, status: p.status || null, date: d, recurrenceId: p.recurrenceId, recurrence: p.recurrence, seq, createdAt: (/* @__PURE__ */ new Date()).toISOString() });
+        await idb.add({ start: p.start, end: p.end, bucket: p.bucket, note: p.note, status: p.status || null, date: d, recurrenceId: p.recurrenceId, recurrence: p.recurrence, seq, createdAt: (/* @__PURE__ */ new Date()).toISOString(), scheduleId: p.scheduleId });
         seq++;
         added++;
       }
@@ -3161,11 +3710,11 @@
       ui.renderAll();
       ui.toast(added ? `Added ${added} more` : "No new dates to add");
     });
-    (_g = els.modalStatusBtn) == null ? void 0 : _g.addEventListener("click", () => {
+    (_p = els.modalStatusBtn) == null ? void 0 : _p.addEventListener("click", () => {
       var _a2;
       (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.toggle("open");
     });
-    (_h = els.modalStatusMenu) == null ? void 0 : _h.addEventListener("click", (e) => {
+    (_q = els.modalStatusMenu) == null ? void 0 : _q.addEventListener("click", (e) => {
       var _a2;
       const opt = e.target.closest(".status-option");
       if (!opt) return;
@@ -3239,6 +3788,15 @@
       } catch (e2) {
       }
       (_g2 = (_f2 = ui).hideNotePopover) == null ? void 0 : _g2.call(_f2);
+      if (state.viewMode !== "calendar") {
+        state.viewMode = "calendar";
+        ui.updateViewMode();
+        try {
+          e.preventDefault();
+          e.stopPropagation();
+        } catch (e2) {
+        }
+      }
     });
     window.addEventListener("resize", () => ui.renderAll());
     window.addEventListener("click", (e) => {
@@ -3251,7 +3809,7 @@
         (_c2 = (_b2 = ui).hideNotePopover) == null ? void 0 : _c2.call(_b2);
       }
     });
-    (_i = els.bucketDayBody) == null ? void 0 : _i.addEventListener("click", (e) => {
+    (_r = els.bucketDayBody) == null ? void 0 : _r.addEventListener("click", (e) => {
       var _a2, _b2;
       const link = e.target.closest(".bucket-link");
       if (!link) return;
@@ -3263,7 +3821,7 @@
       state.viewMode = "bucket";
       ui.renderAll();
     });
-    (_j = els.bucketMonthBody) == null ? void 0 : _j.addEventListener("click", (e) => {
+    (_s = els.bucketMonthBody) == null ? void 0 : _s.addEventListener("click", (e) => {
       var _a2, _b2;
       const link = e.target.closest(".bucket-link");
       if (!link) return;
@@ -3275,18 +3833,23 @@
       state.viewMode = "bucket";
       ui.renderAll();
     });
-    (_k = els.btnBucketBack) == null ? void 0 : _k.addEventListener("click", () => {
+    (_t = els.btnBucketBack) == null ? void 0 : _t.addEventListener("click", () => {
       state.viewMode = "calendar";
       ui.renderAll();
     });
-    (_l = els.btnBucketBackTop) == null ? void 0 : _l.addEventListener("click", () => {
+    (_u = els.btnBucketBackTop) == null ? void 0 : _u.addEventListener("click", () => {
       state.viewMode = "calendar";
       ui.renderAll();
     });
-    (_m = els.btnBucketDelete) == null ? void 0 : _m.addEventListener("click", async () => {
+    (_v = els.btnBucketDelete) == null ? void 0 : _v.addEventListener("click", async () => {
       const name = String(state.bucketFilter || "");
       const label = name || "(no bucket)";
-      const items = state.punches.filter((p) => String(p.bucket || "").trim() === name);
+      const sched = state.currentScheduleId == null ? null : Number(state.currentScheduleId);
+      if (sched == null) {
+        alert("Select a specific schedule to delete a bucket.");
+        return;
+      }
+      const items = state.punches.filter((p) => String(p.bucket || "").trim() === name && Number(p.scheduleId) === sched);
       if (!items.length) {
         ui.toast("No entries for this bucket.");
         return;
@@ -3397,10 +3960,10 @@
       window.removeEventListener("mouseup", onWindowUp);
       window.removeEventListener("touchend", onWindowUp);
     };
-    (_n = els.mobileScrollbar) == null ? void 0 : _n.addEventListener("mousedown", onScrollbarDown);
-    (_o = els.mobileScrollbar) == null ? void 0 : _o.addEventListener("touchstart", onScrollbarDown, { passive: false });
-    (_p = els.mobileWindow) == null ? void 0 : _p.addEventListener("mousedown", onWindowDown);
-    (_q = els.mobileWindow) == null ? void 0 : _q.addEventListener("touchstart", onWindowDown, { passive: false });
+    (_w = els.mobileScrollbar) == null ? void 0 : _w.addEventListener("mousedown", onScrollbarDown);
+    (_x = els.mobileScrollbar) == null ? void 0 : _x.addEventListener("touchstart", onScrollbarDown, { passive: false });
+    (_y = els.mobileWindow) == null ? void 0 : _y.addEventListener("mousedown", onWindowDown);
+    (_z = els.mobileWindow) == null ? void 0 : _z.addEventListener("touchstart", onWindowDown, { passive: false });
     const zoomBy = (factor) => {
       const span = getSpan();
       const center = getStart() + span / 2;
@@ -3409,26 +3972,26 @@
       newStart = clampStartForSpan(newStart, newSpan);
       setView(newStart, newStart + newSpan);
     };
-    (_r = els.mobileZoomIn) == null ? void 0 : _r.addEventListener("click", () => zoomBy(0.8));
-    (_s = els.mobileZoomOut) == null ? void 0 : _s.addEventListener("click", () => zoomBy(1.25));
-    (_t = els.mobileZoomRange) == null ? void 0 : _t.addEventListener("input", (e) => {
+    (_A = els.mobileZoomIn) == null ? void 0 : _A.addEventListener("click", () => zoomBy(0.8));
+    (_B = els.mobileZoomOut) == null ? void 0 : _B.addEventListener("click", () => zoomBy(1.25));
+    (_C = els.mobileZoomRange) == null ? void 0 : _C.addEventListener("input", (e) => {
       const val = Math.max(minSpan, Math.min(totalMin, Math.round(Number(e.target.value) || getSpan())));
       const center = getStart() + getSpan() / 2;
       let newStart = Math.round(center - val / 2);
       newStart = clampStartForSpan(newStart, val);
       setView(newStart, newStart + val);
     });
-    (_u = els.view24) == null ? void 0 : _u.addEventListener("click", () => setView(0, 24 * 60));
-    (_v = els.viewDefault) == null ? void 0 : _v.addEventListener("click", () => setView(6 * 60, 18 * 60));
+    (_D = els.view24) == null ? void 0 : _D.addEventListener("click", () => setView(0, 24 * 60));
+    (_E = els.viewDefault) == null ? void 0 : _E.addEventListener("click", () => setView(6 * 60, 18 * 60));
     const doCopy = async () => {
       try {
         await copyActions.copyChart();
       } catch (e) {
       }
     };
-    (_w = els.btnCopyChart) == null ? void 0 : _w.addEventListener("click", doCopy);
-    (_x = els.btnCopyChartTop) == null ? void 0 : _x.addEventListener("click", doCopy);
-    (_y = els.btnCopyChartTable) == null ? void 0 : _y.addEventListener("click", doCopy);
+    (_F = els.btnCopyChart) == null ? void 0 : _F.addEventListener("click", doCopy);
+    (_G = els.btnCopyChartTop) == null ? void 0 : _G.addEventListener("click", doCopy);
+    (_H = els.btnCopyChartTable) == null ? void 0 : _H.addEventListener("click", doCopy);
     els.track.addEventListener("click", (e) => {
       var _a2, _b2, _c2, _d2;
       if (e.shiftKey) {
@@ -3458,7 +4021,7 @@
         }
       }
     });
-    (_z = els.bucketViewBody) == null ? void 0 : _z.addEventListener("click", (e) => {
+    (_I = els.bucketViewBody) == null ? void 0 : _I.addEventListener("click", (e) => {
       var _a2, _b2, _c2;
       const noteCell = e.target.closest("td.note");
       if (!noteCell) return;
@@ -3469,7 +4032,7 @@
         e.stopPropagation();
       }
     });
-    (_A = els.noteField) == null ? void 0 : _A.addEventListener("input", () => {
+    (_J = els.noteField) == null ? void 0 : _J.addEventListener("input", () => {
       try {
         els.noteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
@@ -3480,7 +4043,7 @@
       } catch (e) {
       }
     });
-    (_B = els.notePreviewToggle) == null ? void 0 : _B.addEventListener("click", (e) => {
+    (_K = els.notePreviewToggle) == null ? void 0 : _K.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.notePreview) return;
@@ -3495,7 +4058,7 @@
         if (els.notePreviewToggle) els.notePreviewToggle.textContent = "Hide preview";
       }
     });
-    (_C = els.bucketNoteField) == null ? void 0 : _C.addEventListener("input", () => {
+    (_L = els.bucketNoteField) == null ? void 0 : _L.addEventListener("input", () => {
       try {
         els.bucketNoteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.bucketNoteField.scrollHeight || 72));
@@ -3506,7 +4069,7 @@
       } catch (e) {
       }
     });
-    (_D = els.bucketNotePreviewToggle) == null ? void 0 : _D.addEventListener("click", (e) => {
+    (_M = els.bucketNotePreviewToggle) == null ? void 0 : _M.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.bucketNotePreview) return;
@@ -3521,21 +4084,21 @@
         if (els.bucketNotePreviewToggle) els.bucketNotePreviewToggle.textContent = "Hide preview";
       }
     });
-    (_E = els.bucketField) == null ? void 0 : _E.addEventListener("input", () => {
+    (_N = els.bucketField) == null ? void 0 : _N.addEventListener("input", () => {
       try {
         loadBucketNoteIntoEditor(els.bucketField.value);
       } catch (e) {
       }
     });
-    (_F = els.noteModalClose) == null ? void 0 : _F.addEventListener("click", () => {
+    (_O = els.noteModalClose) == null ? void 0 : _O.addEventListener("click", () => {
       var _a2, _b2;
       return (_b2 = (_a2 = ui).closeNoteModal) == null ? void 0 : _b2.call(_a2);
     });
-    (_G = els.noteCancel) == null ? void 0 : _G.addEventListener("click", () => {
+    (_P = els.noteCancel) == null ? void 0 : _P.addEventListener("click", () => {
       var _a2, _b2;
       return (_b2 = (_a2 = ui).closeNoteModal) == null ? void 0 : _b2.call(_a2);
     });
-    (_H = els.noteEditToggle) == null ? void 0 : _H.addEventListener("click", () => {
+    (_Q = els.noteEditToggle) == null ? void 0 : _Q.addEventListener("click", () => {
       var _a2;
       if (!els.noteModal) return;
       const editing = ((_a2 = els.noteEditorWrap) == null ? void 0 : _a2.style.display) !== "none";
@@ -3553,7 +4116,7 @@
         if (els.noteEditToggle) els.noteEditToggle.textContent = "View";
       }
     });
-    (_I = els.noteSave) == null ? void 0 : _I.addEventListener("click", async () => {
+    (_R = els.noteSave) == null ? void 0 : _R.addEventListener("click", async () => {
       var _a2, _b2, _c2, _d2;
       if (!els.noteModal) return;
       const id = Number(els.noteModal.dataset.id);
@@ -3609,11 +4172,26 @@
 
   // app.js
   async function init2() {
+    var _a, _b, _c;
     actions.attachEvents();
     if (typeof window.DEBUG_HANDLES === "undefined") {
       window.DEBUG_HANDLES = false;
     }
     state.punches = await idb.all();
+    let schedules = await schedulesDb.allSchedules();
+    if (!schedules || !schedules.length) {
+      const id = await schedulesDb.addSchedule({ name: "Default" });
+      schedules = await schedulesDb.allSchedules();
+    }
+    state.schedules = schedules;
+    const rawSched = typeof localStorage !== "undefined" ? localStorage.getItem("currentScheduleId") : null;
+    const savedSchedId = rawSched === null || rawSched === "" ? null : Number(rawSched);
+    const hasSaved = savedSchedId != null && schedules.some((s) => s.id === savedSchedId);
+    state.currentScheduleId = hasSaved ? savedSchedId : ((_a = schedules[0]) == null ? void 0 : _a.id) || null;
+    if (state.currentScheduleId != null) try {
+      localStorage.setItem("currentScheduleId", String(state.currentScheduleId));
+    } catch (e) {
+    }
     const updates = [];
     for (const p of state.punches) {
       if (!p.date) {
@@ -3624,11 +4202,21 @@
         const { caseNumber, ...rest } = p;
         updates.push({ ...rest, bucket: caseNumber });
       }
+      if (p.scheduleId == null && state.currentScheduleId != null) {
+        updates.push({ ...p, scheduleId: state.currentScheduleId });
+      }
     }
     if (updates.length) {
       for (const up of updates) await idb.put(up);
       state.punches = await idb.all();
     }
+    try {
+      const raw = localStorage.getItem("dashboard.modules.v1");
+      const arr = JSON.parse(raw || "[]");
+      if (Array.isArray(arr)) state.dashboardModules = arr;
+    } catch (e) {
+    }
+    (_c = (_b = ui).renderScheduleSelect) == null ? void 0 : _c.call(_b);
     ui.renderAll();
     nowIndicator.init();
   }

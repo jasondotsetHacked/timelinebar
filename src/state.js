@@ -1,5 +1,9 @@
 export const state = {
   punches: [],
+  schedules: [],
+  currentScheduleId: null, // active schedule for main views
+  // Dashboard modules (persisted in localStorage)
+  dashboardModules: [], // [{ id, type: 'timeline'|'entries'|'bucket', scheduleIds: number[], title?: string }]
   dragging: null,
   resizing: null,
   moving: null,
@@ -12,7 +16,7 @@ export const state = {
   overTrack: false,
   // Date/calendar state
   currentDate: new Date().toISOString().slice(0, 10), // YYYY-MM-DD selected day
-  viewMode: 'calendar', // 'day' | 'calendar' | 'bucket'
+  viewMode: 'calendar', // 'day' | 'calendar' | 'bucket' | 'dashboard'
   calendarYear: new Date().getFullYear(),
   calendarMonth: new Date().getMonth(), // 0-11
   // Calendar sub-view: 'days' | 'months' | 'years'

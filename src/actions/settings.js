@@ -1,5 +1,5 @@
 import { els } from '../dom.js';
-import { idb } from '../storage.js';
+import { idb, schedulesDb } from '../storage.js';
 import { state } from '../state.js';
 import { ui } from '../ui.js';
 import { todayStr } from '../dates.js';
@@ -170,6 +170,108 @@ function attach() {
   els.btnEraseAll?.addEventListener('click', eraseAll);
 
   els.themeSelect?.addEventListener('change', (e) => applyTheme(e.target.value));
+
+  // --- Schedules UI in Settings ---
+  function populateScheduleSelect(el, allowAll = false) {
+    if (!el) return;
+    el.innerHTML = '';
+    const list = state.schedules || [];
+    if (allowAll) {
+      const opt = document.createElement('option'); opt.value = ''; opt.textContent = 'All Schedules'; el.appendChild(opt);
+    }
+    for (const s of list) {
+      const opt = document.createElement('option'); opt.value = String(s.id); opt.textContent = s.name || `Schedule ${s.id}`; el.appendChild(opt);
+    }
+  }
+  function renderSettingsSchedules() {
+    try {
+      populateScheduleSelect(els.settingsSchedList, false);
+      populateScheduleSelect(els.settingsMoveFrom, false);
+      populateScheduleSelect(els.settingsMoveTo, false);
+      if (els.settingsSchedList && state.currentScheduleId != null) {
+        els.settingsSchedList.value = String(state.currentScheduleId);
+      }
+    } catch {}
+  }
+  renderSettingsSchedules();
+
+  els.settingsAddSched?.addEventListener('click', async () => {
+    const name = prompt('New schedule name:', 'New Schedule');
+    if (!name) return;
+    await schedulesDb.addSchedule({ name: String(name).trim() });
+    state.schedules = await schedulesDb.allSchedules();
+    state.currentScheduleId = state.schedules[state.schedules.length - 1]?.id ?? state.currentScheduleId;
+    try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId ?? '')); } catch {}
+    ui.renderScheduleSelect?.();
+    renderSettingsSchedules();
+    ui.renderAll();
+  });
+  els.settingsRenameSched?.addEventListener('click', async () => {
+    const id = Number(els.settingsSchedList?.value || '');
+    const cur = (state.schedules || []).find((s) => Number(s.id) === id);
+    if (!cur) { alert('Select a schedule'); return; }
+    const name = prompt('Rename schedule:', cur.name || '');
+    if (!name) return;
+    await schedulesDb.putSchedule({ ...cur, name: String(name).trim() });
+    state.schedules = await schedulesDb.allSchedules();
+    ui.renderScheduleSelect?.();
+    renderSettingsSchedules();
+  });
+  els.settingsDeleteSched?.addEventListener('click', async () => {
+    const id = Number(els.settingsSchedList?.value || '');
+    if (!Number.isFinite(id)) { alert('Select a schedule'); return; }
+    const list = state.schedules || [];
+    if (list.length <= 1) { alert('Cannot delete the only schedule.'); return; }
+    const used = state.punches.some((p) => Number(p.scheduleId) === id);
+    if (used) { alert('Schedule has entries. Delete or move entries first.'); return; }
+    const cur = list.find((s) => Number(s.id) === id);
+    if (!confirm(`Delete schedule "${cur?.name || id}"?`)) return;
+    await schedulesDb.removeSchedule(id);
+    state.schedules = await schedulesDb.allSchedules();
+    if (Number(state.currentScheduleId) === id) {
+      state.currentScheduleId = state.schedules[0]?.id ?? null;
+      try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId ?? '')); } catch {}
+    }
+    ui.renderScheduleSelect?.();
+    renderSettingsSchedules();
+    ui.renderAll();
+  });
+
+  els.settingsMoveBtn?.addEventListener('click', async () => {
+    const fromId = Number(els.settingsMoveFrom?.value || '');
+    const toId = Number(els.settingsMoveTo?.value || '');
+    const start = String(els.settingsMoveStart?.value || '').trim();
+    const end = String(els.settingsMoveEnd?.value || '').trim();
+    if (!Number.isFinite(fromId) || !Number.isFinite(toId) || fromId === toId) { alert('Pick different source and destination schedules'); return; }
+    // Filter punches by source and optional date range
+    const inRange = (d) => {
+      if (start && d < start) return false;
+      if (end && d > end) return false;
+      return true;
+    };
+    let moved = 0, skipped = 0;
+    const items = state.punches.filter((p) => Number(p.scheduleId) === fromId && inRange(String(p.date || '')));
+    // Overlap detection on destination
+    const overlaps = (p) => state.punches.some((q) => Number(q.scheduleId) === toId && String(q.date || '') === String(p.date || '') && (p.start || 0) < (q.end || 0) && (p.end || 0) > (q.start || 0));
+    for (const p of items) {
+      if (overlaps(p)) { skipped++; continue; }
+      const updated = { ...p, scheduleId: toId };
+      try { await idb.put(updated); moved++; } catch { skipped++; }
+    }
+    state.punches = await idb.all();
+    ui.renderAll();
+    ui.toast(`Moved ${moved}, skipped ${skipped} overlapping`);
+  });
+
+  els.settingsCustomizeDashboard?.addEventListener('click', () => {
+    try {
+      // Navigate to Dashboard and open Add Module dialog
+      state.viewMode = 'dashboard';
+      ui.updateViewMode?.();
+      // trigger the same flow as the Dashboard's Add Module button
+      els.btnAddModule?.click();
+    } catch {}
+  });
 }
 
 export const settingsActions = { attach };

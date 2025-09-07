@@ -1,5 +1,5 @@
 const DB_NAME = 'timeTrackerDB';
-const DB_VERSION = 2; // v2 adds 'buckets' store for persistent bucket notes
+const DB_VERSION = 3; // v3 adds 'schedules' store and scheduleId on punches
 
 const openDb = () =>
   new Promise((resolve, reject) => {
@@ -14,6 +14,10 @@ const openDb = () =>
       if (!db.objectStoreNames.contains('buckets')) {
         db.createObjectStore('buckets', { keyPath: 'name' });
       }
+      // v3: schedules store for multi-schedule support
+      if (!db.objectStoreNames.contains('schedules')) {
+        db.createObjectStore('schedules', { keyPath: 'id', autoIncrement: true });
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -23,11 +27,15 @@ const withStore = (storeName, mode, fn) =>
   openDb().then(
     (db) =>
       new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, mode);
-        const store = tx.objectStore(storeName);
-        fn(store);
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
+        try {
+          const tx = db.transaction(storeName, mode);
+          const store = tx.objectStore(storeName);
+          const ret = fn(store);
+          tx.oncomplete = () => resolve(ret);
+          tx.onerror = () => reject(tx.error);
+        } catch (err) {
+          reject(err);
+        }
       })
   );
 
@@ -95,3 +103,24 @@ const allBuckets = () =>
 const clearBuckets = () => withStore('buckets', 'readwrite', (store) => store.clear());
 
 export const idb = { add, put, remove, clear, all, getBucket, setBucketNote, deleteBucket, allBuckets, clearBuckets };
+// Schedules API
+const addSchedule = (rec) => withStore('schedules', 'readwrite', (store) => store.add(rec));
+const putSchedule = (rec) => withStore('schedules', 'readwrite', (store) => store.put(rec));
+const removeSchedule = (id) => withStore('schedules', 'readwrite', (store) => store.delete(id));
+const allSchedules = () =>
+  openDb().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        try {
+          const tx = db.transaction('schedules', 'readonly');
+          const store = tx.objectStore('schedules');
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        } catch (err) {
+          resolve([]);
+        }
+      })
+  );
+
+export const schedulesDb = { addSchedule, putSchedule, removeSchedule, allSchedules };
