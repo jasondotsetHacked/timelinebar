@@ -7421,6 +7421,14 @@
             ]
           }
         });
+        try {
+          if (els.notePreview) els.notePreview.style.display = "none";
+        } catch (e) {
+        }
+        try {
+          if (els.notePreviewToggle) els.notePreviewToggle.style.display = "none";
+        } catch (e) {
+        }
       }
     } catch (e) {
     }
@@ -7452,6 +7460,14 @@
             ]
           }
         });
+        try {
+          if (els.bucketNotePreview) els.bucketNotePreview.style.display = "none";
+        } catch (e) {
+        }
+        try {
+          if (els.bucketNotePreviewToggle) els.bucketNotePreviewToggle.style.display = "none";
+        } catch (e) {
+        }
       }
     } catch (e) {
     }
@@ -8298,7 +8314,9 @@
     renderBucketMonth,
     renderBucketView,
     renderMobileControls,
-    renderScheduleSelect
+    renderScheduleSelect,
+    // Expose to allow actions to initialize editors inside Edit modal
+    ensureEditQuills
   };
 
   // src/validate.js
@@ -10494,7 +10512,7 @@
     } catch (e) {
     }
     els.rows.addEventListener("click", async (e) => {
-      var _a2, _b2, _c2, _d2;
+      var _a2, _b2, _c2, _d2, _e2, _f2;
       const btn = e.target.closest(".status-btn");
       if (btn) {
         const wrap = btn.closest(".status-wrap");
@@ -10586,17 +10604,22 @@
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
         try {
+          (_f2 = (_e2 = ui).ensureEditQuills) == null ? void 0 : _f2.call(_e2);
+        } catch (e2) {
+        }
+        try {
           const host = document.getElementById("modalNoteEditor");
           const q = host && host.__quill ? host.__quill : null;
           if (q && q.root) {
+            const html = mdToHtml(String(p.note || ""));
             try {
               q.setContents([]);
             } catch (e2) {
             }
             try {
-              q.clipboard.dangerouslyPasteHTML(String(p.note || ""));
+              q.clipboard.dangerouslyPasteHTML(html || "");
             } catch (e2) {
-              q.root.innerHTML = String(p.note || "");
+              q.root.innerHTML = html || "";
             }
           }
         } catch (e2) {
@@ -10673,6 +10696,7 @@
       }
     });
     els.track.addEventListener("click", async (e) => {
+      var _a2, _b2, _c2, _d2, _e2, _f2;
       if (e.shiftKey) {
         const handle = e.target.closest(".handle");
         const ctrl = e.target.closest(".control-btn");
@@ -10695,6 +10719,27 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        try {
+          (_b2 = (_a2 = ui).ensureEditQuills) == null ? void 0 : _b2.call(_a2);
+        } catch (e2) {
+        }
+        try {
+          const host = document.getElementById("modalNoteEditor");
+          const q = host && host.__quill ? host.__quill : null;
+          if (q && q.root) {
+            const html = mdToHtml(String(p.note || ""));
+            try {
+              q.setContents([]);
+            } catch (e2) {
+            }
+            try {
+              q.clipboard.dangerouslyPasteHTML(html || "");
+            } catch (e2) {
+              q.root.innerHTML = html || "";
+            }
+          }
+        } catch (e2) {
+        }
         try {
           fillScheduleDatalist();
         } catch (e2) {
@@ -10766,6 +10811,27 @@
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
         try {
+          (_d2 = (_c2 = ui).ensureEditQuills) == null ? void 0 : _d2.call(_c2);
+        } catch (e2) {
+        }
+        try {
+          const host = document.getElementById("modalNoteEditor");
+          const q = host && host.__quill ? host.__quill : null;
+          if (q && q.root) {
+            const html = mdToHtml(String(p.note || ""));
+            try {
+              q.setContents([]);
+            } catch (e2) {
+            }
+            try {
+              q.clipboard.dangerouslyPasteHTML(html || "");
+            } catch (e2) {
+              q.root.innerHTML = html || "";
+            }
+          }
+        } catch (e2) {
+        }
+        try {
           await loadBucketNoteIntoEditor(els.bucketField.value);
         } catch (e2) {
         }
@@ -10835,6 +10901,27 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        try {
+          (_f2 = (_e2 = ui).ensureEditQuills) == null ? void 0 : _f2.call(_e2);
+        } catch (e2) {
+        }
+        try {
+          const host = document.getElementById("modalNoteEditor");
+          const q = host && host.__quill ? host.__quill : null;
+          if (q && q.root) {
+            const html = mdToHtml(String(p.note || ""));
+            try {
+              q.setContents([]);
+            } catch (e2) {
+            }
+            try {
+              q.clipboard.dangerouslyPasteHTML(html || "");
+            } catch (e2) {
+              q.root.innerHTML = html || "";
+            }
+          }
+        } catch (e2) {
+        }
         try {
           await loadBucketNoteIntoEditor(els.bucketField.value);
         } catch (e2) {

@@ -580,13 +580,15 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
-      // Also reflect into edit-modal Quill if present
+      // Initialize Quill editors in Edit modal and populate from existing note
+      try { ui.ensureEditQuills?.(); } catch {}
       try {
         const host = document.getElementById('modalNoteEditor');
         const q = host && host.__quill ? host.__quill : null;
         if (q && q.root) {
+          const html = mdToHtml(String(p.note || ''));
           try { q.setContents([]); } catch {}
-          try { q.clipboard.dangerouslyPasteHTML(String(p.note || '')); } catch { q.root.innerHTML = String(p.note || ''); }
+          try { q.clipboard.dangerouslyPasteHTML(html || ''); } catch { q.root.innerHTML = html || ''; }
         }
       } catch {}
       // Schedule field + datalist
@@ -681,6 +683,17 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      // Initialize Quill editors in Edit modal and populate from existing note
+      try { ui.ensureEditQuills?.(); } catch {}
+      try {
+        const host = document.getElementById('modalNoteEditor');
+        const q = host && host.__quill ? host.__quill : null;
+        if (q && q.root) {
+          const html = mdToHtml(String(p.note || ''));
+          try { q.setContents([]); } catch {}
+          try { q.clipboard.dangerouslyPasteHTML(html || ''); } catch { q.root.innerHTML = html || ''; }
+        }
+      } catch {}
       try { fillScheduleDatalist(); } catch {}
       try {
         const cur = (state.schedules || []).find((s) => Number(s.id) === Number(p.scheduleId));
@@ -745,6 +758,17 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      // Initialize Quill editors in Edit modal and populate from existing note
+      try { ui.ensureEditQuills?.(); } catch {}
+      try {
+        const host = document.getElementById('modalNoteEditor');
+        const q = host && host.__quill ? host.__quill : null;
+        if (q && q.root) {
+          const html = mdToHtml(String(p.note || ''));
+          try { q.setContents([]); } catch {}
+          try { q.clipboard.dangerouslyPasteHTML(html || ''); } catch { q.root.innerHTML = html || ''; }
+        }
+      } catch {}
       try { await loadBucketNoteIntoEditor(els.bucketField.value); } catch {}
       try {
         const hasRec = !!p.recurrenceId;
@@ -812,6 +836,17 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      // Initialize Quill editors in Edit modal and populate from existing note
+      try { ui.ensureEditQuills?.(); } catch {}
+      try {
+        const host = document.getElementById('modalNoteEditor');
+        const q = host && host.__quill ? host.__quill : null;
+        if (q && q.root) {
+          const html = mdToHtml(String(p.note || ''));
+          try { q.setContents([]); } catch {}
+          try { q.clipboard.dangerouslyPasteHTML(html || ''); } catch { q.root.innerHTML = html || ''; }
+        }
+      } catch {}
       try { await loadBucketNoteIntoEditor(els.bucketField.value); } catch {}
       if (els.modalStatusBtn) {
         const st = p.status || 'default';

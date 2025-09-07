@@ -1236,6 +1236,8 @@ export const ui = {
   renderBucketView,
   renderMobileControls,
   renderScheduleSelect,
+  // Expose to allow actions to initialize editors inside Edit modal
+  ensureEditQuills,
 };
 
 
