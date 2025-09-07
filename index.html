@@ -36,6 +36,8 @@
           <button id="btnDeleteSchedule" class="btn ghost" title="Delete schedule">Delete</button>
         </div>
         <button id="btnDashboard" class="btn ghost" title="Open dashboard">Dashboard</button>
+        <button id="btnCustomizeDay" class="btn ghost" title="Customize day layout">Customize Day</button>
+        <button id="btnCustomizeMonth" class="btn ghost" title="Customize month layout">Customize Month</button>
         <button id="btnCalendar" class="btn ghost" title="Open calendar">Calendar</button>
         <button id="btnCopyChartTop" class="btn ghost" title="Copy timeline chart to clipboard">⧉ Copy</button>
       </div>
@@ -67,6 +69,28 @@
         </div>
       </div>
       <div id="dashboardGrid" class="card-body" style="display:grid; grid-template-columns: 1fr; gap:12px;"></div>
+    </section>
+
+    <!-- Month View Layout (modular; visible only in Calendar days mode) -->
+    <section class="card" id="monthDashboardCard" style="display:none;">
+      <div class="card-head">
+        <div class="card-title">Month View Layout</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="btnAddMonthModule" class="btn">Add Module</button>
+        </div>
+      </div>
+      <div id="monthDashboardGrid" class="card-body" style="display:grid; grid-template-columns: 1fr; gap:12px;"></div>
+    </section>
+
+    <!-- Day View Layout (modular) -->
+    <section class="card" id="dayDashboardCard" style="display:none;">
+      <div class="card-head">
+        <div class="card-title">Day View Layout</div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="btnAddDayModule" class="btn">Add Module</button>
+        </div>
+      </div>
+      <div id="dayDashboardGrid" class="card-body" style="display:grid; grid-template-columns: 1fr; gap:12px;"></div>
     </section>
 
     <section class="card timeline">

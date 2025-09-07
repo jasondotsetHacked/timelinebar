@@ -6554,7 +6554,17 @@
     dashboardCard: byId("dashboardCard"),
     dashboardGrid: byId("dashboardGrid"),
     btnDashboard: byId("btnDashboard"),
+    btnCustomizeDay: byId("btnCustomizeDay"),
+    btnCustomizeMonth: byId("btnCustomizeMonth"),
     btnAddModule: byId("btnAddModule"),
+    // Day View modular
+    dayDashboardCard: byId("dayDashboardCard"),
+    dayDashboardGrid: byId("dayDashboardGrid"),
+    btnAddDayModule: byId("btnAddDayModule"),
+    // Month View modular
+    monthDashboardCard: byId("monthDashboardCard"),
+    monthDashboardGrid: byId("monthDashboardGrid"),
+    btnAddMonthModule: byId("btnAddMonthModule"),
     calendarGrid: byId("calendarGrid"),
     calWeekdays: byId("calWeekdays"),
     calMonthLabel: byId("calMonthLabel"),
@@ -6637,6 +6647,14 @@
     // Dashboard modules (persisted in localStorage)
     dashboardModules: [],
     // [{ id, type: 'timeline'|'entries'|'bucket', scheduleIds: number[], title?: string }]
+    // Per-view modules
+    dayModules: [],
+    // modules specific to Day view
+    monthModules: [],
+    // modules specific to Month (calendar days) view
+    // runtime: which view the module modal is targeting
+    moduleTargetView: "dashboard",
+    // 'dashboard' | 'day' | 'month'
     dragging: null,
     resizing: null,
     moving: null,
@@ -7828,15 +7846,24 @@
       if (timelineCard) timelineCard.style.display = "none";
       if (mainTableCard) mainTableCard.style.display = "none";
       if (els.bucketDayCard) els.bucketDayCard.style.display = "none";
-      if (els.calendarCard) els.calendarCard.style.display = "block";
+      const showMonthModules = Array.isArray(state.monthModules) && state.monthModules.length && (state.calendarMode || "days") === "days";
+      if (els.monthDashboardCard) els.monthDashboardCard.style.display = showMonthModules ? "" : "none";
+      if (els.calendarCard) els.calendarCard.style.display = showMonthModules ? "none" : "block";
       if (els.btnCalendar) els.btnCalendar.textContent = "Back to Day";
       calendar.renderCalendar();
       if (els.bucketMonthCard) {
-        const show = (state.calendarMode || "days") === "days";
+        const show = (state.calendarMode || "days") === "days" && !showMonthModules;
         els.bucketMonthCard.style.display = show ? "" : "none";
       }
       if (els.bucketViewCard) els.bucketViewCard.style.display = "none";
-      renderBucketMonth();
+      if (showMonthModules) {
+        try {
+          renderMonthDashboard();
+        } catch (e) {
+        }
+      } else {
+        renderBucketMonth();
+      }
     } else if (state.viewMode === "bucket") {
       if (timelineCard) timelineCard.style.display = "none";
       if (mainTableCard) mainTableCard.style.display = "none";
@@ -7867,16 +7894,27 @@
       if (mainTableCard) mainTableCard.style.display = "";
       if (els.calendarCard) els.calendarCard.style.display = "none";
       if (els.btnCalendar) els.btnCalendar.textContent = "Calendar";
-      if (els.bucketDayCard) els.bucketDayCard.style.display = "";
+      const showDayModules = Array.isArray(state.dayModules) && state.dayModules.length > 0;
+      if (els.dayDashboardCard) els.dayDashboardCard.style.display = showDayModules ? "" : "none";
+      if (els.bucketDayCard) els.bucketDayCard.style.display = showDayModules ? "none" : "";
+      if (timelineCard) timelineCard.style.display = showDayModules ? "none" : "";
+      if (mainTableCard) mainTableCard.style.display = showDayModules ? "none" : "";
       if (els.bucketMonthCard) els.bucketMonthCard.style.display = "none";
       if (els.bucketViewCard) els.bucketViewCard.style.display = "none";
       if (els.dashboardCard) els.dashboardCard.style.display = "none";
-      renderTicks();
-      renderTimeline();
-      renderTable();
-      renderTotal();
-      nowIndicator.update();
-      renderBucketDay();
+      if (showDayModules) {
+        try {
+          renderDayDashboard();
+        } catch (e) {
+        }
+      } else {
+        renderTicks();
+        renderTimeline();
+        renderTable();
+        renderTotal();
+        nowIndicator.update();
+        renderBucketDay();
+      }
     }
     try {
       if (els.btnBucketBackTop) els.btnBucketBackTop.style.display = state.viewMode === "bucket" ? "" : "none";
@@ -8162,6 +8200,151 @@
       if (m.type === "timeline") renderModuleTimeline(body, m.scheduleIds || null);
       else if (m.type === "entries") renderModuleEntries(body, m.scheduleIds || null);
       else if (m.type === "bucket") renderModuleBucket(body, m.scheduleIds || null);
+      card.append(head, body);
+      grid.appendChild(card);
+    }
+  }
+  function renderDayDashboard() {
+    const grid = els.dayDashboardGrid;
+    if (!grid) return;
+    grid.innerHTML = "";
+    const mods = Array.isArray(state.dayModules) ? state.dayModules : [];
+    for (const m of mods) {
+      const card = document.createElement("div");
+      card.className = "card";
+      const head = document.createElement("div");
+      head.className = "card-head";
+      const title = document.createElement("div");
+      title.className = "card-title";
+      const schedNames = (state.schedules || []).filter((s) => (m.scheduleIds || []).some((id) => Number(id) === Number(s.id))).map((s) => s.name).join(", ");
+      title.textContent = m.title || `${m.type[0].toUpperCase() + m.type.slice(1)} \u2013 ${schedNames || "No schedules"}`;
+      const actions2 = document.createElement("div");
+      actions2.style.display = "flex";
+      actions2.style.gap = "8px";
+      actions2.style.alignItems = "center";
+      const btnRemove = document.createElement("button");
+      btnRemove.className = "btn danger";
+      btnRemove.textContent = "Remove";
+      btnRemove.addEventListener("click", () => {
+        state.dayModules = (state.dayModules || []).filter((x) => x.id !== m.id);
+        try {
+          localStorage.setItem("modules.day.v1", JSON.stringify(state.dayModules));
+        } catch (e) {
+        }
+        renderDayDashboard();
+      });
+      const btnOpen = document.createElement("button");
+      btnOpen.className = "btn ghost";
+      btnOpen.textContent = "Open";
+      btnOpen.addEventListener("click", () => {
+        if (Array.isArray(m.scheduleIds) && m.scheduleIds.length) {
+          state.currentScheduleId = Number(m.scheduleIds[0]);
+          try {
+            if (els.scheduleSelect) els.scheduleSelect.value = String(state.currentScheduleId);
+          } catch (e) {
+          }
+          try {
+            localStorage.setItem("currentScheduleId", String(state.currentScheduleId));
+          } catch (e) {
+          }
+        }
+        state.viewMode = "day";
+        updateViewMode();
+      });
+      actions2.appendChild(btnOpen);
+      actions2.appendChild(btnRemove);
+      head.append(title, actions2);
+      const body = document.createElement("div");
+      body.className = "card-body";
+      if (m.type === "timeline") renderModuleTimeline(body, m.scheduleIds || null);
+      else if (m.type === "entries") renderModuleEntries(body, m.scheduleIds || null);
+      else if (m.type === "bucket") renderModuleBucket(body, m.scheduleIds || null);
+      card.append(head, body);
+      grid.appendChild(card);
+    }
+  }
+  function renderModuleCalendar(container) {
+    var _a;
+    const wrap = document.createElement("div");
+    wrap.style.padding = "8px 4px";
+    const tempGrid = document.createElement("div");
+    tempGrid.className = "calendar-grid";
+    wrap.appendChild(tempGrid);
+    try {
+      const prev = (_a = els.calendarGrid) == null ? void 0 : _a.innerHTML;
+      calendar.renderCalendar();
+      if (els.calendarGrid) {
+        tempGrid.innerHTML = els.calendarGrid.innerHTML;
+      }
+      if (els.calendarGrid) els.calendarGrid.innerHTML = prev;
+    } catch (e) {
+    }
+    container.appendChild(wrap);
+  }
+  function renderModuleBucketMonth(container, scheduleIds) {
+    const y = state.calendarYear;
+    const m = state.calendarMonth;
+    const items = filterBySchedules(state.punches.filter((p) => {
+      const d = String(p.date || "").split("-");
+      if (d.length !== 3) return false;
+      const yy = Number(d[0]);
+      const mm = Number(d[1]) - 1;
+      return yy === y && mm === m;
+    }), scheduleIds || getScheduleFilterIds());
+    const sums = /* @__PURE__ */ new Map();
+    for (const p of items) {
+      const key = String(p.bucket || "");
+      const prev = sums.get(key) || { totalMin: 0, count: 0 };
+      const dur = Math.max(0, (p.end || 0) - (p.start || 0));
+      sums.set(key, { totalMin: prev.totalMin + dur, count: prev.count + 1 });
+    }
+    const sorted = Array.from(sums.entries()).filter(([_, v]) => v.totalMin > 0).sort((a, b) => b[1].totalMin - a[1].totalMin || a[0].localeCompare(b[0]));
+    const table = document.createElement("table");
+    table.className = "mini-table";
+    table.innerHTML = '<thead><tr><th>Bucket</th><th style="width:140px">Total</th></tr></thead>';
+    const tbody = document.createElement("tbody");
+    for (const [bucket, info] of sorted) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${escapeHtml(bucket || "(no bucket)")}</td><td>${time.durationLabel(info.totalMin)}</td>`;
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    container.appendChild(table);
+  }
+  function renderMonthDashboard() {
+    const grid = els.monthDashboardGrid;
+    if (!grid) return;
+    grid.innerHTML = "";
+    const mods = Array.isArray(state.monthModules) ? state.monthModules : [];
+    for (const m of mods) {
+      const card = document.createElement("div");
+      card.className = "card";
+      const head = document.createElement("div");
+      head.className = "card-head";
+      const title = document.createElement("div");
+      title.className = "card-title";
+      title.textContent = m.title || (m.type === "calendar" ? "Calendar" : "Bucket Report");
+      const actions2 = document.createElement("div");
+      actions2.style.display = "flex";
+      actions2.style.gap = "8px";
+      actions2.style.alignItems = "center";
+      const btnRemove = document.createElement("button");
+      btnRemove.className = "btn danger";
+      btnRemove.textContent = "Remove";
+      btnRemove.addEventListener("click", () => {
+        state.monthModules = (state.monthModules || []).filter((x) => x.id !== m.id);
+        try {
+          localStorage.setItem("modules.month.v1", JSON.stringify(state.monthModules));
+        } catch (e) {
+        }
+        renderMonthDashboard();
+      });
+      actions2.appendChild(btnRemove);
+      head.append(title, actions2);
+      const body = document.createElement("div");
+      body.className = "card-body";
+      if (m.type === "calendar") renderModuleCalendar(body);
+      else if (m.type === "bucket-month") renderModuleBucketMonth(body, m.scheduleIds || null);
       card.append(head, body);
       grid.appendChild(card);
     }
@@ -9790,7 +9973,7 @@
     ui.closeModal();
   };
   var attachEvents = () => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q, _R;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q, _R, _S, _T, _U, _V;
     dragActions.attach();
     resizeActions.attach();
     calendarActions.attach();
@@ -9872,7 +10055,41 @@
       });
     } catch (e) {
     }
-    function openModuleModal() {
+    try {
+      (_f = els.btnCustomizeDay) == null ? void 0 : _f.addEventListener("click", () => openModuleModal("day"));
+    } catch (e) {
+    }
+    try {
+      (_g = els.btnCustomizeMonth) == null ? void 0 : _g.addEventListener("click", () => {
+        state.viewMode = "calendar";
+        state.calendarMode = "days";
+        ui.updateViewMode();
+        openModuleModal("month");
+      });
+    } catch (e) {
+    }
+    function openModuleModal(targetView = "dashboard") {
+      state.moduleTargetView = targetView;
+      try {
+        if (els.moduleType) {
+          els.moduleType.innerHTML = "";
+          const addOpt = (val, label) => {
+            const o = document.createElement("option");
+            o.value = val;
+            o.textContent = label;
+            els.moduleType.appendChild(o);
+          };
+          if (targetView === "month") {
+            addOpt("calendar", "Calendar");
+            addOpt("bucket-month", "Bucket Report (Month)");
+          } else {
+            addOpt("timeline", "Timeline");
+            addOpt("entries", "Time Entries");
+            addOpt("bucket", "Bucket Report (Day)");
+          }
+        }
+      } catch (e) {
+      }
       const wrap = els.moduleScheduleList;
       if (wrap) {
         wrap.innerHTML = "";
@@ -9892,29 +10109,48 @@
         }
       }
       if (els.moduleTitle) els.moduleTitle.value = "";
-      if (els.moduleType) els.moduleType.value = "timeline";
+      if (els.moduleType) els.moduleType.value = targetView === "month" ? "calendar" : "timeline";
       if (els.moduleModal) els.moduleModal.style.display = "flex";
     }
     function closeModuleModal() {
       if (els.moduleModal) els.moduleModal.style.display = "none";
     }
-    (_f = els.btnAddModule) == null ? void 0 : _f.addEventListener("click", openModuleModal);
-    (_g = els.moduleClose) == null ? void 0 : _g.addEventListener("click", closeModuleModal);
-    (_h = els.moduleCancel) == null ? void 0 : _h.addEventListener("click", closeModuleModal);
-    (_i = els.moduleForm) == null ? void 0 : _i.addEventListener("submit", (e) => {
-      var _a2, _b2, _c2, _d2, _e2;
+    (_h = els.btnAddModule) == null ? void 0 : _h.addEventListener("click", () => openModuleModal("dashboard"));
+    (_i = els.btnAddDayModule) == null ? void 0 : _i.addEventListener("click", () => openModuleModal("day"));
+    (_j = els.btnAddMonthModule) == null ? void 0 : _j.addEventListener("click", () => openModuleModal("month"));
+    (_k = els.moduleClose) == null ? void 0 : _k.addEventListener("click", closeModuleModal);
+    (_l = els.moduleCancel) == null ? void 0 : _l.addEventListener("click", closeModuleModal);
+    (_m = els.moduleForm) == null ? void 0 : _m.addEventListener("submit", (e) => {
+      var _a2, _b2, _c2, _d2, _e2, _f2, _g2, _h2, _i2;
       e.preventDefault();
       const type = ((_a2 = els.moduleType) == null ? void 0 : _a2.value) || "timeline";
       const title = String(((_b2 = els.moduleTitle) == null ? void 0 : _b2.value) || "").trim();
       const ids = Array.from(((_c2 = els.moduleScheduleList) == null ? void 0 : _c2.querySelectorAll('input[type="checkbox"]')) || []).filter((c) => c.checked).map((c) => Number(c.value));
       const mod = { id: "m" + Math.random().toString(36).slice(2, 9), type, title: title || void 0, scheduleIds: ids };
-      state.dashboardModules = Array.isArray(state.dashboardModules) ? [...state.dashboardModules, mod] : [mod];
-      try {
-        localStorage.setItem("dashboard.modules.v1", JSON.stringify(state.dashboardModules));
-      } catch (e2) {
+      const tgt = state.moduleTargetView || "dashboard";
+      if (tgt === "day") {
+        state.dayModules = Array.isArray(state.dayModules) ? [...state.dayModules, mod] : [mod];
+        try {
+          localStorage.setItem("modules.day.v1", JSON.stringify(state.dayModules));
+        } catch (e2) {
+        }
+        (_e2 = (_d2 = ui).renderAll) == null ? void 0 : _e2.call(_d2);
+      } else if (tgt === "month") {
+        state.monthModules = Array.isArray(state.monthModules) ? [...state.monthModules, mod] : [mod];
+        try {
+          localStorage.setItem("modules.month.v1", JSON.stringify(state.monthModules));
+        } catch (e2) {
+        }
+        (_g2 = (_f2 = ui).updateViewMode) == null ? void 0 : _g2.call(_f2);
+      } else {
+        state.dashboardModules = Array.isArray(state.dashboardModules) ? [...state.dashboardModules, mod] : [mod];
+        try {
+          localStorage.setItem("dashboard.modules.v1", JSON.stringify(state.dashboardModules));
+        } catch (e2) {
+        }
+        (_i2 = (_h2 = ui).renderDashboard) == null ? void 0 : _i2.call(_h2);
       }
       closeModuleModal();
-      (_e2 = (_d2 = ui).renderDashboard) == null ? void 0 : _e2.call(_d2);
     });
     try {
       const card = els.entriesCard;
@@ -10286,7 +10522,7 @@
     els.modalForm.addEventListener("submit", saveNewFromModal);
     els.modalCancel.addEventListener("click", closeModal2);
     els.modalClose.addEventListener("click", closeModal2);
-    (_j = els.repeatEnabled) == null ? void 0 : _j.addEventListener("change", () => {
+    (_n = els.repeatEnabled) == null ? void 0 : _n.addEventListener("change", () => {
       var _a2;
       const on = !!els.repeatEnabled.checked;
       if (els.repeatFields) els.repeatFields.style.display = on ? "" : "none";
@@ -10295,21 +10531,21 @@
       const isWeekly = (((_a2 = els.repeatFreq) == null ? void 0 : _a2.value) || "weekly") === "weekly";
       if (els.repeatDowWrap) els.repeatDowWrap.style.display = isWeekly ? "" : "none";
     });
-    (_k = els.repeatFreq) == null ? void 0 : _k.addEventListener("change", () => {
+    (_o = els.repeatFreq) == null ? void 0 : _o.addEventListener("change", () => {
       var _a2;
       const val = els.repeatFreq.value;
       if (els.repeatDowWrap) els.repeatDowWrap.style.display = val === "weekly" && ((_a2 = els.repeatEnabled) == null ? void 0 : _a2.checked) ? "" : "none";
     });
-    (_l = els.btnDowWeekdays) == null ? void 0 : _l.addEventListener("click", () => {
+    (_p = els.btnDowWeekdays) == null ? void 0 : _p.addEventListener("click", () => {
       if (!els.repeatDow) return;
       const set = /* @__PURE__ */ new Set([1, 2, 3, 4, 5]);
       els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => c.checked = set.has(Number(c.value)));
     });
-    (_m = els.btnDowAll) == null ? void 0 : _m.addEventListener("click", () => {
+    (_q = els.btnDowAll) == null ? void 0 : _q.addEventListener("click", () => {
       if (!els.repeatDow) return;
       els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => c.checked = true);
     });
-    (_n = els.modalDelete) == null ? void 0 : _n.addEventListener("click", async (e) => {
+    (_r = els.modalDelete) == null ? void 0 : _r.addEventListener("click", async (e) => {
       var _a2;
       if (!state.editingId) return;
       const p = state.punches.find((x) => x.id === state.editingId);
@@ -10330,7 +10566,7 @@
       ui.renderAll();
       ui.toast("Deleted");
     });
-    (_o = els.btnExtendSeries) == null ? void 0 : _o.addEventListener("click", async () => {
+    (_s = els.btnExtendSeries) == null ? void 0 : _s.addEventListener("click", async () => {
       var _a2;
       if (!state.editingId) return;
       const p = state.punches.find((x) => x.id === state.editingId);
@@ -10366,11 +10602,11 @@
       ui.renderAll();
       ui.toast(added ? `Added ${added} more` : "No new dates to add");
     });
-    (_p = els.modalStatusBtn) == null ? void 0 : _p.addEventListener("click", () => {
+    (_t = els.modalStatusBtn) == null ? void 0 : _t.addEventListener("click", () => {
       var _a2;
       (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.toggle("open");
     });
-    (_q = els.modalStatusMenu) == null ? void 0 : _q.addEventListener("click", (e) => {
+    (_u = els.modalStatusMenu) == null ? void 0 : _u.addEventListener("click", (e) => {
       var _a2;
       const opt = e.target.closest(".status-option");
       if (!opt) return;
@@ -10465,7 +10701,7 @@
         (_c2 = (_b2 = ui).hideNotePopover) == null ? void 0 : _c2.call(_b2);
       }
     });
-    (_r = els.bucketDayBody) == null ? void 0 : _r.addEventListener("click", (e) => {
+    (_v = els.bucketDayBody) == null ? void 0 : _v.addEventListener("click", (e) => {
       var _a2, _b2;
       const link = e.target.closest(".bucket-link");
       if (!link) return;
@@ -10477,7 +10713,7 @@
       state.viewMode = "bucket";
       ui.renderAll();
     });
-    (_s = els.bucketMonthBody) == null ? void 0 : _s.addEventListener("click", (e) => {
+    (_w = els.bucketMonthBody) == null ? void 0 : _w.addEventListener("click", (e) => {
       var _a2, _b2;
       const link = e.target.closest(".bucket-link");
       if (!link) return;
@@ -10489,15 +10725,15 @@
       state.viewMode = "bucket";
       ui.renderAll();
     });
-    (_t = els.btnBucketBack) == null ? void 0 : _t.addEventListener("click", () => {
+    (_x = els.btnBucketBack) == null ? void 0 : _x.addEventListener("click", () => {
       state.viewMode = "calendar";
       ui.renderAll();
     });
-    (_u = els.btnBucketBackTop) == null ? void 0 : _u.addEventListener("click", () => {
+    (_y = els.btnBucketBackTop) == null ? void 0 : _y.addEventListener("click", () => {
       state.viewMode = "calendar";
       ui.renderAll();
     });
-    (_v = els.btnBucketDelete) == null ? void 0 : _v.addEventListener("click", async () => {
+    (_z = els.btnBucketDelete) == null ? void 0 : _z.addEventListener("click", async () => {
       const name = String(state.bucketFilter || "");
       const label = name || "(no bucket)";
       const sched = state.currentScheduleId == null ? null : Number(state.currentScheduleId);
@@ -10616,10 +10852,10 @@
       window.removeEventListener("mouseup", onWindowUp);
       window.removeEventListener("touchend", onWindowUp);
     };
-    (_w = els.mobileScrollbar) == null ? void 0 : _w.addEventListener("mousedown", onScrollbarDown);
-    (_x = els.mobileScrollbar) == null ? void 0 : _x.addEventListener("touchstart", onScrollbarDown, { passive: false });
-    (_y = els.mobileWindow) == null ? void 0 : _y.addEventListener("mousedown", onWindowDown);
-    (_z = els.mobileWindow) == null ? void 0 : _z.addEventListener("touchstart", onWindowDown, { passive: false });
+    (_A = els.mobileScrollbar) == null ? void 0 : _A.addEventListener("mousedown", onScrollbarDown);
+    (_B = els.mobileScrollbar) == null ? void 0 : _B.addEventListener("touchstart", onScrollbarDown, { passive: false });
+    (_C = els.mobileWindow) == null ? void 0 : _C.addEventListener("mousedown", onWindowDown);
+    (_D = els.mobileWindow) == null ? void 0 : _D.addEventListener("touchstart", onWindowDown, { passive: false });
     const zoomBy = (factor) => {
       const span = getSpan();
       const center = getStart() + span / 2;
@@ -10628,26 +10864,26 @@
       newStart = clampStartForSpan(newStart, newSpan);
       setView(newStart, newStart + newSpan);
     };
-    (_A = els.mobileZoomIn) == null ? void 0 : _A.addEventListener("click", () => zoomBy(0.8));
-    (_B = els.mobileZoomOut) == null ? void 0 : _B.addEventListener("click", () => zoomBy(1.25));
-    (_C = els.mobileZoomRange) == null ? void 0 : _C.addEventListener("input", (e) => {
+    (_E = els.mobileZoomIn) == null ? void 0 : _E.addEventListener("click", () => zoomBy(0.8));
+    (_F = els.mobileZoomOut) == null ? void 0 : _F.addEventListener("click", () => zoomBy(1.25));
+    (_G = els.mobileZoomRange) == null ? void 0 : _G.addEventListener("input", (e) => {
       const val = Math.max(minSpan, Math.min(totalMin, Math.round(Number(e.target.value) || getSpan())));
       const center = getStart() + getSpan() / 2;
       let newStart = Math.round(center - val / 2);
       newStart = clampStartForSpan(newStart, val);
       setView(newStart, newStart + val);
     });
-    (_D = els.view24) == null ? void 0 : _D.addEventListener("click", () => setView(0, 24 * 60));
-    (_E = els.viewDefault) == null ? void 0 : _E.addEventListener("click", () => setView(6 * 60, 18 * 60));
+    (_H = els.view24) == null ? void 0 : _H.addEventListener("click", () => setView(0, 24 * 60));
+    (_I = els.viewDefault) == null ? void 0 : _I.addEventListener("click", () => setView(6 * 60, 18 * 60));
     const doCopy = async () => {
       try {
         await copyActions.copyChart();
       } catch (e) {
       }
     };
-    (_F = els.btnCopyChart) == null ? void 0 : _F.addEventListener("click", doCopy);
-    (_G = els.btnCopyChartTop) == null ? void 0 : _G.addEventListener("click", doCopy);
-    (_H = els.btnCopyChartTable) == null ? void 0 : _H.addEventListener("click", doCopy);
+    (_J = els.btnCopyChart) == null ? void 0 : _J.addEventListener("click", doCopy);
+    (_K = els.btnCopyChartTop) == null ? void 0 : _K.addEventListener("click", doCopy);
+    (_L = els.btnCopyChartTable) == null ? void 0 : _L.addEventListener("click", doCopy);
     els.track.addEventListener("click", (e) => {
       var _a2, _b2, _c2, _d2;
       if (e.shiftKey) {
@@ -10677,7 +10913,7 @@
         }
       }
     });
-    (_I = els.bucketViewBody) == null ? void 0 : _I.addEventListener("click", (e) => {
+    (_M = els.bucketViewBody) == null ? void 0 : _M.addEventListener("click", (e) => {
       var _a2, _b2, _c2;
       const noteCell = e.target.closest("td.note");
       if (!noteCell) return;
@@ -10688,7 +10924,7 @@
         e.stopPropagation();
       }
     });
-    (_J = els.noteField) == null ? void 0 : _J.addEventListener("input", () => {
+    (_N = els.noteField) == null ? void 0 : _N.addEventListener("input", () => {
       try {
         els.noteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
@@ -10699,7 +10935,7 @@
       } catch (e) {
       }
     });
-    (_K = els.notePreviewToggle) == null ? void 0 : _K.addEventListener("click", (e) => {
+    (_O = els.notePreviewToggle) == null ? void 0 : _O.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.notePreview) return;
@@ -10714,7 +10950,7 @@
         if (els.notePreviewToggle) els.notePreviewToggle.textContent = "Hide preview";
       }
     });
-    (_L = els.bucketNoteField) == null ? void 0 : _L.addEventListener("input", () => {
+    (_P = els.bucketNoteField) == null ? void 0 : _P.addEventListener("input", () => {
       try {
         els.bucketNoteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.bucketNoteField.scrollHeight || 72));
@@ -10725,7 +10961,7 @@
       } catch (e) {
       }
     });
-    (_M = els.bucketNotePreviewToggle) == null ? void 0 : _M.addEventListener("click", (e) => {
+    (_Q = els.bucketNotePreviewToggle) == null ? void 0 : _Q.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.bucketNotePreview) return;
@@ -10740,21 +10976,21 @@
         if (els.bucketNotePreviewToggle) els.bucketNotePreviewToggle.textContent = "Hide preview";
       }
     });
-    (_N = els.bucketField) == null ? void 0 : _N.addEventListener("input", () => {
+    (_R = els.bucketField) == null ? void 0 : _R.addEventListener("input", () => {
       try {
         loadBucketNoteIntoEditor(els.bucketField.value);
       } catch (e) {
       }
     });
-    (_O = els.noteModalClose) == null ? void 0 : _O.addEventListener("click", () => {
+    (_S = els.noteModalClose) == null ? void 0 : _S.addEventListener("click", () => {
       var _a2, _b2;
       return (_b2 = (_a2 = ui).closeNoteModal) == null ? void 0 : _b2.call(_a2);
     });
-    (_P = els.noteCancel) == null ? void 0 : _P.addEventListener("click", () => {
+    (_T = els.noteCancel) == null ? void 0 : _T.addEventListener("click", () => {
       var _a2, _b2;
       return (_b2 = (_a2 = ui).closeNoteModal) == null ? void 0 : _b2.call(_a2);
     });
-    (_Q = els.noteEditToggle) == null ? void 0 : _Q.addEventListener("click", () => {
+    (_U = els.noteEditToggle) == null ? void 0 : _U.addEventListener("click", () => {
       var _a2;
       if (!els.noteModal) return;
       const editing = ((_a2 = els.noteEditorWrap) == null ? void 0 : _a2.style.display) !== "none";
@@ -10772,7 +11008,7 @@
         if (els.noteEditToggle) els.noteEditToggle.textContent = "View";
       }
     });
-    (_R = els.noteSave) == null ? void 0 : _R.addEventListener("click", async () => {
+    (_V = els.noteSave) == null ? void 0 : _V.addEventListener("click", async () => {
       var _a2, _b2, _c2, _d2;
       if (!els.noteModal) return;
       const id = Number(els.noteModal.dataset.id);
@@ -10884,6 +11120,15 @@
       const raw = localStorage.getItem("dashboard.modules.v1");
       const arr = JSON.parse(raw || "[]");
       if (Array.isArray(arr)) state.dashboardModules = arr;
+    } catch (e) {
+    }
+    try {
+      const rawDay = localStorage.getItem("modules.day.v1");
+      const rawMonth = localStorage.getItem("modules.month.v1");
+      const arrDay = JSON.parse(rawDay || "[]");
+      const arrMonth = JSON.parse(rawMonth || "[]");
+      if (Array.isArray(arrDay)) state.dayModules = arrDay;
+      if (Array.isArray(arrMonth)) state.monthModules = arrMonth;
     } catch (e) {
     }
     (_c = (_b = ui).renderScheduleSelect) == null ? void 0 : _c.call(_b);

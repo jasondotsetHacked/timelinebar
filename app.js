@@ -67,6 +67,15 @@ async function init() {
     const arr = JSON.parse(raw || '[]');
     if (Array.isArray(arr)) state.dashboardModules = arr;
   } catch {}
+  // Load per-view modules (day, month)
+  try {
+    const rawDay = localStorage.getItem('modules.day.v1');
+    const rawMonth = localStorage.getItem('modules.month.v1');
+    const arrDay = JSON.parse(rawDay || '[]');
+    const arrMonth = JSON.parse(rawMonth || '[]');
+    if (Array.isArray(arrDay)) state.dayModules = arrDay;
+    if (Array.isArray(arrMonth)) state.monthModules = arrMonth;
+  } catch {}
   ui.renderScheduleSelect?.();
   ui.renderAll();
   nowIndicator.init();

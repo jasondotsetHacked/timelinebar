@@ -4,6 +4,11 @@ export const state = {
   currentScheduleId: null, // active schedule for main views
   // Dashboard modules (persisted in localStorage)
   dashboardModules: [], // [{ id, type: 'timeline'|'entries'|'bucket', scheduleIds: number[], title?: string }]
+  // Per-view modules
+  dayModules: [],      // modules specific to Day view
+  monthModules: [],    // modules specific to Month (calendar days) view
+  // runtime: which view the module modal is targeting
+  moduleTargetView: 'dashboard', // 'dashboard' | 'day' | 'month'
   dragging: null,
   resizing: null,
   moving: null,

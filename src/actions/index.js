@@ -372,8 +372,37 @@ const attachEvents = () => {
     });
   } catch {}
 
+  // Customize buttons
+  try { els.btnCustomizeDay?.addEventListener('click', () => openModuleModal('day')); } catch {}
+  try { els.btnCustomizeMonth?.addEventListener('click', () => {
+    state.viewMode = 'calendar';
+    state.calendarMode = 'days';
+    ui.updateViewMode();
+    openModuleModal('month');
+  }); } catch {}
+
   // Module modal
-  function openModuleModal() {
+  function openModuleModal(targetView = 'dashboard') {
+    state.moduleTargetView = targetView;
+    // Populate type options per target view
+    try {
+      if (els.moduleType) {
+        // Reset options
+        els.moduleType.innerHTML = '';
+        const addOpt = (val, label) => {
+          const o = document.createElement('option');
+          o.value = val; o.textContent = label; els.moduleType.appendChild(o);
+        };
+        if (targetView === 'month') {
+          addOpt('calendar', 'Calendar');
+          addOpt('bucket-month', 'Bucket Report (Month)');
+        } else {
+          addOpt('timeline', 'Timeline');
+          addOpt('entries', 'Time Entries');
+          addOpt('bucket', 'Bucket Report (Day)');
+        }
+      }
+    } catch {}
     const wrap = els.moduleScheduleList;
     if (wrap) {
       wrap.innerHTML = '';
@@ -386,11 +415,14 @@ const attachEvents = () => {
       }
     }
     if (els.moduleTitle) els.moduleTitle.value = '';
-    if (els.moduleType) els.moduleType.value = 'timeline';
+    // default type depends on view
+    if (els.moduleType) els.moduleType.value = (targetView === 'month') ? 'calendar' : 'timeline';
     if (els.moduleModal) els.moduleModal.style.display = 'flex';
   }
   function closeModuleModal() { if (els.moduleModal) els.moduleModal.style.display = 'none'; }
-  els.btnAddModule?.addEventListener('click', openModuleModal);
+  els.btnAddModule?.addEventListener('click', () => openModuleModal('dashboard'));
+  els.btnAddDayModule?.addEventListener('click', () => openModuleModal('day'));
+  els.btnAddMonthModule?.addEventListener('click', () => openModuleModal('month'));
   els.moduleClose?.addEventListener('click', closeModuleModal);
   els.moduleCancel?.addEventListener('click', closeModuleModal);
   els.moduleForm?.addEventListener('submit', (e) => {
@@ -401,10 +433,21 @@ const attachEvents = () => {
       .filter((c) => c.checked)
       .map((c) => Number(c.value));
     const mod = { id: 'm' + Math.random().toString(36).slice(2, 9), type, title: title || undefined, scheduleIds: ids };
-    state.dashboardModules = Array.isArray(state.dashboardModules) ? [...state.dashboardModules, mod] : [mod];
-    try { localStorage.setItem('dashboard.modules.v1', JSON.stringify(state.dashboardModules)); } catch {}
+    const tgt = state.moduleTargetView || 'dashboard';
+    if (tgt === 'day') {
+      state.dayModules = Array.isArray(state.dayModules) ? [...state.dayModules, mod] : [mod];
+      try { localStorage.setItem('modules.day.v1', JSON.stringify(state.dayModules)); } catch {}
+      ui.renderAll?.();
+    } else if (tgt === 'month') {
+      state.monthModules = Array.isArray(state.monthModules) ? [...state.monthModules, mod] : [mod];
+      try { localStorage.setItem('modules.month.v1', JSON.stringify(state.monthModules)); } catch {}
+      ui.updateViewMode?.();
+    } else {
+      state.dashboardModules = Array.isArray(state.dashboardModules) ? [...state.dashboardModules, mod] : [mod];
+      try { localStorage.setItem('dashboard.modules.v1', JSON.stringify(state.dashboardModules)); } catch {}
+      ui.renderDashboard?.();
+    }
     closeModuleModal();
-    ui.renderDashboard?.();
   });
 
   // Collapsible: Time Entries

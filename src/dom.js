@@ -84,7 +84,17 @@ export const els = {
   dashboardCard: byId('dashboardCard'),
   dashboardGrid: byId('dashboardGrid'),
   btnDashboard: byId('btnDashboard'),
+  btnCustomizeDay: byId('btnCustomizeDay'),
+  btnCustomizeMonth: byId('btnCustomizeMonth'),
   btnAddModule: byId('btnAddModule'),
+  // Day View modular
+  dayDashboardCard: byId('dayDashboardCard'),
+  dayDashboardGrid: byId('dayDashboardGrid'),
+  btnAddDayModule: byId('btnAddDayModule'),
+  // Month View modular
+  monthDashboardCard: byId('monthDashboardCard'),
+  monthDashboardGrid: byId('monthDashboardGrid'),
+  btnAddMonthModule: byId('btnAddMonthModule'),
   calendarGrid: byId('calendarGrid'),
   calWeekdays: byId('calWeekdays'),
   calMonthLabel: byId('calMonthLabel'),

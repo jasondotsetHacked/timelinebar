@@ -729,15 +729,19 @@ function updateViewMode() {
     if (timelineCard) timelineCard.style.display = 'none';
     if (mainTableCard) mainTableCard.style.display = 'none';
     if (els.bucketDayCard) els.bucketDayCard.style.display = 'none';
-    if (els.calendarCard) els.calendarCard.style.display = 'block';
+    // Month dashboard override (only in days-mode)
+    const showMonthModules = Array.isArray(state.monthModules) && state.monthModules.length && (state.calendarMode || 'days') === 'days';
+    if (els.monthDashboardCard) els.monthDashboardCard.style.display = showMonthModules ? '' : 'none';
+    if (els.calendarCard) els.calendarCard.style.display = showMonthModules ? 'none' : 'block';
     if (els.btnCalendar) els.btnCalendar.textContent = 'Back to Day';
     calendar.renderCalendar();
     if (els.bucketMonthCard) {
-      const show = (state.calendarMode || 'days') === 'days';
+      const show = (state.calendarMode || 'days') === 'days' && !showMonthModules;
       els.bucketMonthCard.style.display = show ? '' : 'none';
     }
     if (els.bucketViewCard) els.bucketViewCard.style.display = 'none';
-    renderBucketMonth();
+    if (showMonthModules) { try { renderMonthDashboard(); } catch {} }
+    else { renderBucketMonth(); }
   } else if (state.viewMode === 'bucket') {
     if (timelineCard) timelineCard.style.display = 'none';
     if (mainTableCard) mainTableCard.style.display = 'none';
@@ -762,16 +766,24 @@ function updateViewMode() {
     if (mainTableCard) mainTableCard.style.display = '';
     if (els.calendarCard) els.calendarCard.style.display = 'none';
     if (els.btnCalendar) els.btnCalendar.textContent = 'Calendar';
-    if (els.bucketDayCard) els.bucketDayCard.style.display = '';
+    const showDayModules = Array.isArray(state.dayModules) && state.dayModules.length > 0;
+    if (els.dayDashboardCard) els.dayDashboardCard.style.display = showDayModules ? '' : 'none';
+    if (els.bucketDayCard) els.bucketDayCard.style.display = showDayModules ? 'none' : '';
+    if (timelineCard) timelineCard.style.display = showDayModules ? 'none' : '';
+    if (mainTableCard) mainTableCard.style.display = showDayModules ? 'none' : '';
     if (els.bucketMonthCard) els.bucketMonthCard.style.display = 'none';
     if (els.bucketViewCard) els.bucketViewCard.style.display = 'none';
     if (els.dashboardCard) els.dashboardCard.style.display = 'none';
-    renderTicks();
-    renderTimeline();
-    renderTable();
-    renderTotal();
-    nowIndicator.update();
-    renderBucketDay();
+    if (showDayModules) {
+      try { renderDayDashboard(); } catch {}
+    } else {
+      renderTicks();
+      renderTimeline();
+      renderTable();
+      renderTotal();
+      nowIndicator.update();
+      renderBucketDay();
+    }
   }
   try { if (els.btnBucketBackTop) els.btnBucketBackTop.style.display = state.viewMode === 'bucket' ? '' : 'none'; } catch {}
   renderDayLabel();
@@ -1036,6 +1048,129 @@ function renderDashboard() {
     if (m.type === 'timeline') renderModuleTimeline(body, m.scheduleIds || null);
     else if (m.type === 'entries') renderModuleEntries(body, m.scheduleIds || null);
     else if (m.type === 'bucket') renderModuleBucket(body, m.scheduleIds || null);
+    card.append(head, body);
+    grid.appendChild(card);
+  }
+}
+
+function renderDayDashboard() {
+  const grid = els.dayDashboardGrid;
+  if (!grid) return;
+  grid.innerHTML = '';
+  const mods = Array.isArray(state.dayModules) ? state.dayModules : [];
+  for (const m of mods) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const head = document.createElement('div'); head.className = 'card-head';
+    const title = document.createElement('div'); title.className = 'card-title';
+    const schedNames = (state.schedules || []).filter((s) => (m.scheduleIds||[]).some((id) => Number(id)===Number(s.id))).map((s) => s.name).join(', ');
+    title.textContent = m.title || `${m.type[0].toUpperCase()+m.type.slice(1)} – ${schedNames || 'No schedules'}`;
+    const actions = document.createElement('div'); actions.style.display = 'flex'; actions.style.gap = '8px'; actions.style.alignItems = 'center';
+    const btnRemove = document.createElement('button'); btnRemove.className = 'btn danger'; btnRemove.textContent = 'Remove';
+    btnRemove.addEventListener('click', () => {
+      state.dayModules = (state.dayModules||[]).filter((x) => x.id !== m.id);
+      try { localStorage.setItem('modules.day.v1', JSON.stringify(state.dayModules)); } catch {}
+      renderDayDashboard();
+    });
+    const btnOpen = document.createElement('button'); btnOpen.className = 'btn ghost'; btnOpen.textContent = 'Open';
+    btnOpen.addEventListener('click', () => {
+      if (Array.isArray(m.scheduleIds) && m.scheduleIds.length) {
+        state.currentScheduleId = Number(m.scheduleIds[0]);
+        try { if (els.scheduleSelect) els.scheduleSelect.value = String(state.currentScheduleId); } catch {}
+        try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId)); } catch {}
+      }
+      state.viewMode = 'day';
+      updateViewMode();
+    });
+    actions.appendChild(btnOpen); actions.appendChild(btnRemove);
+    head.append(title, actions);
+    const body = document.createElement('div'); body.className = 'card-body';
+    if (m.type === 'timeline') renderModuleTimeline(body, m.scheduleIds || null);
+    else if (m.type === 'entries') renderModuleEntries(body, m.scheduleIds || null);
+    else if (m.type === 'bucket') renderModuleBucket(body, m.scheduleIds || null);
+    card.append(head, body);
+    grid.appendChild(card);
+  }
+}
+
+function renderModuleCalendar(container) {
+  // Render compact month calendar into container
+  const wrap = document.createElement('div');
+  wrap.style.padding = '8px 4px';
+  // temporarily create an element and ask calendar module to render into it
+  const tempGrid = document.createElement('div');
+  tempGrid.className = 'calendar-grid';
+  wrap.appendChild(tempGrid);
+  // Mirror state for month/year and let calendar.js render into the real grid, then copy
+  try {
+    // Render calendar into the main grid invisibly and clone
+    const prev = els.calendarGrid?.innerHTML;
+    calendar.renderCalendar();
+    if (els.calendarGrid) {
+      tempGrid.innerHTML = els.calendarGrid.innerHTML;
+    }
+    // do not disturb
+    if (els.calendarGrid) els.calendarGrid.innerHTML = prev;
+  } catch {}
+  container.appendChild(wrap);
+}
+
+function renderModuleBucketMonth(container, scheduleIds) {
+  const y = state.calendarYear;
+  const m = state.calendarMonth;
+  const items = filterBySchedules(state.punches.filter((p) => {
+    const d = String(p.date || '').split('-');
+    if (d.length !== 3) return false;
+    const yy = Number(d[0]);
+    const mm = Number(d[1]) - 1;
+    return yy === y && mm === m;
+  }), scheduleIds || getScheduleFilterIds());
+  const sums = new Map();
+  for (const p of items) {
+    const key = String(p.bucket || '');
+    const prev = sums.get(key) || { totalMin: 0, count: 0 };
+    const dur = Math.max(0, (p.end || 0) - (p.start || 0));
+    sums.set(key, { totalMin: prev.totalMin + dur, count: prev.count + 1 });
+  }
+  const sorted = Array.from(sums.entries())
+    .filter(([_, v]) => v.totalMin > 0)
+    .sort((a, b) => b[1].totalMin - a[1].totalMin || a[0].localeCompare(b[0]));
+  const table = document.createElement('table');
+  table.className = 'mini-table';
+  table.innerHTML = '<thead><tr><th>Bucket</th><th style="width:140px">Total</th></tr></thead>';
+  const tbody = document.createElement('tbody');
+  for (const [bucket, info] of sorted) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(bucket || '(no bucket)')}</td><td>${time.durationLabel(info.totalMin)}</td>`;
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  container.appendChild(table);
+}
+
+function renderMonthDashboard() {
+  const grid = els.monthDashboardGrid;
+  if (!grid) return;
+  grid.innerHTML = '';
+  const mods = Array.isArray(state.monthModules) ? state.monthModules : [];
+  for (const m of mods) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const head = document.createElement('div'); head.className = 'card-head';
+    const title = document.createElement('div'); title.className = 'card-title';
+    title.textContent = m.title || (m.type === 'calendar' ? 'Calendar' : 'Bucket Report');
+    const actions = document.createElement('div'); actions.style.display = 'flex'; actions.style.gap = '8px'; actions.style.alignItems = 'center';
+    const btnRemove = document.createElement('button'); btnRemove.className = 'btn danger'; btnRemove.textContent = 'Remove';
+    btnRemove.addEventListener('click', () => {
+      state.monthModules = (state.monthModules||[]).filter((x) => x.id !== m.id);
+      try { localStorage.setItem('modules.month.v1', JSON.stringify(state.monthModules)); } catch {}
+      renderMonthDashboard();
+    });
+    actions.appendChild(btnRemove);
+    head.append(title, actions);
+    const body = document.createElement('div'); body.className = 'card-body';
+    if (m.type === 'calendar') renderModuleCalendar(body);
+    else if (m.type === 'bucket-month') renderModuleBucketMonth(body, m.scheduleIds || null);
     card.append(head, body);
     grid.appendChild(card);
   }
