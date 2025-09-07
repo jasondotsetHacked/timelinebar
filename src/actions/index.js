@@ -115,6 +115,38 @@ async function splitPunchAtClick(e, punchEl) {
   }
 }
 
+// Fill schedule datalist options from state.schedules
+function fillScheduleDatalist() {
+  try {
+    if (!els.scheduleList) return;
+    const list = els.scheduleList;
+    list.innerHTML = '';
+    for (const s of state.schedules || []) {
+      const opt = document.createElement('option');
+      opt.value = String(s.name || `Schedule ${s.id}`);
+      list.appendChild(opt);
+    }
+  } catch {}
+}
+
+// Resolve or create a schedule by name; returns the schedule id (number) or null
+async function ensureScheduleByName(rawName) {
+  const name = String(rawName || '').trim();
+  if (!name) return null;
+  // Try to find case-insensitively
+  const list = state.schedules || [];
+  const found = list.find((s) => String(s.name || '').toLowerCase() === name.toLowerCase());
+  if (found) return Number(found.id);
+  // Create new schedule
+  try {
+    await schedulesDb.addSchedule({ name });
+  } catch {}
+  // Reload schedules and try again
+  try { state.schedules = await schedulesDb.allSchedules(); } catch {}
+  const again = (state.schedules || []).find((s) => String(s.name || '').toLowerCase() === name.toLowerCase());
+  return again ? Number(again.id) : null;
+}
+
 const saveNewFromModal = async (e) => {
   e.preventDefault();
   if (!state.pendingRange) return;
@@ -125,13 +157,21 @@ const saveNewFromModal = async (e) => {
     ui.closeModal();
     return;
   }
+  // Schedule from typed field (optional)
+  const typedSched = String(els.scheduleField?.value || '').trim();
+  let scheduleId = null;
+  if (typedSched) {
+    scheduleId = await ensureScheduleByName(typedSched);
+  }
   const payload = {
     start: s,
     end: eMin,
     bucket: els.bucketField.value.trim(),
     note: (els.noteField?.value || '').trim(),
     date: state.currentDate || todayStr(),
-    scheduleId: (state.currentScheduleId != null ? state.currentScheduleId : (state.schedules?.[0]?.id ?? null)),
+    scheduleId: (scheduleId != null
+      ? scheduleId
+      : (state.currentScheduleId != null ? state.currentScheduleId : (state.schedules?.[0]?.id ?? null))),
     status: (() => {
       const val = els.modalStatusBtn?.dataset.value || 'default';
       return val === 'default' ? null : val;
@@ -156,7 +196,9 @@ const saveNewFromModal = async (e) => {
       return;
     }
     const prev = state.punches[idx];
-    const updated = { ...prev, ...payload, scheduleId: prev.scheduleId };
+    // If a schedule was typed, move this punch (or entire series) to that schedule
+    const targetScheduleId = payload.scheduleId != null ? payload.scheduleId : prev.scheduleId;
+    const updated = { ...prev, ...payload, scheduleId: targetScheduleId };
     const applyToSeries = !!els.applyScopeSeries?.checked && !!prev.recurrenceId;
     if (applyToSeries) {
       const deltaStart = updated.start - prev.start;
@@ -167,13 +209,14 @@ const saveNewFromModal = async (e) => {
       for (const p of toUpdate) {
         const newStart = p.start + deltaStart;
         const newEnd = p.end + deltaEnd;
-        if (overlapsOnDate(p.date || getPunchDate(p), newStart, newEnd, p.id, p.scheduleId)) {
+        const schedId = targetScheduleId != null ? targetScheduleId : p.scheduleId;
+        if (overlapsOnDate(p.date || getPunchDate(p), newStart, newEnd, p.id, schedId)) {
           ui.toast('Change would overlap another block in the series.');
           return;
         }
       }
       for (const p of toUpdate) {
-        const upd = { ...p, start: p.start + deltaStart, end: p.end + deltaEnd, bucket: updated.bucket, note: updated.note, status: updated.status };
+        const upd = { ...p, start: p.start + deltaStart, end: p.end + deltaEnd, bucket: updated.bucket, note: updated.note, status: updated.status, scheduleId: targetScheduleId };
         await idb.put(upd);
       }
     } else {
@@ -227,6 +270,8 @@ const saveNewFromModal = async (e) => {
     }
   }
   state.punches = await idb.all();
+  // Refresh schedules (in case a new one was created)
+  try { state.schedules = await schedulesDb.allSchedules(); ui.renderScheduleSelect?.(); } catch {}
   state.editingId = null;
   ui.closeModal();
   ui.renderAll();
@@ -567,6 +612,12 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      // Schedule field + datalist
+      try { fillScheduleDatalist(); } catch {}
+      try {
+        const cur = (state.schedules || []).find((s) => Number(s.id) === Number(p.scheduleId));
+        if (els.scheduleField) els.scheduleField.value = cur?.name || '';
+      } catch {}
       // Load bucket persistent note
       try { await loadBucketNoteIntoEditor(els.bucketField.value); } catch {}
       // Recurrence UI state
@@ -653,6 +704,11 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      try { fillScheduleDatalist(); } catch {}
+      try {
+        const cur = (state.schedules || []).find((s) => Number(s.id) === Number(p.scheduleId));
+        if (els.scheduleField) els.scheduleField.value = cur?.name || '';
+      } catch {}
       try { await loadBucketNoteIntoEditor(els.bucketField.value); } catch {}
       try {
         const hasRec = !!p.recurrenceId;
@@ -809,6 +865,26 @@ const attachEvents = () => {
   els.modalForm.addEventListener('submit', saveNewFromModal);
   els.modalCancel.addEventListener('click', closeModal);
   els.modalClose.addEventListener('click', closeModal);
+  // Time fields: allow typing and parse on change/blur
+  const coerceRange = () => {
+    try {
+      const sText = String(els.startField?.value || '');
+      const eText = String(els.endField?.value || '');
+      const sMin = time.parse(sText);
+      const eMin = time.parse(eText);
+      if (sMin == null || eMin == null) return; // ignore until valid
+      let a = time.snap(sMin);
+      let b = time.snap(eMin);
+      if (b <= a) b = Math.min(24 * 60, a + Math.max(1, SNAP_MIN));
+      state.pendingRange = { startMin: a, endMin: b };
+      try { els.startField.value = time.toLabel(a); } catch {}
+      try { els.endField.value = time.toLabel(b); } catch {}
+    } catch {}
+  };
+  els.startField?.addEventListener('change', coerceRange);
+  els.endField?.addEventListener('change', coerceRange);
+  els.startField?.addEventListener('blur', coerceRange);
+  els.endField?.addEventListener('blur', coerceRange);
   // Recurrence UI wiring
   els.repeatEnabled?.addEventListener('change', () => {
     const on = !!els.repeatEnabled.checked;

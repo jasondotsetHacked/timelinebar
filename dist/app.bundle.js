@@ -3571,24 +3571,24 @@
       function normalize(uri, options) {
         if (typeof uri === "string") {
           uri = /** @type {T} */
-          serialize(parse(uri, options), options);
+          serialize(parse2(uri, options), options);
         } else if (typeof uri === "object") {
           uri = /** @type {T} */
-          parse(serialize(uri, options), options);
+          parse2(serialize(uri, options), options);
         }
         return uri;
       }
       function resolve(baseURI, relativeURI, options) {
         const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
-        const resolved = resolveComponent(parse(baseURI, schemelessOptions), parse(relativeURI, schemelessOptions), schemelessOptions, true);
+        const resolved = resolveComponent(parse2(baseURI, schemelessOptions), parse2(relativeURI, schemelessOptions), schemelessOptions, true);
         schemelessOptions.skipEscape = true;
         return serialize(resolved, schemelessOptions);
       }
       function resolveComponent(base, relative, options, skipNormalization) {
         const target = {};
         if (!skipNormalization) {
-          base = parse(serialize(base, options), options);
-          relative = parse(serialize(relative, options), options);
+          base = parse2(serialize(base, options), options);
+          relative = parse2(serialize(relative, options), options);
         }
         options = options || {};
         if (!options.tolerant && relative.scheme) {
@@ -3640,13 +3640,13 @@
       function equal(uriA, uriB, options) {
         if (typeof uriA === "string") {
           uriA = unescape(uriA);
-          uriA = serialize(normalizeComponentEncoding(parse(uriA, options), true), { ...options, skipEscape: true });
+          uriA = serialize(normalizeComponentEncoding(parse2(uriA, options), true), { ...options, skipEscape: true });
         } else if (typeof uriA === "object") {
           uriA = serialize(normalizeComponentEncoding(uriA, true), { ...options, skipEscape: true });
         }
         if (typeof uriB === "string") {
           uriB = unescape(uriB);
-          uriB = serialize(normalizeComponentEncoding(parse(uriB, options), true), { ...options, skipEscape: true });
+          uriB = serialize(normalizeComponentEncoding(parse2(uriB, options), true), { ...options, skipEscape: true });
         } else if (typeof uriB === "object") {
           uriB = serialize(normalizeComponentEncoding(uriB, true), { ...options, skipEscape: true });
         }
@@ -3715,7 +3715,7 @@
         return uriTokens.join("");
       }
       var URI_PARSE = /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u;
-      function parse(uri, opts) {
+      function parse2(uri, opts) {
         const options = Object.assign({}, opts);
         const parsed = {
           scheme: void 0,
@@ -3809,7 +3809,7 @@
         resolveComponent,
         equal,
         serialize,
-        parse
+        parse: parse2
       };
       module.exports = fastUri;
       module.exports.default = fastUri;
@@ -6504,6 +6504,9 @@
     modalStatusWrap: byId("modalStatusWrap"),
     modalStatusBtn: byId("modalStatusBtn"),
     modalStatusMenu: byId("modalStatusMenu"),
+    // Schedule in edit modal
+    scheduleField: byId("scheduleField"),
+    scheduleList: byId("scheduleList"),
     // Note modal
     noteModal: byId("noteModal"),
     noteModalTitle: document.getElementById("noteModalTitle"),
@@ -6716,7 +6719,55 @@
     const display = h % 12 === 0 ? 12 : h % 12;
     return `${display}${ampm}`;
   };
-  var time = { clamp, snap, toLabel, durationLabel, hourLabel };
+  var parse = (input) => {
+    if (input == null) return null;
+    let s = String(input).trim().toLowerCase();
+    if (!s) return null;
+    s = s.replace(/\u2013|\u2014|–|—/g, "-");
+    let ampm = null;
+    const mAm = s.match(/\b(a\.?m?\.?|am)\b/);
+    const mPm = s.match(/\b(p\.?m?\.?|pm)\b/);
+    if (mAm && mPm) return null;
+    if (mAm) ampm = "am";
+    if (mPm) ampm = "pm";
+    s = s.replace(/\b(a\.?m?\.?|am|p\.?m?\.?|pm)\b/g, "").trim();
+    let h = 0, m = 0;
+    const colon = s.match(/^\s*(\d{1,2})\s*[:\.]\s*(\d{1,2})\s*$/);
+    if (colon) {
+      h = Number(colon[1]);
+      m = Number(colon[2]);
+    } else {
+      const compact = s.match(/^\s*(\d{1,4})\s*$/);
+      if (!compact) return null;
+      const raw = compact[1];
+      if (raw.length <= 2) {
+        h = Number(raw);
+        m = 0;
+      } else if (raw.length === 3) {
+        h = Number(raw.slice(0, 1));
+        m = Number(raw.slice(1));
+      } else {
+        h = Number(raw.slice(0, 2));
+        m = Number(raw.slice(2));
+      }
+    }
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    if (m < 0 || m > 59) return null;
+    if (ampm === "am") {
+      if (h === 12) h = 0;
+    } else if (ampm === "pm") {
+      if (h !== 12) h += 12;
+    }
+    if (ampm == null) {
+      if (h < 0) return null;
+      if (h > 24) return null;
+    }
+    let mins = h * 60 + m;
+    if (mins < 0) mins = 0;
+    if (mins > DAY_MIN) mins = DAY_MIN;
+    return Math.round(mins);
+  };
+  var time = { clamp, snap, toLabel, durationLabel, hourLabel, parse };
 
   // src/dates.js
   function pad(n) {
@@ -7970,12 +8021,31 @@
     els.tipCenter.style.display = "none";
   }
   function openModal(range) {
+    var _a, _b, _c;
     state.editingId = null;
     state.pendingRange = range;
     els.startField.value = time.toLabel(range.startMin);
     els.endField.value = time.toLabel(range.endMin);
     els.bucketField.value = "";
     els.noteField.value = "";
+    try {
+      const curId = state.currentScheduleId != null ? Number(state.currentScheduleId) : (_c = (_b = (_a = state.schedules) == null ? void 0 : _a[0]) == null ? void 0 : _b.id) != null ? _c : null;
+      const cur = (state.schedules || []).find((s) => Number(s.id) === Number(curId));
+      if (els.scheduleField) els.scheduleField.value = (cur == null ? void 0 : cur.name) || "";
+    } catch (e) {
+    }
+    try {
+      const list = els.scheduleList;
+      if (list) {
+        list.innerHTML = "";
+        for (const s of state.schedules || []) {
+          const opt = document.createElement("option");
+          opt.value = String(s.name || `Schedule ${s.id}`);
+          list.appendChild(opt);
+        }
+      }
+    } catch (e) {
+    }
     try {
       if (els.bucketNoteField) els.bucketNoteField.value = "";
       if (els.bucketNotePreview) {
@@ -9718,8 +9788,38 @@
       }
     }
   }
+  function fillScheduleDatalist() {
+    try {
+      if (!els.scheduleList) return;
+      const list = els.scheduleList;
+      list.innerHTML = "";
+      for (const s of state.schedules || []) {
+        const opt = document.createElement("option");
+        opt.value = String(s.name || `Schedule ${s.id}`);
+        list.appendChild(opt);
+      }
+    } catch (e) {
+    }
+  }
+  async function ensureScheduleByName(rawName) {
+    const name = String(rawName || "").trim();
+    if (!name) return null;
+    const list = state.schedules || [];
+    const found = list.find((s) => String(s.name || "").toLowerCase() === name.toLowerCase());
+    if (found) return Number(found.id);
+    try {
+      await schedulesDb.addSchedule({ name });
+    } catch (e) {
+    }
+    try {
+      state.schedules = await schedulesDb.allSchedules();
+    } catch (e) {
+    }
+    const again = (state.schedules || []).find((s) => String(s.name || "").toLowerCase() === name.toLowerCase());
+    return again ? Number(again.id) : null;
+  }
   var saveNewFromModal = async (e) => {
-    var _a, _b, _c, _d, _e, _f, _g;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j;
     e.preventDefault();
     if (!state.pendingRange) return;
     const { startMin, endMin } = state.pendingRange;
@@ -9729,13 +9829,18 @@
       ui.closeModal();
       return;
     }
+    const typedSched = String(((_a = els.scheduleField) == null ? void 0 : _a.value) || "").trim();
+    let scheduleId = null;
+    if (typedSched) {
+      scheduleId = await ensureScheduleByName(typedSched);
+    }
     const payload = {
       start: s,
       end: eMin,
       bucket: els.bucketField.value.trim(),
-      note: (((_a = els.noteField) == null ? void 0 : _a.value) || "").trim(),
+      note: (((_b = els.noteField) == null ? void 0 : _b.value) || "").trim(),
       date: state.currentDate || todayStr(),
-      scheduleId: state.currentScheduleId != null ? state.currentScheduleId : (_d = (_c = (_b = state.schedules) == null ? void 0 : _b[0]) == null ? void 0 : _c.id) != null ? _d : null,
+      scheduleId: scheduleId != null ? scheduleId : state.currentScheduleId != null ? state.currentScheduleId : (_e = (_d = (_c = state.schedules) == null ? void 0 : _c[0]) == null ? void 0 : _d.id) != null ? _e : null,
       status: (() => {
         var _a2;
         const val = ((_a2 = els.modalStatusBtn) == null ? void 0 : _a2.dataset.value) || "default";
@@ -9744,12 +9849,12 @@
     };
     try {
       const bname = payload.bucket;
-      const bnote = String(((_e = els.bucketNoteField) == null ? void 0 : _e.value) || "").trim();
+      const bnote = String(((_f = els.bucketNoteField) == null ? void 0 : _f.value) || "").trim();
       if (bname != null) await idb.setBucketNote(bname, bnote);
     } catch (e2) {
     }
     const rec = readRecurrenceFromUI();
-    if (((_f = els.repeatEnabled) == null ? void 0 : _f.checked) && !rec) {
+    if (((_g = els.repeatEnabled) == null ? void 0 : _g.checked) && !rec) {
       ui.toast("Pick an end date for the series");
       return;
     }
@@ -9761,8 +9866,9 @@
         return;
       }
       const prev = state.punches[idx];
-      const updated = { ...prev, ...payload, scheduleId: prev.scheduleId };
-      const applyToSeries = !!((_g = els.applyScopeSeries) == null ? void 0 : _g.checked) && !!prev.recurrenceId;
+      const targetScheduleId = payload.scheduleId != null ? payload.scheduleId : prev.scheduleId;
+      const updated = { ...prev, ...payload, scheduleId: targetScheduleId };
+      const applyToSeries = !!((_h = els.applyScopeSeries) == null ? void 0 : _h.checked) && !!prev.recurrenceId;
       if (applyToSeries) {
         const deltaStart = updated.start - prev.start;
         const deltaEnd = updated.end - prev.end;
@@ -9771,13 +9877,14 @@
         for (const p of toUpdate) {
           const newStart = p.start + deltaStart;
           const newEnd = p.end + deltaEnd;
-          if (overlapsOnDate(p.date || getPunchDate(p), newStart, newEnd, p.id, p.scheduleId)) {
+          const schedId = targetScheduleId != null ? targetScheduleId : p.scheduleId;
+          if (overlapsOnDate(p.date || getPunchDate(p), newStart, newEnd, p.id, schedId)) {
             ui.toast("Change would overlap another block in the series.");
             return;
           }
         }
         for (const p of toUpdate) {
-          const upd = { ...p, start: p.start + deltaStart, end: p.end + deltaEnd, bucket: updated.bucket, note: updated.note, status: updated.status };
+          const upd = { ...p, start: p.start + deltaStart, end: p.end + deltaEnd, bucket: updated.bucket, note: updated.note, status: updated.status, scheduleId: targetScheduleId };
           await idb.put(upd);
         }
       } else {
@@ -9834,6 +9941,11 @@
       }
     }
     state.punches = await idb.all();
+    try {
+      state.schedules = await schedulesDb.allSchedules();
+      (_j = (_i = ui).renderScheduleSelect) == null ? void 0 : _j.call(_i);
+    } catch (e2) {
+    }
     state.editingId = null;
     ui.closeModal();
     ui.renderAll();
@@ -9973,7 +10085,7 @@
     ui.closeModal();
   };
   var attachEvents = () => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q, _R, _S, _T, _U, _V;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q, _R, _S, _T, _U, _V, _W, _X, _Y, _Z;
     dragActions.attach();
     resizeActions.attach();
     calendarActions.attach();
@@ -10275,6 +10387,15 @@
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
         try {
+          fillScheduleDatalist();
+        } catch (e2) {
+        }
+        try {
+          const cur = (state.schedules || []).find((s) => Number(s.id) === Number(p.scheduleId));
+          if (els.scheduleField) els.scheduleField.value = (cur == null ? void 0 : cur.name) || "";
+        } catch (e2) {
+        }
+        try {
           await loadBucketNoteIntoEditor(els.bucketField.value);
         } catch (e2) {
         }
@@ -10359,6 +10480,15 @@
         els.endField.value = time.toLabel(p.end);
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
+        try {
+          fillScheduleDatalist();
+        } catch (e2) {
+        }
+        try {
+          const cur = (state.schedules || []).find((s) => Number(s.id) === Number(p.scheduleId));
+          if (els.scheduleField) els.scheduleField.value = (cur == null ? void 0 : cur.name) || "";
+        } catch (e2) {
+        }
         try {
           await loadBucketNoteIntoEditor(els.bucketField.value);
         } catch (e2) {
@@ -10522,7 +10652,34 @@
     els.modalForm.addEventListener("submit", saveNewFromModal);
     els.modalCancel.addEventListener("click", closeModal2);
     els.modalClose.addEventListener("click", closeModal2);
-    (_n = els.repeatEnabled) == null ? void 0 : _n.addEventListener("change", () => {
+    const coerceRange = () => {
+      var _a2, _b2;
+      try {
+        const sText = String(((_a2 = els.startField) == null ? void 0 : _a2.value) || "");
+        const eText = String(((_b2 = els.endField) == null ? void 0 : _b2.value) || "");
+        const sMin = time.parse(sText);
+        const eMin = time.parse(eText);
+        if (sMin == null || eMin == null) return;
+        let a = time.snap(sMin);
+        let b = time.snap(eMin);
+        if (b <= a) b = Math.min(24 * 60, a + Math.max(1, SNAP_MIN));
+        state.pendingRange = { startMin: a, endMin: b };
+        try {
+          els.startField.value = time.toLabel(a);
+        } catch (e) {
+        }
+        try {
+          els.endField.value = time.toLabel(b);
+        } catch (e) {
+        }
+      } catch (e) {
+      }
+    };
+    (_n = els.startField) == null ? void 0 : _n.addEventListener("change", coerceRange);
+    (_o = els.endField) == null ? void 0 : _o.addEventListener("change", coerceRange);
+    (_p = els.startField) == null ? void 0 : _p.addEventListener("blur", coerceRange);
+    (_q = els.endField) == null ? void 0 : _q.addEventListener("blur", coerceRange);
+    (_r = els.repeatEnabled) == null ? void 0 : _r.addEventListener("change", () => {
       var _a2;
       const on = !!els.repeatEnabled.checked;
       if (els.repeatFields) els.repeatFields.style.display = on ? "" : "none";
@@ -10531,21 +10688,21 @@
       const isWeekly = (((_a2 = els.repeatFreq) == null ? void 0 : _a2.value) || "weekly") === "weekly";
       if (els.repeatDowWrap) els.repeatDowWrap.style.display = isWeekly ? "" : "none";
     });
-    (_o = els.repeatFreq) == null ? void 0 : _o.addEventListener("change", () => {
+    (_s = els.repeatFreq) == null ? void 0 : _s.addEventListener("change", () => {
       var _a2;
       const val = els.repeatFreq.value;
       if (els.repeatDowWrap) els.repeatDowWrap.style.display = val === "weekly" && ((_a2 = els.repeatEnabled) == null ? void 0 : _a2.checked) ? "" : "none";
     });
-    (_p = els.btnDowWeekdays) == null ? void 0 : _p.addEventListener("click", () => {
+    (_t = els.btnDowWeekdays) == null ? void 0 : _t.addEventListener("click", () => {
       if (!els.repeatDow) return;
       const set = /* @__PURE__ */ new Set([1, 2, 3, 4, 5]);
       els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => c.checked = set.has(Number(c.value)));
     });
-    (_q = els.btnDowAll) == null ? void 0 : _q.addEventListener("click", () => {
+    (_u = els.btnDowAll) == null ? void 0 : _u.addEventListener("click", () => {
       if (!els.repeatDow) return;
       els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => c.checked = true);
     });
-    (_r = els.modalDelete) == null ? void 0 : _r.addEventListener("click", async (e) => {
+    (_v = els.modalDelete) == null ? void 0 : _v.addEventListener("click", async (e) => {
       var _a2;
       if (!state.editingId) return;
       const p = state.punches.find((x) => x.id === state.editingId);
@@ -10566,7 +10723,7 @@
       ui.renderAll();
       ui.toast("Deleted");
     });
-    (_s = els.btnExtendSeries) == null ? void 0 : _s.addEventListener("click", async () => {
+    (_w = els.btnExtendSeries) == null ? void 0 : _w.addEventListener("click", async () => {
       var _a2;
       if (!state.editingId) return;
       const p = state.punches.find((x) => x.id === state.editingId);
@@ -10602,11 +10759,11 @@
       ui.renderAll();
       ui.toast(added ? `Added ${added} more` : "No new dates to add");
     });
-    (_t = els.modalStatusBtn) == null ? void 0 : _t.addEventListener("click", () => {
+    (_x = els.modalStatusBtn) == null ? void 0 : _x.addEventListener("click", () => {
       var _a2;
       (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.toggle("open");
     });
-    (_u = els.modalStatusMenu) == null ? void 0 : _u.addEventListener("click", (e) => {
+    (_y = els.modalStatusMenu) == null ? void 0 : _y.addEventListener("click", (e) => {
       var _a2;
       const opt = e.target.closest(".status-option");
       if (!opt) return;
@@ -10701,7 +10858,7 @@
         (_c2 = (_b2 = ui).hideNotePopover) == null ? void 0 : _c2.call(_b2);
       }
     });
-    (_v = els.bucketDayBody) == null ? void 0 : _v.addEventListener("click", (e) => {
+    (_z = els.bucketDayBody) == null ? void 0 : _z.addEventListener("click", (e) => {
       var _a2, _b2;
       const link = e.target.closest(".bucket-link");
       if (!link) return;
@@ -10713,7 +10870,7 @@
       state.viewMode = "bucket";
       ui.renderAll();
     });
-    (_w = els.bucketMonthBody) == null ? void 0 : _w.addEventListener("click", (e) => {
+    (_A = els.bucketMonthBody) == null ? void 0 : _A.addEventListener("click", (e) => {
       var _a2, _b2;
       const link = e.target.closest(".bucket-link");
       if (!link) return;
@@ -10725,15 +10882,15 @@
       state.viewMode = "bucket";
       ui.renderAll();
     });
-    (_x = els.btnBucketBack) == null ? void 0 : _x.addEventListener("click", () => {
+    (_B = els.btnBucketBack) == null ? void 0 : _B.addEventListener("click", () => {
       state.viewMode = "calendar";
       ui.renderAll();
     });
-    (_y = els.btnBucketBackTop) == null ? void 0 : _y.addEventListener("click", () => {
+    (_C = els.btnBucketBackTop) == null ? void 0 : _C.addEventListener("click", () => {
       state.viewMode = "calendar";
       ui.renderAll();
     });
-    (_z = els.btnBucketDelete) == null ? void 0 : _z.addEventListener("click", async () => {
+    (_D = els.btnBucketDelete) == null ? void 0 : _D.addEventListener("click", async () => {
       const name = String(state.bucketFilter || "");
       const label = name || "(no bucket)";
       const sched = state.currentScheduleId == null ? null : Number(state.currentScheduleId);
@@ -10852,10 +11009,10 @@
       window.removeEventListener("mouseup", onWindowUp);
       window.removeEventListener("touchend", onWindowUp);
     };
-    (_A = els.mobileScrollbar) == null ? void 0 : _A.addEventListener("mousedown", onScrollbarDown);
-    (_B = els.mobileScrollbar) == null ? void 0 : _B.addEventListener("touchstart", onScrollbarDown, { passive: false });
-    (_C = els.mobileWindow) == null ? void 0 : _C.addEventListener("mousedown", onWindowDown);
-    (_D = els.mobileWindow) == null ? void 0 : _D.addEventListener("touchstart", onWindowDown, { passive: false });
+    (_E = els.mobileScrollbar) == null ? void 0 : _E.addEventListener("mousedown", onScrollbarDown);
+    (_F = els.mobileScrollbar) == null ? void 0 : _F.addEventListener("touchstart", onScrollbarDown, { passive: false });
+    (_G = els.mobileWindow) == null ? void 0 : _G.addEventListener("mousedown", onWindowDown);
+    (_H = els.mobileWindow) == null ? void 0 : _H.addEventListener("touchstart", onWindowDown, { passive: false });
     const zoomBy = (factor) => {
       const span = getSpan();
       const center = getStart() + span / 2;
@@ -10864,26 +11021,26 @@
       newStart = clampStartForSpan(newStart, newSpan);
       setView(newStart, newStart + newSpan);
     };
-    (_E = els.mobileZoomIn) == null ? void 0 : _E.addEventListener("click", () => zoomBy(0.8));
-    (_F = els.mobileZoomOut) == null ? void 0 : _F.addEventListener("click", () => zoomBy(1.25));
-    (_G = els.mobileZoomRange) == null ? void 0 : _G.addEventListener("input", (e) => {
+    (_I = els.mobileZoomIn) == null ? void 0 : _I.addEventListener("click", () => zoomBy(0.8));
+    (_J = els.mobileZoomOut) == null ? void 0 : _J.addEventListener("click", () => zoomBy(1.25));
+    (_K = els.mobileZoomRange) == null ? void 0 : _K.addEventListener("input", (e) => {
       const val = Math.max(minSpan, Math.min(totalMin, Math.round(Number(e.target.value) || getSpan())));
       const center = getStart() + getSpan() / 2;
       let newStart = Math.round(center - val / 2);
       newStart = clampStartForSpan(newStart, val);
       setView(newStart, newStart + val);
     });
-    (_H = els.view24) == null ? void 0 : _H.addEventListener("click", () => setView(0, 24 * 60));
-    (_I = els.viewDefault) == null ? void 0 : _I.addEventListener("click", () => setView(6 * 60, 18 * 60));
+    (_L = els.view24) == null ? void 0 : _L.addEventListener("click", () => setView(0, 24 * 60));
+    (_M = els.viewDefault) == null ? void 0 : _M.addEventListener("click", () => setView(6 * 60, 18 * 60));
     const doCopy = async () => {
       try {
         await copyActions.copyChart();
       } catch (e) {
       }
     };
-    (_J = els.btnCopyChart) == null ? void 0 : _J.addEventListener("click", doCopy);
-    (_K = els.btnCopyChartTop) == null ? void 0 : _K.addEventListener("click", doCopy);
-    (_L = els.btnCopyChartTable) == null ? void 0 : _L.addEventListener("click", doCopy);
+    (_N = els.btnCopyChart) == null ? void 0 : _N.addEventListener("click", doCopy);
+    (_O = els.btnCopyChartTop) == null ? void 0 : _O.addEventListener("click", doCopy);
+    (_P = els.btnCopyChartTable) == null ? void 0 : _P.addEventListener("click", doCopy);
     els.track.addEventListener("click", (e) => {
       var _a2, _b2, _c2, _d2;
       if (e.shiftKey) {
@@ -10913,7 +11070,7 @@
         }
       }
     });
-    (_M = els.bucketViewBody) == null ? void 0 : _M.addEventListener("click", (e) => {
+    (_Q = els.bucketViewBody) == null ? void 0 : _Q.addEventListener("click", (e) => {
       var _a2, _b2, _c2;
       const noteCell = e.target.closest("td.note");
       if (!noteCell) return;
@@ -10924,7 +11081,7 @@
         e.stopPropagation();
       }
     });
-    (_N = els.noteField) == null ? void 0 : _N.addEventListener("input", () => {
+    (_R = els.noteField) == null ? void 0 : _R.addEventListener("input", () => {
       try {
         els.noteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
@@ -10935,7 +11092,7 @@
       } catch (e) {
       }
     });
-    (_O = els.notePreviewToggle) == null ? void 0 : _O.addEventListener("click", (e) => {
+    (_S = els.notePreviewToggle) == null ? void 0 : _S.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.notePreview) return;
@@ -10950,7 +11107,7 @@
         if (els.notePreviewToggle) els.notePreviewToggle.textContent = "Hide preview";
       }
     });
-    (_P = els.bucketNoteField) == null ? void 0 : _P.addEventListener("input", () => {
+    (_T = els.bucketNoteField) == null ? void 0 : _T.addEventListener("input", () => {
       try {
         els.bucketNoteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.bucketNoteField.scrollHeight || 72));
@@ -10961,7 +11118,7 @@
       } catch (e) {
       }
     });
-    (_Q = els.bucketNotePreviewToggle) == null ? void 0 : _Q.addEventListener("click", (e) => {
+    (_U = els.bucketNotePreviewToggle) == null ? void 0 : _U.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.bucketNotePreview) return;
@@ -10976,21 +11133,21 @@
         if (els.bucketNotePreviewToggle) els.bucketNotePreviewToggle.textContent = "Hide preview";
       }
     });
-    (_R = els.bucketField) == null ? void 0 : _R.addEventListener("input", () => {
+    (_V = els.bucketField) == null ? void 0 : _V.addEventListener("input", () => {
       try {
         loadBucketNoteIntoEditor(els.bucketField.value);
       } catch (e) {
       }
     });
-    (_S = els.noteModalClose) == null ? void 0 : _S.addEventListener("click", () => {
+    (_W = els.noteModalClose) == null ? void 0 : _W.addEventListener("click", () => {
       var _a2, _b2;
       return (_b2 = (_a2 = ui).closeNoteModal) == null ? void 0 : _b2.call(_a2);
     });
-    (_T = els.noteCancel) == null ? void 0 : _T.addEventListener("click", () => {
+    (_X = els.noteCancel) == null ? void 0 : _X.addEventListener("click", () => {
       var _a2, _b2;
       return (_b2 = (_a2 = ui).closeNoteModal) == null ? void 0 : _b2.call(_a2);
     });
-    (_U = els.noteEditToggle) == null ? void 0 : _U.addEventListener("click", () => {
+    (_Y = els.noteEditToggle) == null ? void 0 : _Y.addEventListener("click", () => {
       var _a2;
       if (!els.noteModal) return;
       const editing = ((_a2 = els.noteEditorWrap) == null ? void 0 : _a2.style.display) !== "none";
@@ -11008,7 +11165,7 @@
         if (els.noteEditToggle) els.noteEditToggle.textContent = "View";
       }
     });
-    (_V = els.noteSave) == null ? void 0 : _V.addEventListener("click", async () => {
+    (_Z = els.noteSave) == null ? void 0 : _Z.addEventListener("click", async () => {
       var _a2, _b2, _c2, _d2;
       if (!els.noteModal) return;
       const id = Number(els.noteModal.dataset.id);

@@ -841,6 +841,24 @@ function openModal(range) {
   els.endField.value = time.toLabel(range.endMin);
   els.bucketField.value = '';
   els.noteField.value = '';
+  // Default schedule for new block
+  try {
+    const curId = (state.currentScheduleId != null) ? Number(state.currentScheduleId) : (state.schedules?.[0]?.id ?? null);
+    const cur = (state.schedules || []).find((s) => Number(s.id) === Number(curId));
+    if (els.scheduleField) els.scheduleField.value = cur?.name || '';
+  } catch {}
+  // Populate schedule datalist
+  try {
+    const list = els.scheduleList;
+    if (list) {
+      list.innerHTML = '';
+      for (const s of state.schedules || []) {
+        const opt = document.createElement('option');
+        opt.value = String(s.name || `Schedule ${s.id}`);
+        list.appendChild(opt);
+      }
+    }
+  } catch {}
   try {
     if (els.bucketNoteField) els.bucketNoteField.value = '';
     if (els.bucketNotePreview) { els.bucketNotePreview.style.display = 'none'; els.bucketNotePreview.innerHTML = ''; }

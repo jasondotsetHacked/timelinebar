@@ -257,11 +257,19 @@
           <div class="row">
             <div>
               <label>Start</label>
-              <input type="text" id="startField" readonly />
+              <input type="text" id="startField" placeholder="e.g. 9:00am" />
             </div>
             <div>
               <label>End</label>
-              <input type="text" id="endField" readonly />
+              <input type="text" id="endField" placeholder="e.g. 5:30pm" />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Schedule</label>
+              <input type="text" id="scheduleField" list="scheduleList" placeholder="Type or select a schedule" />
+              <datalist id="scheduleList"></datalist>
+              <div class="subtle">Type a new name to create a schedule</div>
             </div>
           </div>
           <div class="row">

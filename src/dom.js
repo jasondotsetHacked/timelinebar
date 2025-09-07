@@ -34,6 +34,9 @@ export const els = {
   modalStatusWrap: byId('modalStatusWrap'),
   modalStatusBtn: byId('modalStatusBtn'),
   modalStatusMenu: byId('modalStatusMenu'),
+  // Schedule in edit modal
+  scheduleField: byId('scheduleField'),
+  scheduleList: byId('scheduleList'),
   // Note modal
   noteModal: byId('noteModal'),
   noteModalTitle: document.getElementById('noteModalTitle'),
