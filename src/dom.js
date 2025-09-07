@@ -125,17 +125,11 @@ export const els = {
   themeSelect: byId('themeSelect'),
   lblBackup: byId('lblBackup'),
   lblRestore: byId('lblRestore'),
-  // Settings: schedules and dashboard
+  // Settings: schedules (dashboard customization and move-between-schedules removed)
   settingsSchedList: byId('settingsSchedList'),
   settingsAddSched: byId('settingsAddSched'),
   settingsRenameSched: byId('settingsRenameSched'),
   settingsDeleteSched: byId('settingsDeleteSched'),
-  settingsMoveFrom: byId('settingsMoveFrom'),
-  settingsMoveTo: byId('settingsMoveTo'),
-  settingsMoveStart: byId('settingsMoveStart'),
-  settingsMoveEnd: byId('settingsMoveEnd'),
-  settingsMoveBtn: byId('settingsMoveBtn'),
-  settingsCustomizeDashboard: byId('settingsCustomizeDashboard'),
   settingsSchedName: byId('settingsSchedName'),
   settingsSchedMsg: byId('settingsSchedMsg'),
   settingsDeleteConfirm: byId('settingsDeleteConfirm'),

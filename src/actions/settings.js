@@ -187,8 +187,6 @@ function attach() {
   function renderSettingsSchedules() {
     try {
       populateScheduleSelect(els.settingsSchedList, false);
-      populateScheduleSelect(els.settingsMoveFrom, false);
-      populateScheduleSelect(els.settingsMoveTo, false);
       if (els.settingsSchedList && state.currentScheduleId != null) {
         els.settingsSchedList.value = String(state.currentScheduleId);
       }
@@ -310,41 +308,7 @@ function attach() {
     els.settingsDeleteNo?.addEventListener('click', onNo);
   });
 
-  els.settingsMoveBtn?.addEventListener('click', async () => {
-    const fromId = Number(els.settingsMoveFrom?.value || '');
-    const toId = Number(els.settingsMoveTo?.value || '');
-    const start = String(els.settingsMoveStart?.value || '').trim();
-    const end = String(els.settingsMoveEnd?.value || '').trim();
-    if (!Number.isFinite(fromId) || !Number.isFinite(toId) || fromId === toId) { showMsg('Pick different source and destination schedules.'); return; }
-    // Filter punches by source and optional date range
-    const inRange = (d) => {
-      if (start && d < start) return false;
-      if (end && d > end) return false;
-      return true;
-    };
-    let moved = 0, skipped = 0;
-    const items = state.punches.filter((p) => Number(p.scheduleId) === fromId && inRange(String(p.date || '')));
-    // Overlap detection on destination
-    const overlaps = (p) => state.punches.some((q) => Number(q.scheduleId) === toId && String(q.date || '') === String(p.date || '') && (p.start || 0) < (q.end || 0) && (p.end || 0) > (q.start || 0));
-    for (const p of items) {
-      if (overlaps(p)) { skipped++; continue; }
-      const updated = { ...p, scheduleId: toId };
-      try { await idb.put(updated); moved++; } catch { skipped++; }
-    }
-    state.punches = await idb.all();
-    ui.renderAll();
-    ui.toast(`Moved ${moved}, skipped ${skipped} overlapping`);
-  });
-
-  els.settingsCustomizeDashboard?.addEventListener('click', () => {
-    try {
-      // Navigate to Dashboard and open Add Module dialog
-      state.viewMode = 'dashboard';
-      ui.updateViewMode?.();
-      // trigger the same flow as the Dashboard's Add Module button
-      els.btnAddModule?.click();
-    } catch {}
-  });
+  // Removed: move-between-schedules and customize-dashboard actions
 }
 
 export const settingsActions = { attach };

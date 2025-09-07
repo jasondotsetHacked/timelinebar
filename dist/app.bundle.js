@@ -6595,17 +6595,11 @@
     themeSelect: byId("themeSelect"),
     lblBackup: byId("lblBackup"),
     lblRestore: byId("lblRestore"),
-    // Settings: schedules and dashboard
+    // Settings: schedules (dashboard customization and move-between-schedules removed)
     settingsSchedList: byId("settingsSchedList"),
     settingsAddSched: byId("settingsAddSched"),
     settingsRenameSched: byId("settingsRenameSched"),
     settingsDeleteSched: byId("settingsDeleteSched"),
-    settingsMoveFrom: byId("settingsMoveFrom"),
-    settingsMoveTo: byId("settingsMoveTo"),
-    settingsMoveStart: byId("settingsMoveStart"),
-    settingsMoveEnd: byId("settingsMoveEnd"),
-    settingsMoveBtn: byId("settingsMoveBtn"),
-    settingsCustomizeDashboard: byId("settingsCustomizeDashboard"),
     settingsSchedName: byId("settingsSchedName"),
     settingsSchedMsg: byId("settingsSchedMsg"),
     settingsDeleteConfirm: byId("settingsDeleteConfirm"),
@@ -8861,7 +8855,7 @@
     if (els.settingsModal) els.settingsModal.style.display = "none";
   }
   function attach() {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m;
     try {
       const saved = localStorage.getItem("tt.theme") || "neon";
       applyTheme(saved);
@@ -8914,8 +8908,6 @@
     function renderSettingsSchedules() {
       try {
         populateScheduleSelect(els.settingsSchedList, false);
-        populateScheduleSelect(els.settingsMoveFrom, false);
-        populateScheduleSelect(els.settingsMoveTo, false);
         if (els.settingsSchedList && state.currentScheduleId != null) {
           els.settingsSchedList.value = String(state.currentScheduleId);
         }
@@ -9094,50 +9086,6 @@
       };
       (_b2 = els.settingsDeleteYes) == null ? void 0 : _b2.addEventListener("click", onYes);
       (_c2 = els.settingsDeleteNo) == null ? void 0 : _c2.addEventListener("click", onNo);
-    });
-    (_n = els.settingsMoveBtn) == null ? void 0 : _n.addEventListener("click", async () => {
-      var _a2, _b2, _c2, _d2;
-      const fromId = Number(((_a2 = els.settingsMoveFrom) == null ? void 0 : _a2.value) || "");
-      const toId = Number(((_b2 = els.settingsMoveTo) == null ? void 0 : _b2.value) || "");
-      const start = String(((_c2 = els.settingsMoveStart) == null ? void 0 : _c2.value) || "").trim();
-      const end = String(((_d2 = els.settingsMoveEnd) == null ? void 0 : _d2.value) || "").trim();
-      if (!Number.isFinite(fromId) || !Number.isFinite(toId) || fromId === toId) {
-        showMsg("Pick different source and destination schedules.");
-        return;
-      }
-      const inRange = (d) => {
-        if (start && d < start) return false;
-        if (end && d > end) return false;
-        return true;
-      };
-      let moved = 0, skipped = 0;
-      const items = state.punches.filter((p) => Number(p.scheduleId) === fromId && inRange(String(p.date || "")));
-      const overlaps = (p) => state.punches.some((q) => Number(q.scheduleId) === toId && String(q.date || "") === String(p.date || "") && (p.start || 0) < (q.end || 0) && (p.end || 0) > (q.start || 0));
-      for (const p of items) {
-        if (overlaps(p)) {
-          skipped++;
-          continue;
-        }
-        const updated = { ...p, scheduleId: toId };
-        try {
-          await idb.put(updated);
-          moved++;
-        } catch (e) {
-          skipped++;
-        }
-      }
-      state.punches = await idb.all();
-      ui.renderAll();
-      ui.toast(`Moved ${moved}, skipped ${skipped} overlapping`);
-    });
-    (_o = els.settingsCustomizeDashboard) == null ? void 0 : _o.addEventListener("click", () => {
-      var _a2, _b2, _c2;
-      try {
-        state.viewMode = "dashboard";
-        (_b2 = (_a2 = ui).updateViewMode) == null ? void 0 : _b2.call(_a2);
-        (_c2 = els.btnAddModule) == null ? void 0 : _c2.click();
-      } catch (e) {
-      }
     });
   }
   var settingsActions = { attach };
