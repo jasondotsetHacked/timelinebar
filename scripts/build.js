@@ -30,10 +30,18 @@ async function copyCss() {
 
 function rewriteHtml(html) {
   // Replace the module script with a classic bundle reference
-  return html.replace(
+  let out = html;
+  // Case 1: source file uses ESM entry
+  out = out.replace(
     /<script[^>]*type\s*=\s*"module"[^>]*src\s*=\s*"app\.js"[^>]*><\/script>/i,
     '<script src="app.bundle.js"></script>'
   );
+  // Case 2: source file already points at dist/app.bundle.js for GitHub Pages
+  out = out.replace(
+    /<script[^>]*src\s*=\s*"dist\/app\.bundle\.js"[^>]*><\/script>/i,
+    '<script src="app.bundle.js"></script>'
+  );
+  return out;
 }
 
 async function writeHtml() {
