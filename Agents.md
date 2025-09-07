@@ -1,32 +1,75 @@
-**Agent Console Check Tool**
+**Agent Playbook**
 
-- **Purpose:** Build the app and load the built `dist/index.html` in a headless browser, then report any browser console errors (like a human checking DevTools).
-- **Script:** `scripts/console-check.js`
-- **NPM:** `npm run check` (alias: `npm run check:console`)
+- **Purpose:** Provide a consistent, extensible workflow for agents to build, verify, diagnose, and propose fixes using a catalog of tools.
+- **Scope:** Defines tool interface, run flow, reporting format, and approval etiquette. Specific tools (build, console-check, etc.) plug into this framework.
 
-**What It Does**
+**Workflow**
 
-- **Build:** Runs `node scripts/build.js`.
-- **Open headless:** Launches headless Chromium via `puppeteer` and opens the built `dist/index.html`.
-- **Capture errors:** Collects `console.error`, `window.onerror`/`pageerror`, and network request failures (as warnings).
-- **Report:** Prints a summary and details. Exits with code `1` if errors were found, `0` otherwise.
+- **Plan:** Outline steps and checkpoints. Prefer small, verifiable increments.
+- **Build:** Produce artifacts (e.g., `dist/`). Fail fast on build errors.
+- **Verify:** Run one or more tools (console, tests, lint, type-check) to validate behavior.
+- **Report:** Summarize findings with clear pass/fail and actionable notes.
+- **Propose Fixes:** For simple issues, suggest targeted patches and ask for approval. Escalate complex changes.
 
-**Usage**
+**Tool Interface Contract**
 
-- Run: `npm run check`
-- Direct: `node scripts/console-check.js`
+- **Name:** Short, kebab-case identifier.
+- **Command:** Single command the agent can run locally (npm script preferred).
+- **Goal:** What the tool validates or produces.
+- **Success Criteria:** What “pass” means (and exit code 0).
+- **Failure Behavior:** What constitutes failure and exit code non‑zero.
+- **Artifacts:** Files/logs produced for inspection.
+- **Notes:** Environment needs, caveats, typical false positives.
 
-If the script reports errors, the agent should summarize the error(s), assess if a quick fix seems straightforward, and ask for approval before making changes.
+**Registered Tools**
 
-**Notes**
+- **build:**
+  - Command: `npm run build` (or `node scripts/build.js`)
+  - Goal: Bundle JS, copy CSS, write `dist/index.html` with classic bundle.
+  - Success: `dist/` contains `app.bundle.js`, `styles.css`, and `index.html`; exit 0.
+  - Failure: Build errors or missing expected outputs; exit non‑zero.
+  - Notes: Uses `esbuild`. Pure local build; no network needed.
 
-- **Dependencies:** Uses `puppeteer` (dev dependency). Installed in `package.json`.
-- **CDN assets:** The app references CDN resources in `dist/index.html`. Network access is required during the check.
-- **Local file load:** The page is opened via `file://` URL. If future changes require HTTP, the script can be extended to serve `dist/` via a simple static server.
-- **Timeouts:** The checker waits for the page `load` event and then ~2.5s for async errors to surface. Adjust if needed.
+- **console-check:**
+  - Command: `npm run check` (alias: `npm run check:console`)
+  - Goal: Open `dist/index.html` headlessly and capture console/page errors.
+  - Success: No console errors or page errors; exit 0. Warnings allowed but reported.
+  - Failure: Any console error or page error; exit non‑zero and print details.
+  - Notes: Uses `puppeteer`; network may be needed for CDN assets referenced by the page.
 
-**When To Use**
+**Execution Flow Template**
 
-- After major checkpoints (e.g., build steps, feature completion) to verify the app loads cleanly without console errors.
-- As a quick gate in CI to prevent merging builds that throw initialization errors.
+- **Checkpoint 1 — Build:** Run `npm run build`. If it fails, report stderr and stop.
+- **Checkpoint 2 — Verify:** Run selected tools (e.g., `npm run check`). Capture output and exit codes.
+- **Checkpoint 3 — Triage:** If failures, extract the most relevant error and suspected file/line.
+- **Checkpoint 4 — Proposal:** If a small, low‑risk change is apparent, propose a patch and request approval. Otherwise, request guidance.
 
+**Reporting Format**
+
+- **Summary:** One‑line pass/fail per tool.
+- **Details:** Bullet points of key errors/warnings with short context.
+- **Next Steps:** Proposed fix or questions blocking progress.
+
+**Adding New Tools**
+
+- **Create script:** Add a script under `scripts/` (e.g., `scripts/lint.js`).
+- **NPM entry:** Add an npm script (e.g., `lint`) that exits 0 on pass, non‑zero on fail.
+- **Output:** Print a clear header (e.g., `=== Lint Report ===`) and concise details.
+- **Document:** Append an entry under “Registered Tools” above using the Tool Interface Contract.
+
+**Approval & Fix Policy**
+
+- **Simple fixes:** Typo/missing import, null‑guard, obvious logic slip, build config tweak. Propose a small patch and ask to proceed.
+- **Non‑trivial fixes:** Refactors, schema changes, UX changes. Summarize impact and request explicit approval.
+- **Destructive actions:** Deletions or migrations require approval and a rollback plan.
+
+**Environment Notes**
+
+- **Node & NPM:** Use the repo’s `package.json` scripts when available.
+- **Network:** Some tools (e.g., console‑check with CDN assets) may need network access. Note when network is required.
+- **Local file URLs:** `console-check` opens `dist/index.html` via `file://`. If stricter environments require HTTP, add a tiny static server as a new tool (e.g., `serve-dist`).
+
+**Quick Commands**
+
+- Build: `npm run build`
+- Console check: `npm run check`
