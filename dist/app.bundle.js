@@ -330,7 +330,9 @@
   // src/calendar.js
   function summarizeByDate() {
     const map = /* @__PURE__ */ new Map();
+    const sched = state.currentScheduleId != null ? Number(state.currentScheduleId) : null;
     for (const p of state.punches) {
+      if (sched != null && Number(p.scheduleId) !== sched) continue;
       const d = getPunchDate(p);
       const prev = map.get(d) || { count: 0, totalMin: 0 };
       map.set(d, {
@@ -491,7 +493,8 @@
       num.textContent = String(d.getDate());
       cell.appendChild(num);
       try {
-        const dayItems = state.punches.filter((p) => getPunchDate(p) === ds).sort((a, b) => (a.start || 0) - (b.start || 0));
+        const sched = state.currentScheduleId != null ? Number(state.currentScheduleId) : null;
+        const dayItems = state.punches.filter((p) => getPunchDate(p) === ds && (sched == null || Number(p.scheduleId) === sched)).sort((a, b) => (a.start || 0) - (b.start || 0));
         const seen = /* @__PURE__ */ new Set();
         const buckets = [];
         for (const p of dayItems) {
@@ -1816,22 +1819,37 @@
     return Math.max(view.start, Math.min(view.end, Math.round(mins)));
   };
   var overlapsAny = (start, end, excludeId = null) => {
+    var _a, _b;
     const day = state.currentDate || todayStr();
+    let schedId = null;
+    if (excludeId != null) {
+      const base = state.punches.find((x) => x.id === excludeId);
+      if (base && base.scheduleId != null) schedId = Number(base.scheduleId);
+    }
+    if (schedId == null) {
+      if (state.currentScheduleId != null) schedId = Number(state.currentScheduleId);
+      else {
+        const first = (_b = (_a = state.schedules) == null ? void 0 : _a[0]) == null ? void 0 : _b.id;
+        if (first != null) schedId = Number(first);
+      }
+    }
     return state.punches.some(
-      (p) => p.id !== excludeId && getPunchDate(p) === day && start < p.end && end > p.start
+      (p) => p.id !== excludeId && getPunchDate(p) === day && (schedId == null || Number(p.scheduleId) === schedId) && start < (p.end || 0) && end > (p.start || 0)
     );
   };
   var nearestBounds = (forId) => {
     const day = state.currentDate || todayStr();
-    const sorted = [...state.punches].filter((p) => p.id !== forId && getPunchDate(p) === day).sort((a, b) => a.start - b.start);
+    const base = state.punches.find((x) => x.id === forId);
+    const schedId = base && base.scheduleId != null ? Number(base.scheduleId) : null;
+    const sorted = [...state.punches].filter((p) => p.id !== forId && getPunchDate(p) === day && (schedId == null || Number(p.scheduleId) === schedId)).sort((a, b) => a.start - b.start);
     return {
       leftLimitAt: (start) => {
-        const leftNeighbor = [...sorted].filter((p) => p.end <= start).pop();
-        return leftNeighbor ? leftNeighbor.end : getView3().start;
+        const leftNeighbor = [...sorted].filter((p) => (p.end || 0) <= start).pop();
+        return leftNeighbor ? leftNeighbor.end || getView3().start : getView3().start;
       },
       rightLimitAt: (end) => {
-        const rightNeighbor = [...sorted].find((p) => p.start >= end);
-        return rightNeighbor ? rightNeighbor.start : getView3().end;
+        const rightNeighbor = [...sorted].find((p) => (p.start || 0) >= end);
+        return rightNeighbor ? rightNeighbor.start || getView3().end : getView3().end;
       }
     };
   };

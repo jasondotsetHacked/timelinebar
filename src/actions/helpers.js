@@ -22,24 +22,46 @@ export const pxToMinutes = (clientX) => {
 
 export const overlapsAny = (start, end, excludeId = null) => {
   const day = state.currentDate || todayStr();
+  // Determine which schedule to check overlaps against:
+  // - If editing/moving an existing item (excludeId present), use that item's schedule.
+  // - Else use the currently selected schedule if any.
+  // - Else fall back to first known schedule (same logic used on create).
+  let schedId = null;
+  if (excludeId != null) {
+    const base = state.punches.find((x) => x.id === excludeId);
+    if (base && base.scheduleId != null) schedId = Number(base.scheduleId);
+  }
+  if (schedId == null) {
+    if (state.currentScheduleId != null) schedId = Number(state.currentScheduleId);
+    else {
+      const first = state.schedules?.[0]?.id;
+      if (first != null) schedId = Number(first);
+    }
+  }
   return state.punches.some(
-    (p) => p.id !== excludeId && getPunchDate(p) === day && start < p.end && end > p.start
+    (p) => p.id !== excludeId
+      && getPunchDate(p) === day
+      && (schedId == null || Number(p.scheduleId) === schedId)
+      && start < (p.end || 0)
+      && end > (p.start || 0)
   );
 };
 
 export const nearestBounds = (forId) => {
   const day = state.currentDate || todayStr();
+  const base = state.punches.find((x) => x.id === forId);
+  const schedId = base && base.scheduleId != null ? Number(base.scheduleId) : null;
   const sorted = [...state.punches]
-    .filter((p) => p.id !== forId && getPunchDate(p) === day)
+    .filter((p) => p.id !== forId && getPunchDate(p) === day && (schedId == null || Number(p.scheduleId) === schedId))
     .sort((a, b) => a.start - b.start);
   return {
     leftLimitAt: (start) => {
-      const leftNeighbor = [...sorted].filter((p) => p.end <= start).pop();
-      return leftNeighbor ? leftNeighbor.end : getView().start;
+      const leftNeighbor = [...sorted].filter((p) => (p.end || 0) <= start).pop();
+      return leftNeighbor ? (leftNeighbor.end || getView().start) : getView().start;
     },
     rightLimitAt: (end) => {
-      const rightNeighbor = [...sorted].find((p) => p.start >= end);
-      return rightNeighbor ? rightNeighbor.start : getView().end;
+      const rightNeighbor = [...sorted].find((p) => (p.start || 0) >= end);
+      return rightNeighbor ? (rightNeighbor.start || getView().end) : getView().end;
     },
   };
 };

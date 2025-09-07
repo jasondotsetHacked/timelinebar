@@ -6,7 +6,9 @@ import { todayStr, toDateStr, getPunchDate } from './dates.js';
 // Summarize punches by YYYY-MM-DD -> { count, totalMin }
 function summarizeByDate() {
   const map = new Map();
+  const sched = state.currentScheduleId != null ? Number(state.currentScheduleId) : null;
   for (const p of state.punches) {
+    if (sched != null && Number(p.scheduleId) !== sched) continue;
     const d = getPunchDate(p);
     const prev = map.get(d) || { count: 0, totalMin: 0 };
     map.set(d, {
@@ -179,8 +181,9 @@ function renderCalendar() {
 
     // Build unique bucket list in order of appearance (sorted by start time)
     try {
+      const sched = state.currentScheduleId != null ? Number(state.currentScheduleId) : null;
       const dayItems = state.punches
-        .filter((p) => getPunchDate(p) === ds)
+        .filter((p) => getPunchDate(p) === ds && (sched == null || Number(p.scheduleId) === sched))
         .sort((a, b) => (a.start || 0) - (b.start || 0));
       const seen = new Set();
       const buckets = [];
