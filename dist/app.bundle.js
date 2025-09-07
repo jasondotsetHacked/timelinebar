@@ -6638,7 +6638,10 @@
     moduleForm: byId("moduleForm"),
     moduleType: byId("moduleType"),
     moduleTitle: byId("moduleTitle"),
-    moduleScheduleList: byId("moduleScheduleList")
+    moduleScheduleList: byId("moduleScheduleList"),
+    moduleScheduleWrap: byId("moduleScheduleWrap"),
+    moduleConfigRow: byId("moduleConfigRow"),
+    moduleConfig: byId("moduleConfig")
   };
 
   // src/state.js
@@ -8175,9 +8178,11 @@
     }
     container.appendChild(track);
   }
-  function renderModuleEntries(container, scheduleIds) {
+  function renderModuleEntries(container, scheduleIds, options = {}) {
     const day = currentDay();
-    const items = filterBySchedules((state.punches || []).filter((p) => getPunchDate(p) === day), scheduleIds).sort((a, b) => a.start - b.start);
+    let items = filterBySchedules((state.punches || []).filter((p) => getPunchDate(p) === day), scheduleIds).sort((a, b) => a.start - b.start);
+    const limit = Number.isFinite(options == null ? void 0 : options.limit) ? Math.max(0, Math.floor(options.limit)) : null;
+    if (limit && items.length > limit) items = items.slice(0, limit);
     const table = document.createElement("table");
     table.className = "mini-table";
     const thead = document.createElement("thead");
@@ -8233,6 +8238,11 @@
       actions2.style.display = "flex";
       actions2.style.gap = "8px";
       actions2.style.alignItems = "center";
+      const btnEdit2 = document.createElement("button");
+      btnEdit2.className = "btn ghost btn-edit-module";
+      btnEdit2.textContent = "Edit";
+      btnEdit2.dataset.view = "dashboard";
+      btnEdit2.dataset.id = m.id;
       const btnRemove = document.createElement("button");
       btnRemove.className = "btn danger";
       btnRemove.textContent = "Remove";
@@ -8263,12 +8273,13 @@
         updateViewMode();
       });
       actions2.appendChild(btnOpen);
+      actions2.appendChild(btnEdit2);
       actions2.appendChild(btnRemove);
       head.append(title, actions2);
       const body = document.createElement("div");
       body.className = "card-body";
       if (m.type === "timeline") renderModuleTimeline(body, m.scheduleIds || null);
-      else if (m.type === "entries") renderModuleEntries(body, m.scheduleIds || null);
+      else if (m.type === "entries") renderModuleEntries(body, m.scheduleIds || null, m.config || {});
       else if (m.type === "bucket") renderModuleBucket(body, m.scheduleIds || null);
       card.append(head, body);
       grid.appendChild(card);
@@ -8322,12 +8333,13 @@
         updateViewMode();
       });
       actions2.appendChild(btnOpen);
+      actions2.appendChild(btnEdit);
       actions2.appendChild(btnRemove);
       head.append(title, actions2);
       const body = document.createElement("div");
       body.className = "card-body";
       if (m.type === "timeline") renderModuleTimeline(body, m.scheduleIds || null);
-      else if (m.type === "entries") renderModuleEntries(body, m.scheduleIds || null);
+      else if (m.type === "entries") renderModuleEntries(body, m.scheduleIds || null, m.config || {});
       else if (m.type === "bucket") renderModuleBucket(body, m.scheduleIds || null);
       card.append(head, body);
       grid.appendChild(card);
@@ -8409,6 +8421,7 @@
         }
         renderMonthDashboard();
       });
+      actions2.appendChild(btnEdit);
       actions2.appendChild(btnRemove);
       head.append(title, actions2);
       const body = document.createElement("div");
@@ -10085,7 +10098,7 @@
     ui.closeModal();
   };
   var attachEvents = () => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q, _R, _S, _T, _U, _V, _W, _X, _Y, _Z;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _A, _B, _C, _D, _E, _F, _G, _H, _I, _J, _K, _L, _M, _N, _O, _P, _Q, _R, _S, _T, _U, _V, _W, _X, _Y, _Z, __, _$, _aa;
     dragActions.attach();
     resizeActions.attach();
     calendarActions.attach();
@@ -10180,8 +10193,55 @@
       });
     } catch (e) {
     }
-    function openModuleModal(targetView = "dashboard") {
+    function buildModuleConfigUI(type, existing = null) {
+      var _a2;
+      const row = els.moduleConfigRow;
+      const box = els.moduleConfig;
+      if (!row || !box) return;
+      box.innerHTML = "";
+      row.style.display = "none";
+      if (type === "calendar") {
+        try {
+          if (els.moduleScheduleWrap) els.moduleScheduleWrap.style.display = "none";
+        } catch (e) {
+        }
+        return;
+      }
+      try {
+        if (els.moduleScheduleWrap) els.moduleScheduleWrap.style.display = "";
+      } catch (e) {
+      }
+      if (type === "entries") {
+        row.style.display = "";
+        const wrap = document.createElement("div");
+        wrap.style.display = "grid";
+        wrap.style.gridTemplateColumns = "1fr 1fr";
+        wrap.style.gap = "10px";
+        const limitWrap = document.createElement("div");
+        const lbl = document.createElement("label");
+        lbl.textContent = "Max rows (optional)";
+        const inp = document.createElement("input");
+        inp.type = "number";
+        inp.min = "1";
+        inp.step = "1";
+        inp.id = "moduleEntriesLimit";
+        inp.placeholder = "e.g., 10";
+        const existingLimit = Number((_a2 = existing == null ? void 0 : existing.config) == null ? void 0 : _a2.limit);
+        if (Number.isFinite(existingLimit) && existingLimit > 0) inp.value = String(existingLimit);
+        limitWrap.appendChild(lbl);
+        limitWrap.appendChild(inp);
+        wrap.appendChild(limitWrap);
+        box.appendChild(wrap);
+      }
+    }
+    function openModuleModal(targetView = "dashboard", editingId = null) {
+      var _a2;
       state.moduleTargetView = targetView;
+      if (els.moduleForm) {
+        els.moduleForm.dataset.targetView = targetView;
+        if (editingId) els.moduleForm.dataset.editingId = String(editingId);
+        else delete els.moduleForm.dataset.editingId;
+      }
       try {
         if (els.moduleType) {
           els.moduleType.innerHTML = "";
@@ -10220,8 +10280,35 @@
           wrap.appendChild(lbl);
         }
       }
-      if (els.moduleTitle) els.moduleTitle.value = "";
-      if (els.moduleType) els.moduleType.value = targetView === "month" ? "calendar" : "timeline";
+      let initialType = targetView === "month" ? "calendar" : "timeline";
+      let initialTitle = "";
+      let initialIds = [];
+      let existing = null;
+      if (editingId) {
+        const id = String(editingId);
+        const arr = targetView === "day" ? state.dayModules || [] : targetView === "month" ? state.monthModules || [] : state.dashboardModules || [];
+        existing = arr.find((m) => String(m == null ? void 0 : m.id) === id) || null;
+        if (existing) {
+          initialType = existing.type || initialType;
+          initialTitle = existing.title || "";
+          initialIds = Array.isArray(existing.scheduleIds) ? existing.scheduleIds.map(Number) : [];
+        }
+      }
+      if (els.moduleTitle) els.moduleTitle.value = String(initialTitle || "");
+      if (els.moduleType) els.moduleType.value = initialType;
+      try {
+        if (wrap && initialIds && initialIds.length) {
+          for (const cb of wrap.querySelectorAll('input[type="checkbox"]')) {
+            if (initialIds.some((n) => String(n) === String(cb.value))) cb.checked = true;
+          }
+        }
+      } catch (e) {
+      }
+      buildModuleConfigUI(initialType, existing);
+      try {
+        (_a2 = els.moduleType) == null ? void 0 : _a2.addEventListener("change", () => buildModuleConfigUI(els.moduleType.value || "", null));
+      } catch (e) {
+      }
       if (els.moduleModal) els.moduleModal.style.display = "flex";
     }
     function closeModuleModal() {
@@ -10230,38 +10317,92 @@
     (_h = els.btnAddModule) == null ? void 0 : _h.addEventListener("click", () => openModuleModal("dashboard"));
     (_i = els.btnAddDayModule) == null ? void 0 : _i.addEventListener("click", () => openModuleModal("day"));
     (_j = els.btnAddMonthModule) == null ? void 0 : _j.addEventListener("click", () => openModuleModal("month"));
-    (_k = els.moduleClose) == null ? void 0 : _k.addEventListener("click", closeModuleModal);
-    (_l = els.moduleCancel) == null ? void 0 : _l.addEventListener("click", closeModuleModal);
-    (_m = els.moduleForm) == null ? void 0 : _m.addEventListener("submit", (e) => {
-      var _a2, _b2, _c2, _d2, _e2, _f2, _g2, _h2, _i2;
+    try {
+      (_k = els.dashboardGrid) == null ? void 0 : _k.addEventListener("click", (e) => {
+        const b = e.target.closest(".btn-edit-module");
+        if (!b) return;
+        const id = b.dataset.id;
+        if (!id) return;
+        openModuleModal("dashboard", id);
+      });
+    } catch (e) {
+    }
+    try {
+      (_l = els.dayDashboardGrid) == null ? void 0 : _l.addEventListener("click", (e) => {
+        const b = e.target.closest(".btn-edit-module");
+        if (!b) return;
+        const id = b.dataset.id;
+        if (!id) return;
+        openModuleModal("day", id);
+      });
+    } catch (e) {
+    }
+    try {
+      (_m = els.monthDashboardGrid) == null ? void 0 : _m.addEventListener("click", (e) => {
+        const b = e.target.closest(".btn-edit-module");
+        if (!b) return;
+        const id = b.dataset.id;
+        if (!id) return;
+        openModuleModal("month", id);
+      });
+    } catch (e) {
+    }
+    (_n = els.moduleClose) == null ? void 0 : _n.addEventListener("click", closeModuleModal);
+    (_o = els.moduleCancel) == null ? void 0 : _o.addEventListener("click", closeModuleModal);
+    (_p = els.moduleForm) == null ? void 0 : _p.addEventListener("submit", (e) => {
+      var _a2, _b2, _c2, _d2, _e2, _f2, _g2, _h2, _i2, _j2, _k2, _l2, _m2;
       e.preventDefault();
       const type = ((_a2 = els.moduleType) == null ? void 0 : _a2.value) || "timeline";
       const title = String(((_b2 = els.moduleTitle) == null ? void 0 : _b2.value) || "").trim();
       const ids = Array.from(((_c2 = els.moduleScheduleList) == null ? void 0 : _c2.querySelectorAll('input[type="checkbox"]')) || []).filter((c) => c.checked).map((c) => Number(c.value));
-      const mod = { id: "m" + Math.random().toString(36).slice(2, 9), type, title: title || void 0, scheduleIds: ids };
-      const tgt = state.moduleTargetView || "dashboard";
-      if (tgt === "day") {
-        state.dayModules = Array.isArray(state.dayModules) ? [...state.dayModules, mod] : [mod];
-        try {
-          localStorage.setItem("modules.day.v1", JSON.stringify(state.dayModules));
-        } catch (e2) {
-        }
-        (_e2 = (_d2 = ui).renderAll) == null ? void 0 : _e2.call(_d2);
-      } else if (tgt === "month") {
-        state.monthModules = Array.isArray(state.monthModules) ? [...state.monthModules, mod] : [mod];
-        try {
-          localStorage.setItem("modules.month.v1", JSON.stringify(state.monthModules));
-        } catch (e2) {
-        }
-        (_g2 = (_f2 = ui).updateViewMode) == null ? void 0 : _g2.call(_f2);
-      } else {
-        state.dashboardModules = Array.isArray(state.dashboardModules) ? [...state.dashboardModules, mod] : [mod];
-        try {
-          localStorage.setItem("dashboard.modules.v1", JSON.stringify(state.dashboardModules));
-        } catch (e2) {
-        }
-        (_i2 = (_h2 = ui).renderDashboard) == null ? void 0 : _i2.call(_h2);
+      let config = void 0;
+      if (type === "entries") {
+        const inp = document.getElementById("moduleEntriesLimit");
+        const val = inp ? Number(inp.value) : NaN;
+        const limit = Number.isFinite(val) && val > 0 ? Math.floor(val) : null;
+        if (limit) config = { limit };
       }
+      const tgt = ((_e2 = (_d2 = els.moduleForm) == null ? void 0 : _d2.dataset) == null ? void 0 : _e2.targetView) || (state.moduleTargetView || "dashboard");
+      const editingId = ((_g2 = (_f2 = els.moduleForm) == null ? void 0 : _f2.dataset) == null ? void 0 : _g2.editingId) || null;
+      if (editingId) {
+        const arrName = tgt === "day" ? "dayModules" : tgt === "month" ? "monthModules" : "dashboardModules";
+        const arr = Array.isArray(state[arrName]) ? state[arrName] : [];
+        const idx = arr.findIndex((m) => String(m == null ? void 0 : m.id) === String(editingId));
+        if (idx !== -1) {
+          const prev = arr[idx];
+          arr[idx] = { ...prev, type, title: title || void 0, scheduleIds: ids, config };
+          state[arrName] = arr;
+          try {
+            const key = tgt === "day" ? "modules.day.v1" : tgt === "month" ? "modules.month.v1" : "dashboard.modules.v1";
+            localStorage.setItem(key, JSON.stringify(arr));
+          } catch (e2) {
+          }
+        }
+      } else {
+        const mod = { id: "m" + Math.random().toString(36).slice(2, 9), type, title: title || void 0, scheduleIds: ids, config };
+        if (tgt === "day") {
+          state.dayModules = Array.isArray(state.dayModules) ? [...state.dayModules, mod] : [mod];
+          try {
+            localStorage.setItem("modules.day.v1", JSON.stringify(state.dayModules));
+          } catch (e2) {
+          }
+        } else if (tgt === "month") {
+          state.monthModules = Array.isArray(state.monthModules) ? [...state.monthModules, mod] : [mod];
+          try {
+            localStorage.setItem("modules.month.v1", JSON.stringify(state.monthModules));
+          } catch (e2) {
+          }
+        } else {
+          state.dashboardModules = Array.isArray(state.dashboardModules) ? [...state.dashboardModules, mod] : [mod];
+          try {
+            localStorage.setItem("dashboard.modules.v1", JSON.stringify(state.dashboardModules));
+          } catch (e2) {
+          }
+        }
+      }
+      if (tgt === "day") (_i2 = (_h2 = ui).renderAll) == null ? void 0 : _i2.call(_h2);
+      else if (tgt === "month") (_k2 = (_j2 = ui).updateViewMode) == null ? void 0 : _k2.call(_j2);
+      else (_m2 = (_l2 = ui).renderDashboard) == null ? void 0 : _m2.call(_l2);
       closeModuleModal();
     });
     try {
@@ -10675,11 +10816,11 @@
       } catch (e) {
       }
     };
-    (_n = els.startField) == null ? void 0 : _n.addEventListener("change", coerceRange);
-    (_o = els.endField) == null ? void 0 : _o.addEventListener("change", coerceRange);
-    (_p = els.startField) == null ? void 0 : _p.addEventListener("blur", coerceRange);
-    (_q = els.endField) == null ? void 0 : _q.addEventListener("blur", coerceRange);
-    (_r = els.repeatEnabled) == null ? void 0 : _r.addEventListener("change", () => {
+    (_q = els.startField) == null ? void 0 : _q.addEventListener("change", coerceRange);
+    (_r = els.endField) == null ? void 0 : _r.addEventListener("change", coerceRange);
+    (_s = els.startField) == null ? void 0 : _s.addEventListener("blur", coerceRange);
+    (_t = els.endField) == null ? void 0 : _t.addEventListener("blur", coerceRange);
+    (_u = els.repeatEnabled) == null ? void 0 : _u.addEventListener("change", () => {
       var _a2;
       const on = !!els.repeatEnabled.checked;
       if (els.repeatFields) els.repeatFields.style.display = on ? "" : "none";
@@ -10688,21 +10829,21 @@
       const isWeekly = (((_a2 = els.repeatFreq) == null ? void 0 : _a2.value) || "weekly") === "weekly";
       if (els.repeatDowWrap) els.repeatDowWrap.style.display = isWeekly ? "" : "none";
     });
-    (_s = els.repeatFreq) == null ? void 0 : _s.addEventListener("change", () => {
+    (_v = els.repeatFreq) == null ? void 0 : _v.addEventListener("change", () => {
       var _a2;
       const val = els.repeatFreq.value;
       if (els.repeatDowWrap) els.repeatDowWrap.style.display = val === "weekly" && ((_a2 = els.repeatEnabled) == null ? void 0 : _a2.checked) ? "" : "none";
     });
-    (_t = els.btnDowWeekdays) == null ? void 0 : _t.addEventListener("click", () => {
+    (_w = els.btnDowWeekdays) == null ? void 0 : _w.addEventListener("click", () => {
       if (!els.repeatDow) return;
       const set = /* @__PURE__ */ new Set([1, 2, 3, 4, 5]);
       els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => c.checked = set.has(Number(c.value)));
     });
-    (_u = els.btnDowAll) == null ? void 0 : _u.addEventListener("click", () => {
+    (_x = els.btnDowAll) == null ? void 0 : _x.addEventListener("click", () => {
       if (!els.repeatDow) return;
       els.repeatDow.querySelectorAll('input[type="checkbox"]').forEach((c) => c.checked = true);
     });
-    (_v = els.modalDelete) == null ? void 0 : _v.addEventListener("click", async (e) => {
+    (_y = els.modalDelete) == null ? void 0 : _y.addEventListener("click", async (e) => {
       var _a2;
       if (!state.editingId) return;
       const p = state.punches.find((x) => x.id === state.editingId);
@@ -10723,7 +10864,7 @@
       ui.renderAll();
       ui.toast("Deleted");
     });
-    (_w = els.btnExtendSeries) == null ? void 0 : _w.addEventListener("click", async () => {
+    (_z = els.btnExtendSeries) == null ? void 0 : _z.addEventListener("click", async () => {
       var _a2;
       if (!state.editingId) return;
       const p = state.punches.find((x) => x.id === state.editingId);
@@ -10759,11 +10900,11 @@
       ui.renderAll();
       ui.toast(added ? `Added ${added} more` : "No new dates to add");
     });
-    (_x = els.modalStatusBtn) == null ? void 0 : _x.addEventListener("click", () => {
+    (_A = els.modalStatusBtn) == null ? void 0 : _A.addEventListener("click", () => {
       var _a2;
       (_a2 = els.modalStatusWrap) == null ? void 0 : _a2.classList.toggle("open");
     });
-    (_y = els.modalStatusMenu) == null ? void 0 : _y.addEventListener("click", (e) => {
+    (_B = els.modalStatusMenu) == null ? void 0 : _B.addEventListener("click", (e) => {
       var _a2;
       const opt = e.target.closest(".status-option");
       if (!opt) return;
@@ -10858,7 +10999,7 @@
         (_c2 = (_b2 = ui).hideNotePopover) == null ? void 0 : _c2.call(_b2);
       }
     });
-    (_z = els.bucketDayBody) == null ? void 0 : _z.addEventListener("click", (e) => {
+    (_C = els.bucketDayBody) == null ? void 0 : _C.addEventListener("click", (e) => {
       var _a2, _b2;
       const link = e.target.closest(".bucket-link");
       if (!link) return;
@@ -10870,7 +11011,7 @@
       state.viewMode = "bucket";
       ui.renderAll();
     });
-    (_A = els.bucketMonthBody) == null ? void 0 : _A.addEventListener("click", (e) => {
+    (_D = els.bucketMonthBody) == null ? void 0 : _D.addEventListener("click", (e) => {
       var _a2, _b2;
       const link = e.target.closest(".bucket-link");
       if (!link) return;
@@ -10882,15 +11023,15 @@
       state.viewMode = "bucket";
       ui.renderAll();
     });
-    (_B = els.btnBucketBack) == null ? void 0 : _B.addEventListener("click", () => {
+    (_E = els.btnBucketBack) == null ? void 0 : _E.addEventListener("click", () => {
       state.viewMode = "calendar";
       ui.renderAll();
     });
-    (_C = els.btnBucketBackTop) == null ? void 0 : _C.addEventListener("click", () => {
+    (_F = els.btnBucketBackTop) == null ? void 0 : _F.addEventListener("click", () => {
       state.viewMode = "calendar";
       ui.renderAll();
     });
-    (_D = els.btnBucketDelete) == null ? void 0 : _D.addEventListener("click", async () => {
+    (_G = els.btnBucketDelete) == null ? void 0 : _G.addEventListener("click", async () => {
       const name = String(state.bucketFilter || "");
       const label = name || "(no bucket)";
       const sched = state.currentScheduleId == null ? null : Number(state.currentScheduleId);
@@ -11009,10 +11150,10 @@
       window.removeEventListener("mouseup", onWindowUp);
       window.removeEventListener("touchend", onWindowUp);
     };
-    (_E = els.mobileScrollbar) == null ? void 0 : _E.addEventListener("mousedown", onScrollbarDown);
-    (_F = els.mobileScrollbar) == null ? void 0 : _F.addEventListener("touchstart", onScrollbarDown, { passive: false });
-    (_G = els.mobileWindow) == null ? void 0 : _G.addEventListener("mousedown", onWindowDown);
-    (_H = els.mobileWindow) == null ? void 0 : _H.addEventListener("touchstart", onWindowDown, { passive: false });
+    (_H = els.mobileScrollbar) == null ? void 0 : _H.addEventListener("mousedown", onScrollbarDown);
+    (_I = els.mobileScrollbar) == null ? void 0 : _I.addEventListener("touchstart", onScrollbarDown, { passive: false });
+    (_J = els.mobileWindow) == null ? void 0 : _J.addEventListener("mousedown", onWindowDown);
+    (_K = els.mobileWindow) == null ? void 0 : _K.addEventListener("touchstart", onWindowDown, { passive: false });
     const zoomBy = (factor) => {
       const span = getSpan();
       const center = getStart() + span / 2;
@@ -11021,26 +11162,26 @@
       newStart = clampStartForSpan(newStart, newSpan);
       setView(newStart, newStart + newSpan);
     };
-    (_I = els.mobileZoomIn) == null ? void 0 : _I.addEventListener("click", () => zoomBy(0.8));
-    (_J = els.mobileZoomOut) == null ? void 0 : _J.addEventListener("click", () => zoomBy(1.25));
-    (_K = els.mobileZoomRange) == null ? void 0 : _K.addEventListener("input", (e) => {
+    (_L = els.mobileZoomIn) == null ? void 0 : _L.addEventListener("click", () => zoomBy(0.8));
+    (_M = els.mobileZoomOut) == null ? void 0 : _M.addEventListener("click", () => zoomBy(1.25));
+    (_N = els.mobileZoomRange) == null ? void 0 : _N.addEventListener("input", (e) => {
       const val = Math.max(minSpan, Math.min(totalMin, Math.round(Number(e.target.value) || getSpan())));
       const center = getStart() + getSpan() / 2;
       let newStart = Math.round(center - val / 2);
       newStart = clampStartForSpan(newStart, val);
       setView(newStart, newStart + val);
     });
-    (_L = els.view24) == null ? void 0 : _L.addEventListener("click", () => setView(0, 24 * 60));
-    (_M = els.viewDefault) == null ? void 0 : _M.addEventListener("click", () => setView(6 * 60, 18 * 60));
+    (_O = els.view24) == null ? void 0 : _O.addEventListener("click", () => setView(0, 24 * 60));
+    (_P = els.viewDefault) == null ? void 0 : _P.addEventListener("click", () => setView(6 * 60, 18 * 60));
     const doCopy = async () => {
       try {
         await copyActions.copyChart();
       } catch (e) {
       }
     };
-    (_N = els.btnCopyChart) == null ? void 0 : _N.addEventListener("click", doCopy);
-    (_O = els.btnCopyChartTop) == null ? void 0 : _O.addEventListener("click", doCopy);
-    (_P = els.btnCopyChartTable) == null ? void 0 : _P.addEventListener("click", doCopy);
+    (_Q = els.btnCopyChart) == null ? void 0 : _Q.addEventListener("click", doCopy);
+    (_R = els.btnCopyChartTop) == null ? void 0 : _R.addEventListener("click", doCopy);
+    (_S = els.btnCopyChartTable) == null ? void 0 : _S.addEventListener("click", doCopy);
     els.track.addEventListener("click", (e) => {
       var _a2, _b2, _c2, _d2;
       if (e.shiftKey) {
@@ -11070,7 +11211,7 @@
         }
       }
     });
-    (_Q = els.bucketViewBody) == null ? void 0 : _Q.addEventListener("click", (e) => {
+    (_T = els.bucketViewBody) == null ? void 0 : _T.addEventListener("click", (e) => {
       var _a2, _b2, _c2;
       const noteCell = e.target.closest("td.note");
       if (!noteCell) return;
@@ -11081,7 +11222,7 @@
         e.stopPropagation();
       }
     });
-    (_R = els.noteField) == null ? void 0 : _R.addEventListener("input", () => {
+    (_U = els.noteField) == null ? void 0 : _U.addEventListener("input", () => {
       try {
         els.noteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.noteField.scrollHeight || 72));
@@ -11092,7 +11233,7 @@
       } catch (e) {
       }
     });
-    (_S = els.notePreviewToggle) == null ? void 0 : _S.addEventListener("click", (e) => {
+    (_V = els.notePreviewToggle) == null ? void 0 : _V.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.notePreview) return;
@@ -11107,7 +11248,7 @@
         if (els.notePreviewToggle) els.notePreviewToggle.textContent = "Hide preview";
       }
     });
-    (_T = els.bucketNoteField) == null ? void 0 : _T.addEventListener("input", () => {
+    (_W = els.bucketNoteField) == null ? void 0 : _W.addEventListener("input", () => {
       try {
         els.bucketNoteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.bucketNoteField.scrollHeight || 72));
@@ -11118,7 +11259,7 @@
       } catch (e) {
       }
     });
-    (_U = els.bucketNotePreviewToggle) == null ? void 0 : _U.addEventListener("click", (e) => {
+    (_X = els.bucketNotePreviewToggle) == null ? void 0 : _X.addEventListener("click", (e) => {
       var _a2;
       e.preventDefault();
       if (!els.bucketNotePreview) return;
@@ -11133,21 +11274,21 @@
         if (els.bucketNotePreviewToggle) els.bucketNotePreviewToggle.textContent = "Hide preview";
       }
     });
-    (_V = els.bucketField) == null ? void 0 : _V.addEventListener("input", () => {
+    (_Y = els.bucketField) == null ? void 0 : _Y.addEventListener("input", () => {
       try {
         loadBucketNoteIntoEditor(els.bucketField.value);
       } catch (e) {
       }
     });
-    (_W = els.noteModalClose) == null ? void 0 : _W.addEventListener("click", () => {
+    (_Z = els.noteModalClose) == null ? void 0 : _Z.addEventListener("click", () => {
       var _a2, _b2;
       return (_b2 = (_a2 = ui).closeNoteModal) == null ? void 0 : _b2.call(_a2);
     });
-    (_X = els.noteCancel) == null ? void 0 : _X.addEventListener("click", () => {
+    (__ = els.noteCancel) == null ? void 0 : __.addEventListener("click", () => {
       var _a2, _b2;
       return (_b2 = (_a2 = ui).closeNoteModal) == null ? void 0 : _b2.call(_a2);
     });
-    (_Y = els.noteEditToggle) == null ? void 0 : _Y.addEventListener("click", () => {
+    (_$ = els.noteEditToggle) == null ? void 0 : _$.addEventListener("click", () => {
       var _a2;
       if (!els.noteModal) return;
       const editing = ((_a2 = els.noteEditorWrap) == null ? void 0 : _a2.style.display) !== "none";
@@ -11165,7 +11306,7 @@
         if (els.noteEditToggle) els.noteEditToggle.textContent = "View";
       }
     });
-    (_Z = els.noteSave) == null ? void 0 : _Z.addEventListener("click", async () => {
+    (_aa = els.noteSave) == null ? void 0 : _aa.addEventListener("click", async () => {
       var _a2, _b2, _c2, _d2;
       if (!els.noteModal) return;
       const id = Number(els.noteModal.dataset.id);

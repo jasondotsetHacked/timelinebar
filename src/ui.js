@@ -988,10 +988,12 @@ function renderModuleTimeline(container, scheduleIds) {
   container.appendChild(track);
 }
 
-function renderModuleEntries(container, scheduleIds) {
+function renderModuleEntries(container, scheduleIds, options = {}) {
   const day = currentDay();
-  const items = filterBySchedules((state.punches || []).filter((p) => getPunchDate(p) === day), scheduleIds)
+  let items = filterBySchedules((state.punches || []).filter((p) => getPunchDate(p) === day), scheduleIds)
     .sort((a, b) => a.start - b.start);
+  const limit = Number.isFinite(options?.limit) ? Math.max(0, Math.floor(options.limit)) : null;
+  if (limit && items.length > limit) items = items.slice(0, limit);
   const table = document.createElement('table');
   table.className = 'mini-table';
   const thead = document.createElement('thead');
@@ -1044,6 +1046,7 @@ function renderDashboard() {
     const schedNames = (state.schedules || []).filter((s) => (m.scheduleIds||[]).some((id) => Number(id)===Number(s.id))).map((s) => s.name).join(', ');
     title.textContent = m.title || `${m.type[0].toUpperCase()+m.type.slice(1)} — ${schedNames || 'No schedules'}`;
     const actions = document.createElement('div'); actions.style.display = 'flex'; actions.style.gap = '8px'; actions.style.alignItems = 'center';
+    const btnEdit = document.createElement('button'); btnEdit.className = 'btn ghost btn-edit-module'; btnEdit.textContent = 'Edit'; btnEdit.dataset.view = 'dashboard'; btnEdit.dataset.id = m.id;
     const btnRemove = document.createElement('button'); btnRemove.className = 'btn danger'; btnRemove.textContent = 'Remove';
     btnRemove.addEventListener('click', () => {
       state.dashboardModules = (state.dashboardModules||[]).filter((x) => x.id !== m.id);
@@ -1060,11 +1063,11 @@ function renderDashboard() {
       state.viewMode = 'day';
       updateViewMode();
     });
-    actions.appendChild(btnOpen); actions.appendChild(btnRemove);
+    actions.appendChild(btnOpen); actions.appendChild(btnEdit); actions.appendChild(btnRemove);
     head.append(title, actions);
     const body = document.createElement('div'); body.className = 'card-body';
     if (m.type === 'timeline') renderModuleTimeline(body, m.scheduleIds || null);
-    else if (m.type === 'entries') renderModuleEntries(body, m.scheduleIds || null);
+    else if (m.type === 'entries') renderModuleEntries(body, m.scheduleIds || null, m.config || {});
     else if (m.type === 'bucket') renderModuleBucket(body, m.scheduleIds || null);
     card.append(head, body);
     grid.appendChild(card);
@@ -1100,11 +1103,11 @@ function renderDayDashboard() {
       state.viewMode = 'day';
       updateViewMode();
     });
-    actions.appendChild(btnOpen); actions.appendChild(btnRemove);
+    actions.appendChild(btnOpen); actions.appendChild(btnEdit); actions.appendChild(btnRemove);
     head.append(title, actions);
     const body = document.createElement('div'); body.className = 'card-body';
     if (m.type === 'timeline') renderModuleTimeline(body, m.scheduleIds || null);
-    else if (m.type === 'entries') renderModuleEntries(body, m.scheduleIds || null);
+    else if (m.type === 'entries') renderModuleEntries(body, m.scheduleIds || null, m.config || {});
     else if (m.type === 'bucket') renderModuleBucket(body, m.scheduleIds || null);
     card.append(head, body);
     grid.appendChild(card);
@@ -1184,7 +1187,7 @@ function renderMonthDashboard() {
       try { localStorage.setItem('modules.month.v1', JSON.stringify(state.monthModules)); } catch {}
       renderMonthDashboard();
     });
-    actions.appendChild(btnRemove);
+    actions.appendChild(btnEdit); actions.appendChild(btnRemove);
     head.append(title, actions);
     const body = document.createElement('div'); body.className = 'card-body';
     if (m.type === 'calendar') renderModuleCalendar(body);

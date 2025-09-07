@@ -231,10 +231,17 @@
               <input id="moduleTitle" type="text" placeholder="Custom title" />
             </div>
           </div>
-          <div class="row" style="grid-template-columns: 1fr;">
+          <div class="row" id="moduleScheduleWrap" style="grid-template-columns: 1fr;">
             <div>
               <label>Schedules</label>
               <div id="moduleScheduleList" style="display:flex; gap:12px; flex-wrap:wrap;"></div>
+              <div class="subtle" style="margin-top:4px;">Tip: leave all unchecked to include all schedules.</div>
+            </div>
+          </div>
+          <div class="row" id="moduleConfigRow" style="grid-template-columns: 1fr; display:none;">
+            <div>
+              <label>Module Settings</label>
+              <div id="moduleConfig" style="display:grid; gap:10px;"></div>
             </div>
           </div>
         </div>

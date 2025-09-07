@@ -169,4 +169,7 @@ export const els = {
   moduleType: byId('moduleType'),
   moduleTitle: byId('moduleTitle'),
   moduleScheduleList: byId('moduleScheduleList'),
+  moduleScheduleWrap: byId('moduleScheduleWrap'),
+  moduleConfigRow: byId('moduleConfigRow'),
+  moduleConfig: byId('moduleConfig'),
 };

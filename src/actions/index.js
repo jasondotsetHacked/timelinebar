@@ -426,9 +426,45 @@ const attachEvents = () => {
     openModuleModal('month');
   }); } catch {}
 
-  // Module modal
-  function openModuleModal(targetView = 'dashboard') {
+  // Module modal: add/edit modules per view with simple config
+  function buildModuleConfigUI(type, existing = null) {
+    const row = els.moduleConfigRow;
+    const box = els.moduleConfig;
+    if (!row || !box) return;
+    box.innerHTML = '';
+    row.style.display = 'none';
+    // Calendar module has no config/schedules
+    if (type === 'calendar') {
+      try { if (els.moduleScheduleWrap) els.moduleScheduleWrap.style.display = 'none'; } catch {}
+      return;
+    }
+    try { if (els.moduleScheduleWrap) els.moduleScheduleWrap.style.display = ''; } catch {}
+    if (type === 'entries') {
+      row.style.display = '';
+      const wrap = document.createElement('div');
+      wrap.style.display = 'grid';
+      wrap.style.gridTemplateColumns = '1fr 1fr';
+      wrap.style.gap = '10px';
+      const limitWrap = document.createElement('div');
+      const lbl = document.createElement('label'); lbl.textContent = 'Max rows (optional)';
+      const inp = document.createElement('input'); inp.type = 'number'; inp.min = '1'; inp.step = '1'; inp.id = 'moduleEntriesLimit'; inp.placeholder = 'e.g., 10';
+      const existingLimit = Number(existing?.config?.limit);
+      if (Number.isFinite(existingLimit) && existingLimit > 0) inp.value = String(existingLimit);
+      limitWrap.appendChild(lbl);
+      limitWrap.appendChild(inp);
+      wrap.appendChild(limitWrap);
+      box.appendChild(wrap);
+    }
+  }
+
+  function openModuleModal(targetView = 'dashboard', editingId = null) {
     state.moduleTargetView = targetView;
+    // Store editing info on the form dataset to avoid global state changes
+    if (els.moduleForm) {
+      els.moduleForm.dataset.targetView = targetView;
+      if (editingId) els.moduleForm.dataset.editingId = String(editingId);
+      else delete els.moduleForm.dataset.editingId;
+    }
     // Populate type options per target view
     try {
       if (els.moduleType) {
@@ -448,6 +484,7 @@ const attachEvents = () => {
         }
       }
     } catch {}
+    // Populate schedule checkboxes
     const wrap = els.moduleScheduleList;
     if (wrap) {
       wrap.innerHTML = '';
@@ -459,17 +496,73 @@ const attachEvents = () => {
         wrap.appendChild(lbl);
       }
     }
-    if (els.moduleTitle) els.moduleTitle.value = '';
-    // default type depends on view
-    if (els.moduleType) els.moduleType.value = (targetView === 'month') ? 'calendar' : 'timeline';
+    // Defaults
+    let initialType = (targetView === 'month') ? 'calendar' : 'timeline';
+    let initialTitle = '';
+    let initialIds = [];
+    let existing = null;
+    if (editingId) {
+      const id = String(editingId);
+      const arr = (targetView === 'day') ? (state.dayModules || []) : (targetView === 'month') ? (state.monthModules || []) : (state.dashboardModules || []);
+      existing = arr.find((m) => String(m?.id) === id) || null;
+      if (existing) {
+        initialType = existing.type || initialType;
+        initialTitle = existing.title || '';
+        initialIds = Array.isArray(existing.scheduleIds) ? existing.scheduleIds.map(Number) : [];
+      }
+    }
+    if (els.moduleTitle) els.moduleTitle.value = String(initialTitle || '');
+    if (els.moduleType) els.moduleType.value = initialType;
+    // Pre-check schedules
+    try {
+      if (wrap && initialIds && initialIds.length) {
+        for (const cb of wrap.querySelectorAll('input[type="checkbox"]')) {
+          if (initialIds.some((n) => String(n) === String(cb.value))) cb.checked = true;
+        }
+      }
+    } catch {}
+    // Build config UI based on type
+    buildModuleConfigUI(initialType, existing);
+    // Handle type change
+    try {
+      els.moduleType?.addEventListener('change', () => buildModuleConfigUI(els.moduleType.value || '', null));
+    } catch {}
     if (els.moduleModal) els.moduleModal.style.display = 'flex';
   }
   function closeModuleModal() { if (els.moduleModal) els.moduleModal.style.display = 'none'; }
+  // Add buttons
   els.btnAddModule?.addEventListener('click', () => openModuleModal('dashboard'));
   els.btnAddDayModule?.addEventListener('click', () => openModuleModal('day'));
   els.btnAddMonthModule?.addEventListener('click', () => openModuleModal('month'));
+  // Edit buttons (delegated)
+  try {
+    els.dashboardGrid?.addEventListener('click', (e) => {
+      const b = e.target.closest('.btn-edit-module');
+      if (!b) return;
+      const id = b.dataset.id; if (!id) return;
+      openModuleModal('dashboard', id);
+    });
+  } catch {}
+  try {
+    els.dayDashboardGrid?.addEventListener('click', (e) => {
+      const b = e.target.closest('.btn-edit-module');
+      if (!b) return;
+      const id = b.dataset.id; if (!id) return;
+      openModuleModal('day', id);
+    });
+  } catch {}
+  try {
+    els.monthDashboardGrid?.addEventListener('click', (e) => {
+      const b = e.target.closest('.btn-edit-module');
+      if (!b) return;
+      const id = b.dataset.id; if (!id) return;
+      openModuleModal('month', id);
+    });
+  } catch {}
+  // Close/cancel
   els.moduleClose?.addEventListener('click', closeModuleModal);
   els.moduleCancel?.addEventListener('click', closeModuleModal);
+  // Submit
   els.moduleForm?.addEventListener('submit', (e) => {
     e.preventDefault();
     const type = els.moduleType?.value || 'timeline';
@@ -477,21 +570,47 @@ const attachEvents = () => {
     const ids = Array.from(els.moduleScheduleList?.querySelectorAll('input[type="checkbox"]') || [])
       .filter((c) => c.checked)
       .map((c) => Number(c.value));
-    const mod = { id: 'm' + Math.random().toString(36).slice(2, 9), type, title: title || undefined, scheduleIds: ids };
-    const tgt = state.moduleTargetView || 'dashboard';
-    if (tgt === 'day') {
-      state.dayModules = Array.isArray(state.dayModules) ? [...state.dayModules, mod] : [mod];
-      try { localStorage.setItem('modules.day.v1', JSON.stringify(state.dayModules)); } catch {}
-      ui.renderAll?.();
-    } else if (tgt === 'month') {
-      state.monthModules = Array.isArray(state.monthModules) ? [...state.monthModules, mod] : [mod];
-      try { localStorage.setItem('modules.month.v1', JSON.stringify(state.monthModules)); } catch {}
-      ui.updateViewMode?.();
-    } else {
-      state.dashboardModules = Array.isArray(state.dashboardModules) ? [...state.dashboardModules, mod] : [mod];
-      try { localStorage.setItem('dashboard.modules.v1', JSON.stringify(state.dashboardModules)); } catch {}
-      ui.renderDashboard?.();
+    // Gather config by type
+    let config = undefined;
+    if (type === 'entries') {
+      const inp = document.getElementById('moduleEntriesLimit');
+      const val = inp ? Number(inp.value) : NaN;
+      const limit = Number.isFinite(val) && val > 0 ? Math.floor(val) : null;
+      if (limit) config = { limit };
     }
+    const tgt = (els.moduleForm?.dataset?.targetView) || (state.moduleTargetView || 'dashboard');
+    const editingId = els.moduleForm?.dataset?.editingId || null;
+    if (editingId) {
+      // Update existing
+      const arrName = (tgt === 'day') ? 'dayModules' : (tgt === 'month') ? 'monthModules' : 'dashboardModules';
+      const arr = Array.isArray(state[arrName]) ? state[arrName] : [];
+      const idx = arr.findIndex((m) => String(m?.id) === String(editingId));
+      if (idx !== -1) {
+        const prev = arr[idx];
+        arr[idx] = { ...prev, type, title: title || undefined, scheduleIds: ids, config };
+        state[arrName] = arr;
+        try {
+          const key = (tgt === 'day') ? 'modules.day.v1' : (tgt === 'month') ? 'modules.month.v1' : 'dashboard.modules.v1';
+          localStorage.setItem(key, JSON.stringify(arr));
+        } catch {}
+      }
+    } else {
+      const mod = { id: 'm' + Math.random().toString(36).slice(2, 9), type, title: title || undefined, scheduleIds: ids, config };
+      if (tgt === 'day') {
+        state.dayModules = Array.isArray(state.dayModules) ? [...state.dayModules, mod] : [mod];
+        try { localStorage.setItem('modules.day.v1', JSON.stringify(state.dayModules)); } catch {}
+      } else if (tgt === 'month') {
+        state.monthModules = Array.isArray(state.monthModules) ? [...state.monthModules, mod] : [mod];
+        try { localStorage.setItem('modules.month.v1', JSON.stringify(state.monthModules)); } catch {}
+      } else {
+        state.dashboardModules = Array.isArray(state.dashboardModules) ? [...state.dashboardModules, mod] : [mod];
+        try { localStorage.setItem('dashboard.modules.v1', JSON.stringify(state.dashboardModules)); } catch {}
+      }
+    }
+    // Refresh view
+    if (tgt === 'day') ui.renderAll?.();
+    else if (tgt === 'month') ui.updateViewMode?.();
+    else ui.renderDashboard?.();
     closeModuleModal();
   });
 
