@@ -6507,6 +6507,9 @@
     // Schedule in edit modal
     scheduleField: byId("scheduleField"),
     scheduleList: byId("scheduleList"),
+    scheduleCombo: byId("scheduleCombo"),
+    scheduleToggle: byId("scheduleToggle"),
+    scheduleMenu: byId("scheduleMenu"),
     // Note modal
     noteModal: byId("noteModal"),
     noteModalTitle: document.getElementById("noteModalTitle"),
@@ -7387,6 +7390,73 @@
     }
     return quillBucket;
   }
+  var quillEditPunch = null;
+  var quillEditBucket = null;
+  function ensureEditQuills() {
+    try {
+      if (!quillEditPunch && window.Quill && els.noteField) {
+        try {
+          els.noteField.style.display = "none";
+        } catch (e) {
+        }
+        let host = document.getElementById("modalNoteEditor");
+        if (!host) {
+          host = document.createElement("div");
+          host.id = "modalNoteEditor";
+          host.className = "rich-editor";
+          try {
+            els.noteField.insertAdjacentElement("afterend", host);
+          } catch (e) {
+            document.body.appendChild(host);
+          }
+        }
+        quillEditPunch = host.__quill || new window.Quill(host, {
+          theme: "snow",
+          modules: {
+            toolbar: [
+              ["bold", "italic", "underline"],
+              [{ list: "ordered" }, { list: "bullet" }],
+              ["link", "code-block"],
+              [{ header: [2, 3, false] }]
+            ]
+          }
+        });
+      }
+    } catch (e) {
+    }
+    try {
+      if (!quillEditBucket && window.Quill && els.bucketNoteField) {
+        try {
+          els.bucketNoteField.style.display = "none";
+        } catch (e) {
+        }
+        let hostB = document.getElementById("modalBucketNoteEditor");
+        if (!hostB) {
+          hostB = document.createElement("div");
+          hostB.id = "modalBucketNoteEditor";
+          hostB.className = "rich-editor";
+          try {
+            els.bucketNoteField.insertAdjacentElement("afterend", hostB);
+          } catch (e) {
+            document.body.appendChild(hostB);
+          }
+        }
+        quillEditBucket = hostB.__quill || new window.Quill(hostB, {
+          theme: "snow",
+          modules: {
+            toolbar: [
+              ["bold", "italic", "underline"],
+              [{ list: "ordered" }, { list: "bullet" }],
+              ["link", "code-block"],
+              [{ header: [2, 3, false] }]
+            ]
+          }
+        });
+      }
+    } catch (e) {
+    }
+    return { quillEditPunch, quillEditBucket };
+  }
   function openNoteModal(id) {
     const p = state.punches.find((x) => x.id === id);
     if (!p) return;
@@ -8048,19 +8118,38 @@
     els.bucketField.value = "";
     els.noteField.value = "";
     try {
+      const { quillEditPunch: quillEditPunch2, quillEditBucket: quillEditBucket2 } = ensureEditQuills();
+      if (quillEditPunch2) {
+        try {
+          quillEditPunch2.setContents([]);
+        } catch (e) {
+        }
+      }
+      if (quillEditBucket2) {
+        try {
+          quillEditBucket2.setContents([]);
+        } catch (e) {
+        }
+      }
+    } catch (e) {
+    }
+    try {
       const curId = state.currentScheduleId != null ? Number(state.currentScheduleId) : (_c = (_b = (_a = state.schedules) == null ? void 0 : _a[0]) == null ? void 0 : _b.id) != null ? _c : null;
       const cur = (state.schedules || []).find((s) => Number(s.id) === Number(curId));
       if (els.scheduleField) els.scheduleField.value = (cur == null ? void 0 : cur.name) || "";
     } catch (e) {
     }
     try {
-      const list = els.scheduleList;
-      if (list) {
-        list.innerHTML = "";
+      const menu = els.scheduleMenu;
+      if (menu) {
+        menu.innerHTML = "";
         for (const s of state.schedules || []) {
-          const opt = document.createElement("option");
-          opt.value = String(s.name || `Schedule ${s.id}`);
-          list.appendChild(opt);
+          const item = document.createElement("div");
+          item.className = "dropdown-item";
+          const name = String(s.name || `Schedule ${s.id}`);
+          item.textContent = name;
+          item.dataset.value = name;
+          menu.appendChild(item);
         }
       }
     } catch (e) {
@@ -9854,7 +9943,26 @@
         text = rec && rec.note || "";
       } catch (e) {
       }
-      els.bucketNoteField.value = text;
+      try {
+        const host = document.getElementById("modalBucketNoteEditor");
+        const q = host && host.__quill ? host.__quill : null;
+        if (q && q.root) {
+          const html = mdToHtml(text || "");
+          try {
+            q.setContents([]);
+          } catch (e) {
+          }
+          try {
+            q.clipboard.dangerouslyPasteHTML(html || "");
+          } catch (e) {
+            q.root.innerHTML = html || "";
+          }
+        } else {
+          els.bucketNoteField.value = text;
+        }
+      } catch (e) {
+        els.bucketNoteField.value = text;
+      }
       try {
         els.bucketNoteField.style.height = "auto";
         const h = Math.max(72, Math.min(320, els.bucketNoteField.scrollHeight || 72));
@@ -9975,9 +10083,18 @@
       start: s,
       end: eMin,
       bucket: els.bucketField.value.trim(),
-      note: (((_b = els.noteField) == null ? void 0 : _b.value) || "").trim(),
+      note: (() => {
+        var _a2;
+        try {
+          const host = document.getElementById("modalNoteEditor");
+          const q = host && host.__quill ? host.__quill : null;
+          if (q && q.root) return String(q.root.innerHTML || "");
+        } catch (e2) {
+        }
+        return (((_a2 = els.noteField) == null ? void 0 : _a2.value) || "").trim();
+      })(),
       date: state.currentDate || todayStr(),
-      scheduleId: scheduleId != null ? scheduleId : state.currentScheduleId != null ? state.currentScheduleId : (_e = (_d = (_c = state.schedules) == null ? void 0 : _c[0]) == null ? void 0 : _d.id) != null ? _e : null,
+      scheduleId: scheduleId != null ? scheduleId : state.currentScheduleId != null ? state.currentScheduleId : (_d = (_c = (_b = state.schedules) == null ? void 0 : _b[0]) == null ? void 0 : _c.id) != null ? _d : null,
       status: (() => {
         var _a2;
         const val = ((_a2 = els.modalStatusBtn) == null ? void 0 : _a2.dataset.value) || "default";
@@ -9986,7 +10103,15 @@
     };
     try {
       const bname = payload.bucket;
-      const bnote = String(((_f = els.bucketNoteField) == null ? void 0 : _f.value) || "").trim();
+      let bnote = "";
+      try {
+        const host = document.getElementById("modalBucketNoteEditor");
+        const qb = host && host.__quill ? host.__quill : null;
+        if (qb && qb.root) bnote = String(qb.root.innerHTML || "");
+        else bnote = String(((_e = els.bucketNoteField) == null ? void 0 : _e.value) || "").trim();
+      } catch (e2) {
+        bnote = String(((_f = els.bucketNoteField) == null ? void 0 : _f.value) || "").trim();
+      }
       if (bname != null) await idb.setBucketNote(bname, bnote);
     } catch (e2) {
     }
@@ -10461,6 +10586,22 @@
         els.bucketField.value = p.bucket || "";
         els.noteField.value = p.note || "";
         try {
+          const host = document.getElementById("modalNoteEditor");
+          const q = host && host.__quill ? host.__quill : null;
+          if (q && q.root) {
+            try {
+              q.setContents([]);
+            } catch (e2) {
+            }
+            try {
+              q.clipboard.dangerouslyPasteHTML(String(p.note || ""));
+            } catch (e2) {
+              q.root.innerHTML = String(p.note || "");
+            }
+          }
+        } catch (e2) {
+        }
+        try {
           fillScheduleDatalist();
         } catch (e2) {
         }
@@ -10726,6 +10867,73 @@
     els.modalForm.addEventListener("submit", saveNewFromModal);
     els.modalCancel.addEventListener("click", closeModal2);
     els.modalClose.addEventListener("click", closeModal2);
+    try {
+      const combo = els.scheduleCombo;
+      const input = els.scheduleField;
+      const toggle = els.scheduleToggle;
+      const menu = els.scheduleMenu;
+      const closeMenu = () => {
+        try {
+          combo == null ? void 0 : combo.classList.remove("open");
+        } catch (e) {
+        }
+        ;
+      };
+      const openMenu = () => {
+        try {
+          if (menu) {
+            menu.innerHTML = "";
+            for (const s of state.schedules || []) {
+              const name = String(s.name || `Schedule ${s.id}`);
+              const item = document.createElement("div");
+              item.className = "dropdown-item";
+              item.textContent = name;
+              item.dataset.value = name;
+              menu.appendChild(item);
+            }
+          }
+          combo == null ? void 0 : combo.classList.add("open");
+        } catch (e) {
+        }
+      };
+      toggle == null ? void 0 : toggle.addEventListener("click", (e) => {
+        e.preventDefault();
+        combo == null ? void 0 : combo.classList.toggle("open");
+        if (combo == null ? void 0 : combo.classList.contains("open")) openMenu();
+      });
+      input == null ? void 0 : input.addEventListener("focus", () => openMenu());
+      input == null ? void 0 : input.addEventListener("input", () => {
+        var _a2;
+        const q = String(input.value || "").toLowerCase();
+        try {
+          (_a2 = menu == null ? void 0 : menu.querySelectorAll(".dropdown-item")) == null ? void 0 : _a2.forEach((it) => {
+            const visible = !q || String(it.dataset.value || "").toLowerCase().includes(q);
+            it.style.display = visible ? "" : "none";
+          });
+          combo == null ? void 0 : combo.classList.add("open");
+        } catch (e) {
+        }
+      });
+      menu == null ? void 0 : menu.addEventListener("click", (e) => {
+        const it = e.target.closest(".dropdown-item");
+        if (!it) return;
+        try {
+          input.value = String(it.dataset.value || "");
+        } catch (e2) {
+        }
+        closeMenu();
+        try {
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        } catch (e2) {
+        }
+      });
+      document.addEventListener("click", (e) => {
+        if (!combo) return;
+        if (e.target === input || e.target === toggle || e.target.closest("#scheduleCombo")) return;
+        closeMenu();
+      });
+    } catch (e) {
+    }
     const coerceRange = () => {
       var _a2, _b2;
       try {

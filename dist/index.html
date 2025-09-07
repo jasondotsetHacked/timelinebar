@@ -203,8 +203,11 @@
           <div class="row">
             <div>
               <label>Schedule</label>
-              <input type="text" id="scheduleField" list="scheduleList" placeholder="Type or select a schedule" />
-              <datalist id="scheduleList"></datalist>
+              <div class="dropdown" id="scheduleCombo">
+                <input type="text" id="scheduleField" class="dropdown-input" placeholder="Type or select a schedule" autocomplete="off" />
+                <button type="button" id="scheduleToggle" class="dropdown-toggle" aria-label="Open schedule list">▾</button>
+                <div class="dropdown-menu" id="scheduleMenu" role="listbox" aria-label="Schedules"></div>
+              </div>
               <div class="subtle">Type a new name to create a schedule</div>
             </div>
           </div>

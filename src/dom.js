@@ -37,6 +37,9 @@ export const els = {
   // Schedule in edit modal
   scheduleField: byId('scheduleField'),
   scheduleList: byId('scheduleList'),
+  scheduleCombo: byId('scheduleCombo'),
+  scheduleToggle: byId('scheduleToggle'),
+  scheduleMenu: byId('scheduleMenu'),
   // Note modal
   noteModal: byId('noteModal'),
   noteModalTitle: document.getElementById('noteModalTitle'),

@@ -40,7 +40,18 @@ async function loadBucketNoteIntoEditor(name) {
       const rec = await idb.getBucket(key);
       text = (rec && rec.note) || '';
     } catch {}
-    els.bucketNoteField.value = text;
+    // Prefer edit-modal Quill if present
+    try {
+      const host = document.getElementById('modalBucketNoteEditor');
+      const q = host && host.__quill ? host.__quill : null;
+      if (q && q.root) {
+        const html = mdToHtml(text || '');
+        try { q.setContents([]); } catch {}
+        try { q.clipboard.dangerouslyPasteHTML(html || ''); } catch { q.root.innerHTML = html || ''; }
+      } else {
+        els.bucketNoteField.value = text;
+      }
+    } catch { els.bucketNoteField.value = text; }
     try {
       els.bucketNoteField.style.height = 'auto';
       const h = Math.max(72, Math.min(320, els.bucketNoteField.scrollHeight || 72));
@@ -168,7 +179,14 @@ const saveNewFromModal = async (e) => {
     start: s,
     end: eMin,
     bucket: els.bucketField.value.trim(),
-    note: (els.noteField?.value || '').trim(),
+    note: (() => {
+      try {
+        const host = document.getElementById('modalNoteEditor');
+        const q = host && host.__quill ? host.__quill : null;
+        if (q && q.root) return String(q.root.innerHTML || '');
+      } catch {}
+      return (els.noteField?.value || '').trim();
+    })(),
     date: state.currentDate || todayStr(),
     scheduleId: (scheduleId != null
       ? scheduleId
@@ -181,7 +199,13 @@ const saveNewFromModal = async (e) => {
   // Upsert bucket persistent note
   try {
     const bname = payload.bucket;
-    const bnote = String(els.bucketNoteField?.value || '').trim();
+    let bnote = '';
+    try {
+      const host = document.getElementById('modalBucketNoteEditor');
+      const qb = host && host.__quill ? host.__quill : null;
+      if (qb && qb.root) bnote = String(qb.root.innerHTML || '');
+      else bnote = String(els.bucketNoteField?.value || '').trim();
+    } catch { bnote = String(els.bucketNoteField?.value || '').trim(); }
     if (bname != null) await idb.setBucketNote(bname, bnote);
   } catch {}
   const rec = readRecurrenceFromUI();
@@ -556,6 +580,15 @@ const attachEvents = () => {
       els.endField.value = time.toLabel(p.end);
       els.bucketField.value = p.bucket || '';
       els.noteField.value = p.note || '';
+      // Also reflect into edit-modal Quill if present
+      try {
+        const host = document.getElementById('modalNoteEditor');
+        const q = host && host.__quill ? host.__quill : null;
+        if (q && q.root) {
+          try { q.setContents([]); } catch {}
+          try { q.clipboard.dangerouslyPasteHTML(String(p.note || '')); } catch { q.root.innerHTML = String(p.note || ''); }
+        }
+      } catch {}
       // Schedule field + datalist
       try { fillScheduleDatalist(); } catch {}
       try {
@@ -809,6 +842,55 @@ const attachEvents = () => {
   els.modalForm.addEventListener('submit', saveNewFromModal);
   els.modalCancel.addEventListener('click', closeModal);
   els.modalClose.addEventListener('click', closeModal);
+  // Schedule combobox interactions
+  try {
+    const combo = els.scheduleCombo;
+    const input = els.scheduleField;
+    const toggle = els.scheduleToggle;
+    const menu = els.scheduleMenu;
+    const closeMenu = () => { try { combo?.classList.remove('open'); } catch {}; };
+    const openMenu = () => {
+      try {
+        // refresh items from state.schedules
+        if (menu) {
+          menu.innerHTML = '';
+          for (const s of state.schedules || []) {
+            const name = String(s.name || `Schedule ${s.id}`);
+            const item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.textContent = name;
+            item.dataset.value = name;
+            menu.appendChild(item);
+          }
+        }
+        combo?.classList.add('open');
+      } catch {}
+    };
+    toggle?.addEventListener('click', (e) => { e.preventDefault(); combo?.classList.toggle('open'); if (combo?.classList.contains('open')) openMenu(); });
+    input?.addEventListener('focus', () => openMenu());
+    input?.addEventListener('input', () => {
+      const q = String(input.value || '').toLowerCase();
+      try {
+        menu?.querySelectorAll('.dropdown-item')?.forEach((it) => {
+          const visible = !q || String(it.dataset.value || '').toLowerCase().includes(q);
+          it.style.display = visible ? '' : 'none';
+        });
+        combo?.classList.add('open');
+      } catch {}
+    });
+    menu?.addEventListener('click', (e) => {
+      const it = e.target.closest('.dropdown-item');
+      if (!it) return;
+      try { input.value = String(it.dataset.value || ''); } catch {}
+      closeMenu();
+      try { input.dispatchEvent(new Event('change', { bubbles: true })); } catch {}
+    });
+    document.addEventListener('click', (e) => {
+      if (!combo) return;
+      if (e.target === input || e.target === toggle || e.target.closest('#scheduleCombo')) return;
+      closeMenu();
+    });
+  } catch {}
   // Time fields: allow typing and parse on change/blur
   const coerceRange = () => {
     try {

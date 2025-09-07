@@ -181,6 +181,70 @@ function ensureBucketQuill() {
   return quillBucket;
 }
 
+// Edit modal Quill editors (punch + bucket notes)
+let quillEditPunch = null;
+let quillEditBucket = null;
+function ensureEditQuills() {
+  try {
+    // Punch note editor inside edit modal
+    if (!quillEditPunch && window.Quill && els.noteField) {
+      // hide textarea
+      try { els.noteField.style.display = 'none'; } catch {}
+      // create container if missing
+      let host = document.getElementById('modalNoteEditor');
+      if (!host) {
+        host = document.createElement('div');
+        host.id = 'modalNoteEditor';
+        host.className = 'rich-editor';
+        // insert after the textarea
+        try { els.noteField.insertAdjacentElement('afterend', host); } catch { document.body.appendChild(host); }
+      }
+      quillEditPunch = host.__quill || new window.Quill(host, {
+        theme: 'snow',
+        modules: {
+          toolbar: [
+            ['bold', 'italic', 'underline'],
+            [{ list: 'ordered' }, { list: 'bullet' }],
+            ['link', 'code-block'],
+            [{ header: [2, 3, false] }]
+          ],
+        },
+      });
+      // Hide legacy preview controls when rich editor is present
+      try { if (els.notePreview) els.notePreview.style.display = 'none'; } catch {}
+      try { if (els.notePreviewToggle) els.notePreviewToggle.style.display = 'none'; } catch {}
+    }
+  } catch {}
+  try {
+    // Bucket persistent note editor inside edit modal
+    if (!quillEditBucket && window.Quill && els.bucketNoteField) {
+      try { els.bucketNoteField.style.display = 'none'; } catch {}
+      let hostB = document.getElementById('modalBucketNoteEditor');
+      if (!hostB) {
+        hostB = document.createElement('div');
+        hostB.id = 'modalBucketNoteEditor';
+        hostB.className = 'rich-editor';
+        try { els.bucketNoteField.insertAdjacentElement('afterend', hostB); } catch { document.body.appendChild(hostB); }
+      }
+      quillEditBucket = hostB.__quill || new window.Quill(hostB, {
+        theme: 'snow',
+        modules: {
+          toolbar: [
+            ['bold', 'italic', 'underline'],
+            [{ list: 'ordered' }, { list: 'bullet' }],
+            ['link', 'code-block'],
+            [{ header: [2, 3, false] }]
+          ],
+        },
+      });
+      // Hide legacy preview controls when rich editor is present
+      try { if (els.bucketNotePreview) els.bucketNotePreview.style.display = 'none'; } catch {}
+      try { if (els.bucketNotePreviewToggle) els.bucketNotePreviewToggle.style.display = 'none'; } catch {}
+    }
+  } catch {}
+  return { quillEditPunch, quillEditBucket };
+}
+
 function openNoteModal(id) {
   const p = state.punches.find((x) => x.id === id);
   if (!p) return;
@@ -847,21 +911,30 @@ function openModal(range) {
   els.endField.value = time.toLabel(range.endMin);
   els.bucketField.value = '';
   els.noteField.value = '';
+  // Initialize Quill editors in edit modal and clear content
+  try {
+    const { quillEditPunch, quillEditBucket } = ensureEditQuills();
+    if (quillEditPunch) { try { quillEditPunch.setContents([]); } catch {} }
+    if (quillEditBucket) { try { quillEditBucket.setContents([]); } catch {} }
+  } catch {}
   // Default schedule for new block
   try {
     const curId = (state.currentScheduleId != null) ? Number(state.currentScheduleId) : (state.schedules?.[0]?.id ?? null);
     const cur = (state.schedules || []).find((s) => Number(s.id) === Number(curId));
     if (els.scheduleField) els.scheduleField.value = cur?.name || '';
   } catch {}
-  // Populate schedule datalist
+  // Populate schedule dropdown menu
   try {
-    const list = els.scheduleList;
-    if (list) {
-      list.innerHTML = '';
+    const menu = els.scheduleMenu;
+    if (menu) {
+      menu.innerHTML = '';
       for (const s of state.schedules || []) {
-        const opt = document.createElement('option');
-        opt.value = String(s.name || `Schedule ${s.id}`);
-        list.appendChild(opt);
+        const item = document.createElement('div');
+        item.className = 'dropdown-item';
+        const name = String(s.name || `Schedule ${s.id}`);
+        item.textContent = name;
+        item.dataset.value = name;
+        menu.appendChild(item);
       }
     }
   } catch {}
