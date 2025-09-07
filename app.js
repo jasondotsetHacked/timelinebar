@@ -19,6 +19,20 @@ async function init() {
     schedules = await schedulesDb.allSchedules();
   }
   state.schedules = schedules;
+  // Runtime diagnostics: detect duplicate schedule names
+  try {
+    const seen = new Map();
+    for (const s of schedules || []) {
+      const n = String(s?.name || '');
+      if (!seen.has(n)) seen.set(n, []);
+      seen.get(n).push(s.id);
+    }
+    const dups = Array.from(seen.entries()).filter(([, ids]) => (ids || []).length > 1);
+    if (dups.length) {
+      const details = dups.map(([n, ids]) => `${n}: [${ids.join(', ')}]`).join(' | ');
+      console.error(new Error(`SchemaError: Duplicate schedule names found — ${details}`));
+    }
+  } catch {}
   // Choose current schedule: last used from localStorage or first
   const rawSched = (typeof localStorage !== 'undefined') ? localStorage.getItem('currentScheduleId') : null;
   const savedSchedId = (rawSched === null || rawSched === '') ? null : Number(rawSched);

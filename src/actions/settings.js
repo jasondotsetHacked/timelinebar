@@ -3,6 +3,7 @@ import { idb, schedulesDb } from '../storage.js';
 import { state } from '../state.js';
 import { ui } from '../ui.js';
 import { todayStr } from '../dates.js';
+import { assertSchedule } from '../validate.js';
 
 function applyTheme(theme) {
   const t = theme === 'light' ? 'light' : 'neon';
@@ -199,11 +200,37 @@ function attach() {
   function hideDeleteConfirm() { try { if (els.settingsDeleteConfirm) els.settingsDeleteConfirm.style.display = 'none'; } catch {} }
   function showDeleteConfirm(text) { try { if (els.settingsDeleteConfirm) els.settingsDeleteConfirm.style.display = ''; if (els.settingsDeleteConfirmText) els.settingsDeleteConfirmText.textContent = text || 'Confirm delete?'; } catch {} }
 
+  function nameExists(raw, excludeId = null) {
+    const name = String(raw || '').trim();
+    return (state.schedules || []).some((s) => s && String(s.name) === name && (excludeId == null || Number(s.id) !== Number(excludeId)));
+  }
+
   els.settingsAddSched?.addEventListener('click', async () => {
     hideDeleteConfirm();
     const raw = String(els.settingsSchedName?.value || '').trim();
     if (!raw) { showMsg('Enter a name to add a schedule.'); return; }
-    await schedulesDb.addSchedule({ name: raw });
+    try {
+      assertSchedule({ name: raw });
+    } catch (err) {
+      console.error(err);
+      showMsg('Invalid name. Please enter 1–200 characters.');
+      return;
+    }
+    if (nameExists(raw)) {
+      const err = new Error('ConstraintError: schedule name must be unique');
+      err.name = 'ConstraintError';
+      console.error(err);
+      showMsg('Name already exists. Choose a different name.');
+      return;
+    }
+    try {
+      await schedulesDb.addSchedule({ name: raw });
+    } catch (err) {
+      // Surface DB-like errors (e.g., if a unique constraint is added later)
+      console.error(err);
+      showMsg('Could not add schedule: ' + (err?.message || 'Database error'));
+      return;
+    }
     state.schedules = await schedulesDb.allSchedules();
     state.currentScheduleId = state.schedules[state.schedules.length - 1]?.id ?? state.currentScheduleId;
     try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId ?? '')); } catch {}
@@ -220,7 +247,27 @@ function attach() {
     if (!cur) { showMsg('Select a schedule to rename.'); return; }
     const raw = String(els.settingsSchedName?.value || '').trim();
     if (!raw) { showMsg('Enter a new name to rename.'); return; }
-    await schedulesDb.putSchedule({ ...cur, name: raw });
+    try {
+      assertSchedule({ name: raw });
+    } catch (err) {
+      console.error(err);
+      showMsg('Invalid name. Please enter 1–200 characters.');
+      return;
+    }
+    if (nameExists(raw, id)) {
+      const err = new Error('ConstraintError: schedule name must be unique');
+      err.name = 'ConstraintError';
+      console.error(err);
+      showMsg('Name already exists. Choose a different name.');
+      return;
+    }
+    try {
+      await schedulesDb.putSchedule({ ...cur, name: raw });
+    } catch (err) {
+      console.error(err);
+      showMsg('Could not rename: ' + (err?.message || 'Database error'));
+      return;
+    }
     state.schedules = await schedulesDb.allSchedules();
     ui.renderScheduleSelect?.();
     renderSettingsSchedules();
