@@ -11432,11 +11432,8 @@
       if (punch) {
         const id = Number(punch.dataset.id);
         if (!id) return;
-        const p = state.punches.find((x) => x.id === id);
-        if (p == null ? void 0 : p.note) {
-          (_d2 = (_c2 = ui).openNoteModal) == null ? void 0 : _d2.call(_c2, id);
-          e.stopPropagation();
-        }
+        (_d2 = (_c2 = ui).openNoteModal) == null ? void 0 : _d2.call(_c2, id);
+        e.stopPropagation();
       }
     });
     (_H = els.bucketViewBody) == null ? void 0 : _H.addEventListener("click", (e) => {

@@ -1291,11 +1291,8 @@ const attachEvents = () => {
     if (punch) {
       const id = Number(punch.dataset.id);
       if (!id) return;
-      const p = state.punches.find((x) => x.id === id);
-      if (p?.note) {
-        ui.openNoteModal?.(id);
-        e.stopPropagation();
-      }
+      ui.openNoteModal?.(id);
+      e.stopPropagation();
     }
   });
 
