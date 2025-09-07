@@ -201,7 +201,7 @@ select { cursor: pointer; }
 .punch-label { font-weight: 600; font-size: 18px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 8px; color: var(--text); text-shadow: none; margin: 0; flex: 1; }
 
 /* small indicator for notes inside a punch */
-.punch .note-dot { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%; background: #ffd046; box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 0 6px rgba(255,208,70,.6); border: 0; cursor: pointer; padding: 0; display: inline-block; z-index: 40; }
+.punch .note-dot { position: absolute; top: 4px; right: 4px; width: 16px; height: 16px; border-radius: 50%; background: #ffd046; box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 0 6px rgba(255,208,70,.6); border: 0; cursor: pointer; padding: 0; display: inline-block; z-index: 40; }
 .punch .note-dot:hover { filter: brightness(1.1); }
 
 /* schedule chip (top-left) that switches the current schedule on click */
