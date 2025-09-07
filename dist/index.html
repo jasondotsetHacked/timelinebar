@@ -383,9 +383,25 @@
             <div style="display:grid; gap:10px;">
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <select id="settingsSchedList" title="Schedules" style="min-width:220px;"></select>
-                <button id="settingsAddSched" class="btn">Add</button>
-                <button id="settingsRenameSched" class="btn ghost">Rename</button>
-                <button id="settingsDeleteSched" class="btn danger">Delete</button>
+                <button id="settingsAddSched" class="btn" title="Add a new schedule with the name below">Add</button>
+                <button id="settingsRenameSched" class="btn ghost" title="Rename the selected schedule to the name below">Rename</button>
+                <button id="settingsDeleteSched" class="btn danger" title="Delete the selected schedule">Delete</button>
+              </div>
+              <div style="display:grid; grid-template-columns: 1fr; gap:8px;">
+                <div>
+                  <label>Name</label>
+                  <input id="settingsSchedName" type="text" placeholder="Schedule name" />
+                </div>
+                <div id="settingsDeleteConfirm" style="display:none; padding:8px; border:1px solid rgba(255,255,255,0.15); border-radius:8px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                    <div id="settingsDeleteConfirmText">Confirm delete?</div>
+                    <div style="display:flex; gap:8px;">
+                      <button id="settingsDeleteYes" class="btn danger">Confirm Delete</button>
+                      <button id="settingsDeleteNo" class="btn ghost">Cancel</button>
+                    </div>
+                  </div>
+                </div>
+                <div id="settingsSchedMsg" class="subtle" aria-live="polite"></div>
               </div>
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                 <div>
