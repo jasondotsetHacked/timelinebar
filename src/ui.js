@@ -353,6 +353,28 @@ function renderTimeline() {
     label.textContent = p.bucket || '(no bucket)';
     label.dataset.id = p.id;
 
+    // Schedule chip (top-left) to jump to that schedule's view
+    try {
+      const sched = (state.schedules || []).find((s) => Number(s.id) === Number(p.scheduleId));
+      const schedName = sched?.name || (p.scheduleId != null ? `Schedule ${p.scheduleId}` : 'Schedule');
+      const chip = document.createElement('button');
+      chip.className = 'schedule-chip';
+      chip.type = 'button';
+      chip.title = `Switch to schedule: ${schedName}`;
+      chip.textContent = schedName;
+      chip.addEventListener('click', (ev) => {
+        ev.preventDefault(); ev.stopPropagation();
+        const sid = Number(p.scheduleId);
+        if (!Number.isFinite(sid)) return;
+        state.currentScheduleId = sid;
+        try { localStorage.setItem('currentScheduleId', String(sid)); } catch {}
+        try { if (els.scheduleSelect) els.scheduleSelect.value = String(sid); } catch {}
+        try { renderScheduleSelect?.(); } catch {}
+        try { renderAll?.(); } catch {}
+      });
+      el.appendChild(chip);
+    } catch {}
+
     const rightHandle = document.createElement('div');
     rightHandle.className = 'handle right';
     rightHandle.dataset.edge = 'right';

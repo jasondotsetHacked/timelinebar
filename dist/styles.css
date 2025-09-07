@@ -154,6 +154,36 @@ body::after {
 .punch .note-dot { position: absolute; top: 4px; right: 4px; width: 10px; height: 10px; border-radius: 50%; background: #ffd046; box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 0 6px rgba(255,208,70,.6); border: 0; cursor: pointer; padding: 0; display: inline-block; z-index: 40; }
 .punch .note-dot:hover { filter: brightness(1.1); }
 
+/* schedule chip (top-left) that switches the current schedule on click */
+.punch .schedule-chip {
+  position: absolute;
+  left: 6px;
+  top: 6px;
+  z-index: 50;
+  appearance: none;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(11,18,39,.35);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 2px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  max-width: 60%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.punch .schedule-chip:hover { filter: brightness(1.08); }
+.punch.narrow .schedule-chip { font-size: 10px; padding: 1px 4px; }
+
+:root[data-theme='light'] .punch .schedule-chip {
+  background: rgba(16,24,40,.08);
+  color: #0d1321;
+  border-color: rgba(16,24,40,.18);
+}
+
 /* handles are grid children (first and last column). They sit entirely inside the block and match the dark inner edge */
 .handle { position: absolute; top: 0; bottom: 0; width: 12px; display: block; cursor: ew-resize; background: transparent; z-index: 30; pointer-events: auto; }
 .handle.left { left: 0; }

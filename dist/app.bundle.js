@@ -7520,6 +7520,40 @@
       label.className = "punch-label";
       label.textContent = p.bucket || "(no bucket)";
       label.dataset.id = p.id;
+      try {
+        const sched = (state.schedules || []).find((s) => Number(s.id) === Number(p.scheduleId));
+        const schedName = (sched == null ? void 0 : sched.name) || (p.scheduleId != null ? `Schedule ${p.scheduleId}` : "Schedule");
+        const chip = document.createElement("button");
+        chip.className = "schedule-chip";
+        chip.type = "button";
+        chip.title = `Switch to schedule: ${schedName}`;
+        chip.textContent = schedName;
+        chip.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          const sid = Number(p.scheduleId);
+          if (!Number.isFinite(sid)) return;
+          state.currentScheduleId = sid;
+          try {
+            localStorage.setItem("currentScheduleId", String(sid));
+          } catch (e) {
+          }
+          try {
+            if (els.scheduleSelect) els.scheduleSelect.value = String(sid);
+          } catch (e) {
+          }
+          try {
+            renderScheduleSelect == null ? void 0 : renderScheduleSelect();
+          } catch (e) {
+          }
+          try {
+            renderAll == null ? void 0 : renderAll();
+          } catch (e) {
+          }
+        });
+        el.appendChild(chip);
+      } catch (e) {
+      }
       const rightHandle = document.createElement("div");
       rightHandle.className = "handle right";
       rightHandle.dataset.edge = "right";
