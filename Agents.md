@@ -3,6 +3,14 @@
 - **Purpose:** Provide a consistent, extensible workflow for agents to build, verify, diagnose, and propose fixes using a catalog of tools.
 - **Scope:** Defines tool interface, run flow, reporting format, and approval etiquette. Specific tools (build, console-check, etc.) plug into this framework.
 
+**Autonomy & Defaults**
+
+- **Default behavior first:** The agent’s native reasoning and judgment drive decisions.
+- **Tools are optional helpers:** Use them when they add confidence or speed; skip when they add friction.
+- **Never block on tools:** If a tool is flaky/noisy or not relevant, continue with standard debugging and explain the choice.
+- **Keep overhead low:** Plans and reports should be concise; avoid ceremony on simple tasks.
+- **Ask before big changes:** Seek approval for non-trivial or potentially disruptive edits.
+
 **Workflow**
 
 - **Plan:** Outline steps and checkpoints. Prefer small, verifiable increments.
@@ -36,6 +44,12 @@
   - Success: No console errors or page errors; exit 0. Warnings allowed but reported.
   - Failure: Any console error or page error; exit non‑zero and print details.
   - Notes: Uses `puppeteer`; network may be needed for CDN assets referenced by the page.
+
+**Tool Usage Policy**
+
+- **Use tools when:** Shipping checkpoints, major refactors, runtime-affecting edits, or reproducing user‑reported issues.
+- **Skip tools when:** Making trivial content/style tweaks or unrelated documentation changes.
+- **Fallback behavior:** If a tool fails unexpectedly, continue with manual investigation and note the failure.
 
 **Execution Flow Template**
 

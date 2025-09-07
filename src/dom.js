@@ -137,6 +137,12 @@ export const els = {
   settingsMoveEnd: byId('settingsMoveEnd'),
   settingsMoveBtn: byId('settingsMoveBtn'),
   settingsCustomizeDashboard: byId('settingsCustomizeDashboard'),
+  settingsSchedName: byId('settingsSchedName'),
+  settingsSchedMsg: byId('settingsSchedMsg'),
+  settingsDeleteConfirm: byId('settingsDeleteConfirm'),
+  settingsDeleteConfirmText: byId('settingsDeleteConfirmText'),
+  settingsDeleteYes: byId('settingsDeleteYes'),
+  settingsDeleteNo: byId('settingsDeleteNo'),
   // Schedules
   scheduleSelect: byId('scheduleSelect'),
   btnAddSchedule: byId('btnAddSchedule'),

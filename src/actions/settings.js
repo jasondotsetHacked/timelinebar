@@ -154,7 +154,7 @@ function attach() {
     applyTheme(saved);
   } catch {}
 
-  els.btnSettings?.addEventListener('click', openSettings);
+  els.btnSettings?.addEventListener('click', () => { try { renderSettingsSchedules(); } catch {}; openSettings(); });
   els.settingsClose?.addEventListener('click', closeSettings);
   els.settingsCancel?.addEventListener('click', closeSettings);
 
@@ -195,46 +195,72 @@ function attach() {
   }
   renderSettingsSchedules();
 
+  function showMsg(text) { try { if (els.settingsSchedMsg) { els.settingsSchedMsg.textContent = text || ''; } } catch {} }
+  function hideDeleteConfirm() { try { if (els.settingsDeleteConfirm) els.settingsDeleteConfirm.style.display = 'none'; } catch {} }
+  function showDeleteConfirm(text) { try { if (els.settingsDeleteConfirm) els.settingsDeleteConfirm.style.display = ''; if (els.settingsDeleteConfirmText) els.settingsDeleteConfirmText.textContent = text || 'Confirm delete?'; } catch {} }
+
   els.settingsAddSched?.addEventListener('click', async () => {
-    const name = prompt('New schedule name:', 'New Schedule');
-    if (!name) return;
-    await schedulesDb.addSchedule({ name: String(name).trim() });
+    hideDeleteConfirm();
+    const raw = String(els.settingsSchedName?.value || '').trim();
+    if (!raw) { showMsg('Enter a name to add a schedule.'); return; }
+    await schedulesDb.addSchedule({ name: raw });
     state.schedules = await schedulesDb.allSchedules();
     state.currentScheduleId = state.schedules[state.schedules.length - 1]?.id ?? state.currentScheduleId;
     try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId ?? '')); } catch {}
     ui.renderScheduleSelect?.();
     renderSettingsSchedules();
     ui.renderAll();
+    try { if (els.settingsSchedName) els.settingsSchedName.value = ''; } catch {}
+    showMsg('Added schedule.');
   });
   els.settingsRenameSched?.addEventListener('click', async () => {
+    hideDeleteConfirm();
     const id = Number(els.settingsSchedList?.value || '');
     const cur = (state.schedules || []).find((s) => Number(s.id) === id);
-    if (!cur) { alert('Select a schedule'); return; }
-    const name = prompt('Rename schedule:', cur.name || '');
-    if (!name) return;
-    await schedulesDb.putSchedule({ ...cur, name: String(name).trim() });
+    if (!cur) { showMsg('Select a schedule to rename.'); return; }
+    const raw = String(els.settingsSchedName?.value || '').trim();
+    if (!raw) { showMsg('Enter a new name to rename.'); return; }
+    await schedulesDb.putSchedule({ ...cur, name: raw });
     state.schedules = await schedulesDb.allSchedules();
     ui.renderScheduleSelect?.();
     renderSettingsSchedules();
+    showMsg('Renamed schedule.');
   });
   els.settingsDeleteSched?.addEventListener('click', async () => {
+    hideDeleteConfirm();
     const id = Number(els.settingsSchedList?.value || '');
-    if (!Number.isFinite(id)) { alert('Select a schedule'); return; }
     const list = state.schedules || [];
-    if (list.length <= 1) { alert('Cannot delete the only schedule.'); return; }
-    const used = state.punches.some((p) => Number(p.scheduleId) === id);
-    if (used) { alert('Schedule has entries. Delete or move entries first.'); return; }
     const cur = list.find((s) => Number(s.id) === id);
-    if (!confirm(`Delete schedule "${cur?.name || id}"?`)) return;
-    await schedulesDb.removeSchedule(id);
-    state.schedules = await schedulesDb.allSchedules();
-    if (Number(state.currentScheduleId) === id) {
-      state.currentScheduleId = state.schedules[0]?.id ?? null;
-      try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId ?? '')); } catch {}
-    }
-    ui.renderScheduleSelect?.();
-    renderSettingsSchedules();
-    ui.renderAll();
+    if (!cur) { showMsg('Select a schedule to delete.'); return; }
+    if (list.length <= 1) { showMsg('Cannot delete the only schedule.'); return; }
+    const used = state.punches.some((p) => Number(p.scheduleId) === id);
+    if (used) { showMsg('Schedule has entries. Move or delete entries first.'); return; }
+    showDeleteConfirm(`Delete schedule "${cur?.name || id}"?`);
+    const onYes = async () => {
+      try {
+        await schedulesDb.removeSchedule(id);
+        state.schedules = await schedulesDb.allSchedules();
+        if (Number(state.currentScheduleId) === id) {
+          state.currentScheduleId = state.schedules[0]?.id ?? null;
+          try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId ?? '')); } catch {}
+        }
+        ui.renderScheduleSelect?.();
+        renderSettingsSchedules();
+        ui.renderAll();
+        showMsg('Deleted schedule.');
+      } finally {
+        hideDeleteConfirm();
+        try { els.settingsDeleteYes?.removeEventListener('click', onYes); } catch {}
+        try { els.settingsDeleteNo?.removeEventListener('click', onNo); } catch {}
+      }
+    };
+    const onNo = () => {
+      hideDeleteConfirm();
+      try { els.settingsDeleteYes?.removeEventListener('click', onYes); } catch {}
+      try { els.settingsDeleteNo?.removeEventListener('click', onNo); } catch {}
+    };
+    els.settingsDeleteYes?.addEventListener('click', onYes);
+    els.settingsDeleteNo?.addEventListener('click', onNo);
   });
 
   els.settingsMoveBtn?.addEventListener('click', async () => {
@@ -242,7 +268,7 @@ function attach() {
     const toId = Number(els.settingsMoveTo?.value || '');
     const start = String(els.settingsMoveStart?.value || '').trim();
     const end = String(els.settingsMoveEnd?.value || '').trim();
-    if (!Number.isFinite(fromId) || !Number.isFinite(toId) || fromId === toId) { alert('Pick different source and destination schedules'); return; }
+    if (!Number.isFinite(fromId) || !Number.isFinite(toId) || fromId === toId) { showMsg('Pick different source and destination schedules.'); return; }
     // Filter punches by source and optional date range
     const inRange = (d) => {
       if (start && d < start) return false;
