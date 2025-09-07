@@ -1759,3 +1759,19 @@ a.bucket-link:visited { color: inherit; }
   padding: 6px 8px;
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
+
+/* Override Quill editor borders to remove white borders or set to black */
+.ql-container,
+.ql-toolbar,
+.ql-editor {
+  border: none !important;
+}
+
+/* If you prefer a black border instead, uncomment the following: */
+/*
+.ql-container,
+.ql-toolbar,
+.ql-editor {
+  border: 1px solid black !important;
+}
+*/
