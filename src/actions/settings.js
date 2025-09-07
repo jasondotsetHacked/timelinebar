@@ -1,9 +1,9 @@
 import { els } from '../dom.js';
-import { idb, schedulesDb } from '../storage.js';
+import { idb, schedulesDb, destroy as wipeDb } from '../storage.js';
 import { state } from '../state.js';
 import { ui } from '../ui.js';
 import { todayStr } from '../dates.js';
-import { assertSchedule } from '../validate.js';
+import { assertSchedule, validateBackup } from '../validate.js';
 
 function applyTheme(theme) {
   const t = theme === 'light' ? 'light' : 'neon';
@@ -18,14 +18,16 @@ async function exportData() {
   try {
     const punches = await idb.all();
     const buckets = await (idb.allBuckets?.() || Promise.resolve([]));
+    const schedules = await (schedulesDb.allSchedules?.() || Promise.resolve([]));
     const payload = {
       app: 'timelinebar',
       kind: 'time-tracker-backup',
-      version: 2,
+      version: 3,
       exportedAt: new Date().toISOString(),
       count: punches.length,
       punches,
       buckets,
+      schedules,
     };
     const json = JSON.stringify(payload, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
@@ -45,7 +47,7 @@ async function exportData() {
   }
 }
 
-function sanitizeItem(x) {
+function sanitizeItem(x, map = null, defaultScheduleId = null) {
   if (!x || typeof x !== 'object') return null;
   const start = Math.max(0, Math.min(1440, Math.floor(Number(x.start)))) || 0;
   const end = Math.max(0, Math.min(1440, Math.floor(Number(x.end)))) || 0;
@@ -60,6 +62,14 @@ function sanitizeItem(x) {
   const status = allowed.has(st) ? st : null;
   const recurrenceId = x.recurrenceId ? String(x.recurrenceId) : null;
   const seq = Number.isFinite(x.seq) ? Math.max(0, Math.floor(Number(x.seq))) : 0;
+  // schedule mapping
+  let scheduleId = null;
+  if (x.scheduleId != null && Number.isFinite(Number(x.scheduleId))) {
+    const sid = Number(x.scheduleId);
+    scheduleId = map && map.has(sid) ? Number(map.get(sid)) : (defaultScheduleId != null ? Number(defaultScheduleId) : null);
+  } else if (defaultScheduleId != null) {
+    scheduleId = Number(defaultScheduleId);
+  }
   const rec = (() => {
     const r = x.recurrence;
     if (!r || typeof r !== 'object') return null;
@@ -82,8 +92,10 @@ function sanitizeItem(x) {
     recurrenceId,
     recurrence: rec,
     seq,
+    scheduleId,
   };
 }
+
 
 async function importDataFromFile(file) {
   try {
@@ -95,20 +107,86 @@ async function importDataFromFile(file) {
       ui.toast('Invalid JSON');
       return;
     }
+    // Validate (non-fatal)
+    try {
+      const { valid, errors } = validateBackup(Array.isArray(data) ? { punches: data, version: 2 } : data);
+      if (!valid) console.warn('Backup validation warnings:', errors);
+    } catch {}
+
     let items = Array.isArray(data) ? data : (Array.isArray(data?.punches) ? data.punches : []);
     if (!Array.isArray(items) || items.length === 0) {
       ui.toast('No punches to import');
       // still try buckets, if present
     }
+    // Prepare schedules mapping
+    const existing = await (schedulesDb.allSchedules?.() || Promise.resolve([]));
+    const existingByName = new Map((existing || []).map((s) => [String(s.name || '').toLowerCase(), Number(s.id)]));
+    const map = new Map(); // oldId -> newId
+    let schedCreated = 0;
+    const importedSchedules = Array.isArray(data?.schedules) ? data.schedules : [];
+    if (importedSchedules.length) {
+      // v3: merge schedules by name
+      for (const s of importedSchedules) {
+        const rawName = String(s?.name || '').trim();
+        if (!rawName) continue;
+        try { assertSchedule({ name: rawName }); } catch { continue; }
+        const key = rawName.toLowerCase();
+        let newId = existingByName.get(key);
+        if (newId == null) {
+          try {
+            await schedulesDb.addSchedule({ name: rawName });
+            const latest = await schedulesDb.allSchedules();
+            newId = Number(latest[latest.length - 1]?.id);
+            existingByName.set(key, newId);
+            schedCreated++;
+          } catch {}
+        }
+        if (s?.id != null && newId != null) map.set(Number(s.id), Number(newId));
+      }
+    } else {
+      // v2: no schedules array; create placeholder schedules for distinct scheduleId values
+      const uniqueOldIds = new Set(
+        (items || []).map((p) => p && p.scheduleId).filter((v) => v != null && Number.isFinite(Number(v))).map((v) => Number(v))
+      );
+      for (const oldId of uniqueOldIds) {
+        const placeholder = `Imported #${oldId}`;
+        const key = placeholder.toLowerCase();
+        let newId = existingByName.get(key);
+        if (newId == null) {
+          try {
+            await schedulesDb.addSchedule({ name: placeholder });
+            const latest = await schedulesDb.allSchedules();
+            newId = Number(latest[latest.length - 1]?.id);
+            existingByName.set(key, newId);
+            schedCreated++;
+          } catch {}
+        }
+        if (newId != null) map.set(Number(oldId), Number(newId));
+      }
+    }
+
+    // Default schedule if nothing maps
+    const allSchedules = await schedulesDb.allSchedules();
+    const defaultScheduleId = allSchedules?.[0]?.id ?? null;
+
+    // Build duplicate detection set from existing punches
+    const existingPunches = await idb.all();
+    const makeKey = (p) => [p.date, p.start, p.end, p.bucket || '', p.note || '', p.scheduleId == null ? '' : p.scheduleId].join('|');
+    const seen = new Set((existingPunches || []).map(makeKey));
+
     let added = 0;
     if (Array.isArray(items) && items.length) {
       for (const it of items) {
-        const clean = sanitizeItem(it);
+        const clean = sanitizeItem(it, map, defaultScheduleId);
         if (!clean) continue;
+        const key = makeKey(clean);
+        if (seen.has(key)) continue; // skip duplicates
         await idb.add(clean);
+        seen.add(key);
         added++;
       }
     }
+
     // Buckets
     const bks = Array.isArray(data?.buckets) ? data.buckets : [];
     let bAdded = 0;
@@ -117,10 +195,16 @@ async function importDataFromFile(file) {
       const note = (b?.note ?? '').toString();
       if (name != null) { try { await idb.setBucketNote(name, note); bAdded++; } catch {} }
     }
+
     state.punches = await idb.all();
+    try { state.schedules = await schedulesDb.allSchedules(); } catch {}
+    ui.renderScheduleSelect?.();
     ui.renderAll();
-    const msg = `Imported ${added} entr${added === 1 ? 'y' : 'ies'}${bAdded ? `, ${bAdded} bucket note${bAdded===1?'':'s'}` : ''}`;
-    ui.toast(msg);
+    const parts = [];
+    parts.push(`Imported ${added} entr${added === 1 ? 'y' : 'ies'}`);
+    if (bAdded) parts.push(`${bAdded} bucket note${bAdded===1?'':'s'}`);
+    if (schedCreated) parts.push(`${schedCreated} schedule${schedCreated===1?'':'s'} created`);
+    ui.toast(parts.join(', '));
   } catch (err) {
     console.error(err);
     ui.toast('Import failed');
@@ -128,13 +212,20 @@ async function importDataFromFile(file) {
 }
 
 async function eraseAll() {
-  if (!confirm('Erase ALL tracked data? This cannot be undone.')) return;
+  if (!confirm('Erase ALL data and settings? This cannot be undone.')) return;
   try {
-    await idb.clear();
-    try { await idb.clearBuckets?.(); } catch {}
-    state.punches = await idb.all();
+    // Delete the entire DB
+    await wipeDb();
+    // Clear app-local storage keys
+    try { localStorage.removeItem('currentScheduleId'); } catch {}
+    try { localStorage.removeItem('tt.theme'); } catch {}
+    // Reset in-memory state
+    state.punches = [];
+    state.schedules = [];
+    state.currentScheduleId = null;
+    ui.renderScheduleSelect?.();
     ui.renderAll();
-    ui.toast('All data erased');
+    ui.toast('All data erased (database wiped)');
   } catch (err) {
     console.error(err);
     ui.toast('Erase failed');

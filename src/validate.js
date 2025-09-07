@@ -1,11 +1,12 @@
 import Ajv from 'ajv';
-import { scheduleSchema, punchSchema } from './schema.js';
+import { scheduleSchema, punchSchema, backupSchema } from './schema.js';
 
 const ajv = new Ajv({ allErrors: true, strict: false });
-ajv.addSchema(scheduleSchema).addSchema(punchSchema);
+ajv.addSchema(scheduleSchema).addSchema(punchSchema).addSchema(backupSchema);
 
 const vSchedule = ajv.getSchema('Schedule') || ajv.compile(scheduleSchema);
 const vPunch = ajv.getSchema('Punch') || ajv.compile(punchSchema);
+const vBackup = ajv.getSchema('Backup') || ajv.compile(backupSchema);
 
 function formatErrors(errors) {
   try {
@@ -37,3 +38,11 @@ export function validatePunch(obj) {
   return { valid: !!ok, errors: ok ? null : vPunch.errors };
 }
 
+export function validateBackup(obj) {
+  try {
+    const ok = vBackup(obj);
+    return { valid: !!ok, errors: ok ? null : vBackup.errors };
+  } catch (err) {
+    return { valid: false, errors: [{ message: err?.message || 'Backup validation error' }] };
+  }
+}

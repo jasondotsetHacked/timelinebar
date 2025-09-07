@@ -1,4 +1,4 @@
-const DB_NAME = 'timeTrackerDB';
+export const DB_NAME = 'timeTrackerDB';
 const DB_VERSION = 3; // v3 adds 'schedules' store and scheduleId on punches
 
 const openDb = () =>
@@ -124,3 +124,20 @@ const allSchedules = () =>
   );
 
 export const schedulesDb = { addSchedule, putSchedule, removeSchedule, allSchedules };
+
+// Delete the entire IndexedDB database used by the app
+export function destroy() {
+  return new Promise((resolve, reject) => {
+    try {
+      const req = indexedDB.deleteDatabase(DB_NAME);
+      req.onsuccess = () => resolve(true);
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => {
+        // best-effort: resolve anyway; caller can suggest closing tabs
+        resolve(false);
+      };
+    } catch (err) {
+      reject(err);
+    }
+  });
+}

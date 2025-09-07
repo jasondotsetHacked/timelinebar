@@ -29,3 +29,36 @@ export const punchSchema = {
 
 export const schemas = { scheduleSchema, punchSchema };
 
+// Backup file schema (v2 and v3). v3 adds schedules array.
+export const backupSchema = {
+  $id: 'Backup',
+  type: 'object',
+  additionalProperties: true,
+  properties: {
+    app: { type: 'string' },
+    kind: { type: 'string' },
+    version: { type: 'integer', minimum: 2 },
+    exportedAt: { type: 'string' },
+    count: { type: 'integer' },
+    punches: {
+      type: 'array',
+      items: punchSchema,
+    },
+    buckets: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          name: { type: 'string' },
+          note: { type: 'string' },
+        },
+      },
+    },
+    schedules: {
+      type: 'array',
+      items: scheduleSchema,
+    },
+  },
+  required: ['punches'],
+};
