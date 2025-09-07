@@ -729,19 +729,15 @@ function updateViewMode() {
     if (timelineCard) timelineCard.style.display = 'none';
     if (mainTableCard) mainTableCard.style.display = 'none';
     if (els.bucketDayCard) els.bucketDayCard.style.display = 'none';
-    // Month dashboard override (only in days-mode)
-    const showMonthModules = Array.isArray(state.monthModules) && state.monthModules.length && (state.calendarMode || 'days') === 'days';
-    if (els.monthDashboardCard) els.monthDashboardCard.style.display = showMonthModules ? '' : 'none';
-    if (els.calendarCard) els.calendarCard.style.display = showMonthModules ? 'none' : 'block';
+    if (els.calendarCard) els.calendarCard.style.display = 'block';
     if (els.btnCalendar) els.btnCalendar.textContent = 'Back to Day';
     calendar.renderCalendar();
     if (els.bucketMonthCard) {
-      const show = (state.calendarMode || 'days') === 'days' && !showMonthModules;
+      const show = (state.calendarMode || 'days') === 'days';
       els.bucketMonthCard.style.display = show ? '' : 'none';
     }
     if (els.bucketViewCard) els.bucketViewCard.style.display = 'none';
-    if (showMonthModules) { try { renderMonthDashboard(); } catch {} }
-    else { renderBucketMonth(); }
+    renderBucketMonth();
   } else if (state.viewMode === 'bucket') {
     if (timelineCard) timelineCard.style.display = 'none';
     if (mainTableCard) mainTableCard.style.display = 'none';
@@ -751,39 +747,20 @@ function updateViewMode() {
     if (els.bucketMonthCard) els.bucketMonthCard.style.display = 'none';
     if (els.bucketViewCard) els.bucketViewCard.style.display = '';
     try { renderBucketView(); } catch {}
-  } else if (state.viewMode === 'dashboard') {
-    if (timelineCard) timelineCard.style.display = 'none';
-    if (mainTableCard) mainTableCard.style.display = 'none';
-    if (els.calendarCard) els.calendarCard.style.display = 'none';
-    if (els.btnCalendar) els.btnCalendar.textContent = 'Calendar';
-    if (els.bucketDayCard) els.bucketDayCard.style.display = 'none';
-    if (els.bucketMonthCard) els.bucketMonthCard.style.display = 'none';
-    if (els.bucketViewCard) els.bucketViewCard.style.display = 'none';
-    if (els.dashboardCard) els.dashboardCard.style.display = '';
-    try { renderDashboard(); } catch {}
   } else {
     if (timelineCard) timelineCard.style.display = '';
     if (mainTableCard) mainTableCard.style.display = '';
     if (els.calendarCard) els.calendarCard.style.display = 'none';
     if (els.btnCalendar) els.btnCalendar.textContent = 'Calendar';
-    const showDayModules = Array.isArray(state.dayModules) && state.dayModules.length > 0;
-    if (els.dayDashboardCard) els.dayDashboardCard.style.display = showDayModules ? '' : 'none';
-    if (els.bucketDayCard) els.bucketDayCard.style.display = showDayModules ? 'none' : '';
-    if (timelineCard) timelineCard.style.display = showDayModules ? 'none' : '';
-    if (mainTableCard) mainTableCard.style.display = showDayModules ? 'none' : '';
+    if (els.bucketDayCard) els.bucketDayCard.style.display = '';
     if (els.bucketMonthCard) els.bucketMonthCard.style.display = 'none';
     if (els.bucketViewCard) els.bucketViewCard.style.display = 'none';
-    if (els.dashboardCard) els.dashboardCard.style.display = 'none';
-    if (showDayModules) {
-      try { renderDayDashboard(); } catch {}
-    } else {
-      renderTicks();
-      renderTimeline();
-      renderTable();
-      renderTotal();
-      nowIndicator.update();
-      renderBucketDay();
-    }
+    renderTicks();
+    renderTimeline();
+    renderTable();
+    renderTotal();
+    nowIndicator.update();
+    renderBucketDay();
   }
   try { if (els.btnBucketBackTop) els.btnBucketBackTop.style.display = state.viewMode === 'bucket' ? '' : 'none'; } catch {}
   renderDayLabel();
@@ -1033,87 +1010,6 @@ function renderModuleBucket(container, scheduleIds) {
   container.appendChild(table);
 }
 
-function renderDashboard() {
-  const grid = els.dashboardGrid;
-  if (!grid) return;
-  grid.innerHTML = '';
-  const mods = Array.isArray(state.dashboardModules) ? state.dashboardModules : [];
-  for (const m of mods) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    const head = document.createElement('div'); head.className = 'card-head';
-    const title = document.createElement('div'); title.className = 'card-title';
-    const schedNames = (state.schedules || []).filter((s) => (m.scheduleIds||[]).some((id) => Number(id)===Number(s.id))).map((s) => s.name).join(', ');
-    title.textContent = m.title || `${m.type[0].toUpperCase()+m.type.slice(1)} — ${schedNames || 'No schedules'}`;
-    const actions = document.createElement('div'); actions.style.display = 'flex'; actions.style.gap = '8px'; actions.style.alignItems = 'center';
-    const btnEdit = document.createElement('button'); btnEdit.className = 'btn ghost btn-edit-module'; btnEdit.textContent = 'Edit'; btnEdit.dataset.view = 'dashboard'; btnEdit.dataset.id = m.id;
-    const btnRemove = document.createElement('button'); btnRemove.className = 'btn danger'; btnRemove.textContent = 'Remove';
-    btnRemove.addEventListener('click', () => {
-      state.dashboardModules = (state.dashboardModules||[]).filter((x) => x.id !== m.id);
-      try { localStorage.setItem('dashboard.modules.v1', JSON.stringify(state.dashboardModules)); } catch {}
-      renderDashboard();
-    });
-    const btnOpen = document.createElement('button'); btnOpen.className = 'btn ghost'; btnOpen.textContent = 'Open';
-    btnOpen.addEventListener('click', () => {
-      if (Array.isArray(m.scheduleIds) && m.scheduleIds.length) {
-        state.currentScheduleId = Number(m.scheduleIds[0]);
-        try { if (els.scheduleSelect) els.scheduleSelect.value = String(state.currentScheduleId); } catch {}
-        try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId)); } catch {}
-      }
-      state.viewMode = 'day';
-      updateViewMode();
-    });
-    actions.appendChild(btnOpen); actions.appendChild(btnEdit); actions.appendChild(btnRemove);
-    head.append(title, actions);
-    const body = document.createElement('div'); body.className = 'card-body';
-    if (m.type === 'timeline') renderModuleTimeline(body, m.scheduleIds || null);
-    else if (m.type === 'entries') renderModuleEntries(body, m.scheduleIds || null, m.config || {});
-    else if (m.type === 'bucket') renderModuleBucket(body, m.scheduleIds || null);
-    card.append(head, body);
-    grid.appendChild(card);
-  }
-}
-
-function renderDayDashboard() {
-  const grid = els.dayDashboardGrid;
-  if (!grid) return;
-  grid.innerHTML = '';
-  const mods = Array.isArray(state.dayModules) ? state.dayModules : [];
-  for (const m of mods) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    const head = document.createElement('div'); head.className = 'card-head';
-    const title = document.createElement('div'); title.className = 'card-title';
-    const schedNames = (state.schedules || []).filter((s) => (m.scheduleIds||[]).some((id) => Number(id)===Number(s.id))).map((s) => s.name).join(', ');
-    title.textContent = m.title || `${m.type[0].toUpperCase()+m.type.slice(1)} – ${schedNames || 'No schedules'}`;
-    const actions = document.createElement('div'); actions.style.display = 'flex'; actions.style.gap = '8px'; actions.style.alignItems = 'center';
-    const btnRemove = document.createElement('button'); btnRemove.className = 'btn danger'; btnRemove.textContent = 'Remove';
-    btnRemove.addEventListener('click', () => {
-      state.dayModules = (state.dayModules||[]).filter((x) => x.id !== m.id);
-      try { localStorage.setItem('modules.day.v1', JSON.stringify(state.dayModules)); } catch {}
-      renderDayDashboard();
-    });
-    const btnOpen = document.createElement('button'); btnOpen.className = 'btn ghost'; btnOpen.textContent = 'Open';
-    btnOpen.addEventListener('click', () => {
-      if (Array.isArray(m.scheduleIds) && m.scheduleIds.length) {
-        state.currentScheduleId = Number(m.scheduleIds[0]);
-        try { if (els.scheduleSelect) els.scheduleSelect.value = String(state.currentScheduleId); } catch {}
-        try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId)); } catch {}
-      }
-      state.viewMode = 'day';
-      updateViewMode();
-    });
-    actions.appendChild(btnOpen); actions.appendChild(btnEdit); actions.appendChild(btnRemove);
-    head.append(title, actions);
-    const body = document.createElement('div'); body.className = 'card-body';
-    if (m.type === 'timeline') renderModuleTimeline(body, m.scheduleIds || null);
-    else if (m.type === 'entries') renderModuleEntries(body, m.scheduleIds || null, m.config || {});
-    else if (m.type === 'bucket') renderModuleBucket(body, m.scheduleIds || null);
-    card.append(head, body);
-    grid.appendChild(card);
-  }
-}
-
 function renderModuleCalendar(container) {
   // Render compact month calendar into container
   const wrap = document.createElement('div');
@@ -1222,7 +1118,8 @@ export const ui = {
   renderBucketView,
   renderMobileControls,
   renderScheduleSelect,
-  renderDashboard,
 };
+
+
 
 

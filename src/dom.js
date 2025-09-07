@@ -83,21 +83,7 @@ export const els = {
   btnCopyChartTable: byId('btnCopyChartTable'),
   dayLabel: byId('dayLabel'),
   calendarCard: byId('calendarCard'),
-  // Dashboard
-  dashboardCard: byId('dashboardCard'),
-  dashboardGrid: byId('dashboardGrid'),
-  btnDashboard: byId('btnDashboard'),
-  btnCustomizeDay: byId('btnCustomizeDay'),
-  btnCustomizeMonth: byId('btnCustomizeMonth'),
-  btnAddModule: byId('btnAddModule'),
-  // Day View modular
-  dayDashboardCard: byId('dayDashboardCard'),
-  dayDashboardGrid: byId('dayDashboardGrid'),
-  btnAddDayModule: byId('btnAddDayModule'),
-  // Month View modular
-  monthDashboardCard: byId('monthDashboardCard'),
-  monthDashboardGrid: byId('monthDashboardGrid'),
-  btnAddMonthModule: byId('btnAddMonthModule'),
+  // (Customizable dashboards removed)
   calendarGrid: byId('calendarGrid'),
   calWeekdays: byId('calWeekdays'),
   calMonthLabel: byId('calMonthLabel'),
@@ -161,15 +147,5 @@ export const els = {
   btnAddSchedule: byId('btnAddSchedule'),
   btnRenameSchedule: byId('btnRenameSchedule'),
   btnDeleteSchedule: byId('btnDeleteSchedule'),
-  // Module modal
-  moduleModal: byId('moduleModal'),
-  moduleClose: byId('moduleClose'),
-  moduleCancel: byId('moduleCancel'),
-  moduleForm: byId('moduleForm'),
-  moduleType: byId('moduleType'),
-  moduleTitle: byId('moduleTitle'),
-  moduleScheduleList: byId('moduleScheduleList'),
-  moduleScheduleWrap: byId('moduleScheduleWrap'),
-  moduleConfigRow: byId('moduleConfigRow'),
-  moduleConfig: byId('moduleConfig'),
+  // (Module modal removed)
 };

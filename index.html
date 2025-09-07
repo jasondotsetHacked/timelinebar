@@ -35,9 +35,7 @@
           <button id="btnRenameSchedule" class="btn ghost" title="Rename schedule">Rename</button>
           <button id="btnDeleteSchedule" class="btn ghost" title="Delete schedule">Delete</button>
         </div>
-        <button id="btnDashboard" class="btn ghost" title="Open dashboard">Dashboard</button>
-        <button id="btnCustomizeDay" class="btn ghost" title="Customize day layout">Customize Day</button>
-        <button id="btnCustomizeMonth" class="btn ghost" title="Customize month layout">Customize Month</button>
+        
         <button id="btnCalendar" class="btn ghost" title="Open calendar">Calendar</button>
         <button id="btnCopyChartTop" class="btn ghost" title="Copy timeline chart to clipboard">⧉ Copy</button>
       </div>
@@ -61,37 +59,11 @@
       <div class="calendar-grid" id="calendarGrid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap:6px;"></div>
     </section>
 
-    <section class="card" id="dashboardCard" style="display:none;">
-      <div class="card-head">
-        <div class="card-title">Dashboard</div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button id="btnAddModule" class="btn">Add Module</button>
-        </div>
-      </div>
-      <div id="dashboardGrid" class="card-body" style="display:grid; grid-template-columns: 1fr; gap:12px;"></div>
-    </section>
+    
 
-    <!-- Month View Layout (modular; visible only in Calendar days mode) -->
-    <section class="card" id="monthDashboardCard" style="display:none;">
-      <div class="card-head">
-        <div class="card-title">Month View Layout</div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button id="btnAddMonthModule" class="btn">Add Module</button>
-        </div>
-      </div>
-      <div id="monthDashboardGrid" class="card-body" style="display:grid; grid-template-columns: 1fr; gap:12px;"></div>
-    </section>
+    
 
-    <!-- Day View Layout (modular) -->
-    <section class="card" id="dayDashboardCard" style="display:none;">
-      <div class="card-head">
-        <div class="card-title">Day View Layout</div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button id="btnAddDayModule" class="btn">Add Module</button>
-        </div>
-      </div>
-      <div id="dayDashboardGrid" class="card-body" style="display:grid; grid-template-columns: 1fr; gap:12px;"></div>
-    </section>
+    
 
     <section class="card timeline">
       <div class="track" id="track" aria-label="Timeline track" role="application">
@@ -208,50 +180,7 @@
     </section>
   </div>
 
-  <!-- Module modal -->
-  <div class="modal-backdrop" id="moduleModal" style="display:none;">
-    <div class="card modal">
-      <div class="modal-header">
-        <div class="modal-title">Add Module</div>
-        <button class="icon-btn" id="moduleClose" aria-label="Close">&#x2715;</button>
-      </div>
-      <form id="moduleForm">
-        <div class="body">
-          <div class="row" style="grid-template-columns: 1fr 1fr;">
-            <div>
-              <label>Type</label>
-              <select id="moduleType">
-                <option value="timeline">Timeline</option>
-                <option value="entries">Time Entries</option>
-                <option value="bucket">Bucket Report</option>
-              </select>
-            </div>
-            <div>
-              <label>Title (optional)</label>
-              <input id="moduleTitle" type="text" placeholder="Custom title" />
-            </div>
-          </div>
-          <div class="row" id="moduleScheduleWrap" style="grid-template-columns: 1fr;">
-            <div>
-              <label>Schedules</label>
-              <div id="moduleScheduleList" style="display:flex; gap:12px; flex-wrap:wrap;"></div>
-              <div class="subtle" style="margin-top:4px;">Tip: leave all unchecked to include all schedules.</div>
-            </div>
-          </div>
-          <div class="row" id="moduleConfigRow" style="grid-template-columns: 1fr; display:none;">
-            <div>
-              <label>Module Settings</label>
-              <div id="moduleConfig" style="display:grid; gap:10px;"></div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn ghost" id="moduleCancel">Cancel</button>
-          <button type="submit" class="btn primary">Add</button>
-        </div>
-      </form>
-    </div>
-  </div>
+  
 
   <div class="modal-backdrop" id="modal">
     <div class="card modal modal-lg">
