@@ -377,6 +377,33 @@
         </div>
         <div class="row" style="grid-template-columns: 1fr;">
           <div>
+            <label>Schedule Views</label>
+            <div style="display:grid; gap:10px;">
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <select id="settingsViewList" title="Views" style="min-width:220px;"></select>
+                <button id="settingsAddView" class="btn" title="Add a new view with the name below">Add</button>
+                <button id="settingsRenameView" class="btn ghost" title="Rename the selected view to the name below">Rename</button>
+                <button id="settingsDeleteView" class="btn danger" title="Delete the selected view">Delete</button>
+              </div>
+              <div style="display:grid; grid-template-columns: 1fr; gap:8px;">
+                <div>
+                  <label>Name</label>
+                  <input id="settingsViewName" type="text" placeholder="View name" />
+                </div>
+                <div>
+                  <div class="subtle">Included schedules</div>
+                  <div id="settingsViewSchedChecks" style="display:flex; gap:12px; flex-wrap:wrap;"></div>
+                </div>
+                <div>
+                  <button id="settingsSaveView" class="btn" title="Save schedules for selected view">Save View</button>
+                </div>
+                <div id="settingsViewMsg" class="subtle" aria-live="polite"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row" style="grid-template-columns: 1fr;">
+          <div>
             <label>Theme</label>
             <select id="themeSelect">
               <option value="neon">Neon (default)</option>

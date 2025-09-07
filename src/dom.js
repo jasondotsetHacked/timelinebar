@@ -136,6 +136,15 @@ export const els = {
   settingsDeleteConfirmText: byId('settingsDeleteConfirmText'),
   settingsDeleteYes: byId('settingsDeleteYes'),
   settingsDeleteNo: byId('settingsDeleteNo'),
+  // Settings: schedule views
+  settingsViewList: byId('settingsViewList'),
+  settingsViewName: byId('settingsViewName'),
+  settingsViewSchedChecks: byId('settingsViewSchedChecks'),
+  settingsAddView: byId('settingsAddView'),
+  settingsRenameView: byId('settingsRenameView'),
+  settingsDeleteView: byId('settingsDeleteView'),
+  settingsSaveView: byId('settingsSaveView'),
+  settingsViewMsg: byId('settingsViewMsg'),
   // Schedules
   scheduleSelect: byId('scheduleSelect'),
   btnAddSchedule: byId('btnAddSchedule'),

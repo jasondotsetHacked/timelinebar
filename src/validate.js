@@ -1,10 +1,11 @@
 import Ajv from 'ajv';
-import { scheduleSchema, punchSchema, backupSchema } from './schema.js';
+import { scheduleSchema, scheduleViewSchema, punchSchema, backupSchema } from './schema.js';
 
 const ajv = new Ajv({ allErrors: true, strict: false });
-ajv.addSchema(scheduleSchema).addSchema(punchSchema).addSchema(backupSchema);
+ajv.addSchema(scheduleSchema).addSchema(scheduleViewSchema).addSchema(punchSchema).addSchema(backupSchema);
 
 const vSchedule = ajv.getSchema('Schedule') || ajv.compile(scheduleSchema);
+const vScheduleView = ajv.getSchema('ScheduleView') || ajv.compile(scheduleViewSchema);
 const vPunch = ajv.getSchema('Punch') || ajv.compile(punchSchema);
 const vBackup = ajv.getSchema('Backup') || ajv.compile(backupSchema);
 
@@ -26,7 +27,24 @@ export function assertSchedule(obj) {
   const { valid, errors } = validateSchedule(obj);
   if (!valid) {
     const msg = formatErrors(errors);
-    const err = new Error(`ValidationError: Schedule invalid — ${msg}`);
+    const err = new Error(`ValidationError: Schedule invalid – ${msg}`);
+    err.name = 'ValidationError';
+    err.details = errors;
+    throw err;
+  }
+}
+
+export function validateScheduleView(obj) {
+  const data = { ...obj, name: String(obj?.name ?? '').trim(), scheduleIds: Array.isArray(obj?.scheduleIds) ? obj.scheduleIds.map(Number) : [] };
+  const ok = vScheduleView(data);
+  return { valid: !!ok, errors: ok ? null : vScheduleView.errors };
+}
+
+export function assertScheduleView(obj) {
+  const { valid, errors } = validateScheduleView(obj);
+  if (!valid) {
+    const msg = formatErrors(errors);
+    const err = new Error(`ValidationError: ScheduleView invalid – ${msg}`);
     err.name = 'ValidationError';
     err.details = errors;
     throw err;

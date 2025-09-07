@@ -1,5 +1,5 @@
 import { actions } from './src/actions/index.js';
-import { idb, schedulesDb } from './src/storage.js';
+import { idb, schedulesDb, scheduleViewsDb } from './src/storage.js';
 import { state } from './src/state.js';
 import { ui } from './src/ui.js';
 import { nowIndicator } from './src/nowIndicator.js';
@@ -19,6 +19,10 @@ async function init() {
     schedules = await schedulesDb.allSchedules();
   }
   state.schedules = schedules;
+  // Load schedule views
+  try {
+    state.scheduleViews = await (scheduleViewsDb.allScheduleViews?.() || Promise.resolve([]));
+  } catch { state.scheduleViews = []; }
   // Runtime diagnostics: detect duplicate schedule names
   try {
     const seen = new Map();
@@ -33,12 +37,28 @@ async function init() {
       console.error(new Error(`SchemaError: Duplicate schedule names found — ${details}`));
     }
   } catch {}
-  // Choose current schedule: last used from localStorage or first
-  const rawSched = (typeof localStorage !== 'undefined') ? localStorage.getItem('currentScheduleId') : null;
+  // Choose current selection: prefer saved view; else saved schedule; else first schedule
+  const ls = (typeof localStorage !== 'undefined') ? localStorage : null;
+  const rawView = ls ? ls.getItem('currentScheduleViewId') : null;
+  const savedViewId = (rawView === null || rawView === '') ? null : Number(rawView);
+  const hasSavedView = savedViewId != null && (state.scheduleViews || []).some((v) => Number(v.id) === savedViewId);
+  const rawSched = ls ? ls.getItem('currentScheduleId') : null;
   const savedSchedId = (rawSched === null || rawSched === '') ? null : Number(rawSched);
   const hasSaved = savedSchedId != null && schedules.some((s) => s.id === savedSchedId);
-  state.currentScheduleId = hasSaved ? savedSchedId : (schedules[0]?.id || null);
-  if (state.currentScheduleId != null) try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId)); } catch {}
+  if (hasSavedView) {
+    state.currentScheduleViewId = savedViewId;
+    state.currentScheduleId = null;
+  } else {
+    state.currentScheduleViewId = null;
+    state.currentScheduleId = hasSaved ? savedSchedId : (schedules[0]?.id || null);
+  }
+  try {
+    if (state.currentScheduleViewId != null) ls?.setItem('currentScheduleViewId', String(state.currentScheduleViewId));
+    else ls?.removeItem('currentScheduleViewId');
+  } catch {}
+  try {
+    if (state.currentScheduleId != null) ls?.setItem('currentScheduleId', String(state.currentScheduleId));
+  } catch {}
 
   // Migration: ensure each punch has a date (YYYY-MM-DD) and rename caseNumber -> bucket
   const updates = [];

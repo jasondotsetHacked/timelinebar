@@ -1,5 +1,5 @@
 export const DB_NAME = 'timeTrackerDB';
-const DB_VERSION = 3; // v3 adds 'schedules' store and scheduleId on punches
+const DB_VERSION = 4; // v3 adds 'schedules'; v4 adds 'scheduleViews'
 
 const openDb = () =>
   new Promise((resolve, reject) => {
@@ -17,6 +17,10 @@ const openDb = () =>
       // v3: schedules store for multi-schedule support
       if (!db.objectStoreNames.contains('schedules')) {
         db.createObjectStore('schedules', { keyPath: 'id', autoIncrement: true });
+      }
+      // v4: schedule views store (id, name, scheduleIds: number[])
+      if (!db.objectStoreNames.contains('scheduleViews')) {
+        db.createObjectStore('scheduleViews', { keyPath: 'id', autoIncrement: true });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -124,6 +128,28 @@ const allSchedules = () =>
   );
 
 export const schedulesDb = { addSchedule, putSchedule, removeSchedule, allSchedules };
+
+// Schedule Views API
+const addScheduleView = (rec) => withStore('scheduleViews', 'readwrite', (store) => store.add(rec));
+const putScheduleView = (rec) => withStore('scheduleViews', 'readwrite', (store) => store.put(rec));
+const removeScheduleView = (id) => withStore('scheduleViews', 'readwrite', (store) => store.delete(id));
+const allScheduleViews = () =>
+  openDb().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        try {
+          const tx = db.transaction('scheduleViews', 'readonly');
+          const store = tx.objectStore('scheduleViews');
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        } catch (err) {
+          resolve([]);
+        }
+      })
+  );
+
+export const scheduleViewsDb = { addScheduleView, putScheduleView, removeScheduleView, allScheduleViews };
 
 // Delete the entire IndexedDB database used by the app
 export function destroy() {

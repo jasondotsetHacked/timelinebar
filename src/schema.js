@@ -11,6 +11,21 @@ export const scheduleSchema = {
   required: ['name'],
 };
 
+export const scheduleViewSchema = {
+  $id: 'ScheduleView',
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    id: { anyOf: [{ type: 'integer' }, { type: 'null' }] },
+    name: { type: 'string', minLength: 1, maxLength: 200 },
+    scheduleIds: {
+      type: 'array',
+      items: { type: 'integer' },
+    },
+  },
+  required: ['name', 'scheduleIds'],
+};
+
 export const punchSchema = {
   $id: 'Punch',
   type: 'object',
@@ -27,7 +42,7 @@ export const punchSchema = {
   required: ['start', 'end', 'date'],
 };
 
-export const schemas = { scheduleSchema, punchSchema };
+export const schemas = { scheduleSchema, scheduleViewSchema, punchSchema };
 
 // Backup file schema (v2 and v3). v3 adds schedules array.
 export const backupSchema = {
@@ -58,6 +73,10 @@ export const backupSchema = {
     schedules: {
       type: 'array',
       items: scheduleSchema,
+    },
+    scheduleViews: {
+      type: 'array',
+      items: scheduleViewSchema,
     },
   },
   required: ['punches'],

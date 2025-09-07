@@ -1,9 +1,9 @@
 import { els } from '../dom.js';
-import { idb, schedulesDb, destroy as wipeDb } from '../storage.js';
+import { idb, schedulesDb, scheduleViewsDb, destroy as wipeDb } from '../storage.js';
 import { state } from '../state.js';
 import { ui } from '../ui.js';
 import { todayStr } from '../dates.js';
-import { assertSchedule, validateBackup } from '../validate.js';
+import { assertSchedule, assertScheduleView, validateBackup } from '../validate.js';
 
 function applyTheme(theme) {
   const t = theme === 'light' ? 'light' : 'neon';
@@ -19,6 +19,7 @@ async function exportData() {
     const punches = await idb.all();
     const buckets = await (idb.allBuckets?.() || Promise.resolve([]));
     const schedules = await (schedulesDb.allSchedules?.() || Promise.resolve([]));
+    const scheduleViews = await (scheduleViewsDb.allScheduleViews?.() || Promise.resolve([]));
     const payload = {
       app: 'timelinebar',
       kind: 'time-tracker-backup',
@@ -28,6 +29,7 @@ async function exportData() {
       punches,
       buckets,
       schedules,
+      scheduleViews,
     };
     const json = JSON.stringify(payload, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
@@ -165,6 +167,23 @@ async function importDataFromFile(file) {
       }
     }
 
+    // Import schedule views (map scheduleIds to new IDs)
+    try {
+      const importedViews = Array.isArray(data?.scheduleViews) ? data.scheduleViews : [];
+      if (importedViews.length) {
+        for (const v of importedViews) {
+          const name = String(v?.name || '').trim();
+          const ids = Array.isArray(v?.scheduleIds) ? v.scheduleIds.map(Number) : [];
+          // Map using known old->new id map; drop unknowns
+          const mapped = ids
+            .map((oldId) => (map.has(oldId) ? Number(map.get(oldId)) : null))
+            .filter((x) => Number.isFinite(x));
+          if (!name || !mapped.length) continue;
+          try { await scheduleViewsDb.addScheduleView({ name, scheduleIds: mapped }); } catch {}
+        }
+      }
+    } catch {}
+
     // Default schedule if nothing maps
     const allSchedules = await schedulesDb.allSchedules();
     const defaultScheduleId = allSchedules?.[0]?.id ?? null;
@@ -218,11 +237,14 @@ async function eraseAll() {
     await wipeDb();
     // Clear app-local storage keys
     try { localStorage.removeItem('currentScheduleId'); } catch {}
+    try { localStorage.removeItem('currentScheduleViewId'); } catch {}
     try { localStorage.removeItem('tt.theme'); } catch {}
     // Reset in-memory state
     state.punches = [];
     state.schedules = [];
+    state.scheduleViews = [];
     state.currentScheduleId = null;
+    state.currentScheduleViewId = null;
     ui.renderScheduleSelect?.();
     ui.renderAll();
     ui.toast('All data erased (database wiped)');
@@ -247,6 +269,8 @@ function attach() {
   } catch {}
 
   els.btnSettings?.addEventListener('click', () => { try { renderSettingsSchedules(); } catch {}; openSettings(); });
+  // Also render views section when opening
+  els.btnSettings?.addEventListener('click', () => { try { renderSettingsViews(); } catch {} });
   els.settingsClose?.addEventListener('click', closeSettings);
   els.settingsCancel?.addEventListener('click', closeSettings);
 
@@ -284,6 +308,148 @@ function attach() {
     } catch {}
   }
   renderSettingsSchedules();
+
+  // --- Schedule Views UI in Settings ---
+  function renderViewSchedChecks(selectedIds = []) {
+    try {
+      const wrap = els.settingsViewSchedChecks;
+      if (!wrap) return;
+      wrap.innerHTML = '';
+      const list = state.schedules || [];
+      const set = new Set((selectedIds || []).map(Number));
+      for (const s of list) {
+        const id = String(s.id);
+        const label = document.createElement('label');
+        label.style.display = 'inline-flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '6px';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = id;
+        cb.checked = set.has(Number(id));
+        const span = document.createElement('span');
+        span.textContent = s.name || `Schedule ${s.id}`;
+        label.append(cb, span);
+        wrap.appendChild(label);
+      }
+    } catch {}
+  }
+  function populateViewSelect() {
+    if (!els.settingsViewList) return;
+    els.settingsViewList.innerHTML = '';
+    const views = (state.scheduleViews || []).slice().sort((a, b) => String(a.name||'').localeCompare(String(b.name||'')));
+    for (const v of views) {
+      const opt = document.createElement('option');
+      opt.value = String(v.id);
+      opt.textContent = v.name || `View ${v.id}`;
+      els.settingsViewList.appendChild(opt);
+    }
+  }
+  function renderSettingsViews() {
+    try {
+      populateViewSelect();
+      const selId = Number(els.settingsViewList?.value || '');
+      const cur = (state.scheduleViews || []).find((v) => Number(v.id) === selId) || null;
+      if (els.settingsViewName) els.settingsViewName.value = cur?.name || '';
+      renderViewSchedChecks(cur?.scheduleIds || []);
+    } catch {}
+  }
+  renderSettingsViews();
+
+  function setViewMsg(text) { try { if (els.settingsViewMsg) els.settingsViewMsg.textContent = text || ''; } catch {} }
+  function readCheckedScheduleIds() {
+    const wrap = els.settingsViewSchedChecks;
+    if (!wrap) return [];
+    return Array.from(wrap.querySelectorAll('input[type="checkbox"]'))
+      .filter((c) => c.checked)
+      .map((c) => Number(c.value));
+  }
+  function viewNameExists(raw, excludeId = null) {
+    const name = String(raw || '').trim();
+    return (state.scheduleViews || []).some((v) => v && String(v.name) === name && (excludeId == null || Number(v.id) !== Number(excludeId)));
+  }
+  els.settingsViewList?.addEventListener('change', () => renderSettingsViews());
+  els.settingsAddView?.addEventListener('click', async () => {
+    setViewMsg('');
+    const name = String(els.settingsViewName?.value || '').trim();
+    const ids = readCheckedScheduleIds();
+    if (!name) { setViewMsg('Enter a view name.'); return; }
+    if (!ids.length) { setViewMsg('Select one or more schedules.'); return; }
+    if (viewNameExists(name)) { setViewMsg('Name already exists.'); return; }
+    try { assertScheduleView({ name, scheduleIds: ids }); } catch (err) { console.error(err); setViewMsg('Invalid view.'); return; }
+    try {
+      await scheduleViewsDb.addScheduleView({ name, scheduleIds: ids });
+      state.scheduleViews = await (scheduleViewsDb.allScheduleViews?.() || Promise.resolve([]));
+      populateViewSelect();
+      setViewMsg('Added view.');
+      ui.renderScheduleSelect?.();
+    } catch (err) {
+      console.error(err); setViewMsg('Could not add view.');
+    }
+  });
+  els.settingsRenameView?.addEventListener('click', async () => {
+    setViewMsg('');
+    const id = Number(els.settingsViewList?.value || '');
+    const cur = (state.scheduleViews || []).find((v) => Number(v.id) === id);
+    if (!cur) { setViewMsg('Select a view to rename.'); return; }
+    const name = String(els.settingsViewName?.value || '').trim();
+    if (!name) { setViewMsg('Enter a new name.'); return; }
+    if (viewNameExists(name, id)) { setViewMsg('Name already exists.'); return; }
+    try { assertScheduleView({ name, scheduleIds: cur.scheduleIds || [] }); } catch (err) { console.error(err); setViewMsg('Invalid view.'); return; }
+    try {
+      await scheduleViewsDb.putScheduleView({ ...cur, name });
+      state.scheduleViews = await (scheduleViewsDb.allScheduleViews?.() || Promise.resolve([]));
+      populateViewSelect();
+      // Keep selection on renamed id
+      if (els.settingsViewList) els.settingsViewList.value = String(id);
+      setViewMsg('Renamed view.');
+      ui.renderScheduleSelect?.();
+    } catch (err) {
+      console.error(err); setViewMsg('Could not rename view.');
+    }
+  });
+  els.settingsDeleteView?.addEventListener('click', async () => {
+    setViewMsg('');
+    const id = Number(els.settingsViewList?.value || '');
+    const cur = (state.scheduleViews || []).find((v) => Number(v.id) === id);
+    if (!cur) { setViewMsg('Select a view to delete.'); return; }
+    if (!confirm(`Delete view "${cur.name || id}"?`)) return;
+    try {
+      await scheduleViewsDb.removeScheduleView(id);
+      state.scheduleViews = await (scheduleViewsDb.allScheduleViews?.() || Promise.resolve([]));
+      populateViewSelect();
+      renderSettingsViews();
+      // If deleting the active view, reset selection
+      if (Number(state.currentScheduleViewId) === id) {
+        state.currentScheduleViewId = null;
+        try { localStorage.removeItem('currentScheduleViewId'); } catch {}
+        ui.renderAll();
+      }
+      setViewMsg('Deleted view.');
+      ui.renderScheduleSelect?.();
+    } catch (err) {
+      console.error(err); setViewMsg('Could not delete view.');
+    }
+  });
+  els.settingsSaveView?.addEventListener('click', async () => {
+    setViewMsg('');
+    const id = Number(els.settingsViewList?.value || '');
+    const cur = (state.scheduleViews || []).find((v) => Number(v.id) === id);
+    if (!cur) { setViewMsg('Select a view to save.'); return; }
+    const ids = readCheckedScheduleIds();
+    if (!ids.length) { setViewMsg('Select one or more schedules.'); return; }
+    try { assertScheduleView({ name: cur.name || '', scheduleIds: ids }); } catch (err) { console.error(err); setViewMsg('Invalid view.'); return; }
+    try {
+      await scheduleViewsDb.putScheduleView({ ...cur, scheduleIds: ids });
+      state.scheduleViews = await (scheduleViewsDb.allScheduleViews?.() || Promise.resolve([]));
+      setViewMsg('Saved view.');
+      ui.renderScheduleSelect?.();
+      ui.renderAll?.();
+    } catch (err) {
+      console.error(err); setViewMsg('Could not save view.');
+    }
+  });
+  try { renderSettingsViews(); } catch {}
 
   function showMsg(text) { try { if (els.settingsSchedMsg) { els.settingsSchedMsg.textContent = text || ''; } } catch {} }
   function hideDeleteConfirm() { try { if (els.settingsDeleteConfirm) els.settingsDeleteConfirm.style.display = 'none'; } catch {} }

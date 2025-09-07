@@ -298,6 +298,13 @@ function currentDay() {
 
 // Schedule helpers
 function getScheduleFilterIds() {
+  // If a saved view is active, use its scheduleIds
+  const vid = state.currentScheduleViewId;
+  if (vid != null) {
+    const v = (state.scheduleViews || []).find((x) => Number(x.id) === Number(vid));
+    if (v && Array.isArray(v.scheduleIds) && v.scheduleIds.length) return v.scheduleIds.map(Number);
+    return null; // if view empty/missing, treat as All
+  }
   const id = state.currentScheduleId;
   return id == null ? null : [Number(id)];
 }
@@ -367,7 +374,9 @@ function renderTimeline() {
         const sid = Number(p.scheduleId);
         if (!Number.isFinite(sid)) return;
         state.currentScheduleId = sid;
+        state.currentScheduleViewId = null;
         try { localStorage.setItem('currentScheduleId', String(sid)); } catch {}
+        try { localStorage.removeItem('currentScheduleViewId'); } catch {}
         try { if (els.scheduleSelect) els.scheduleSelect.value = String(sid); } catch {}
         try { renderScheduleSelect?.(); } catch {}
         try { renderAll?.(); } catch {}
@@ -444,15 +453,13 @@ function renderTimeline() {
       }
     } catch {}
 
-    // non-intrusive note indicator
-    if (p.note && String(p.note).trim()) {
-      const noteBtn = document.createElement('button');
-      noteBtn.className = 'note-dot';
-      noteBtn.title = 'Show note';
-      noteBtn.type = 'button';
-      noteBtn.dataset.id = p.id;
-      el.appendChild(noteBtn);
-    }
+    // Note affordance: always render a small note button
+    const noteBtn = document.createElement('button');
+    noteBtn.className = 'note-dot';
+    noteBtn.title = (p.note && String(p.note).trim()) ? 'Show note' : 'Add note';
+    noteBtn.type = 'button';
+    noteBtn.dataset.id = p.id;
+    el.appendChild(noteBtn);
 
     els.track.appendChild(el);
 
@@ -946,18 +953,34 @@ function fitMobileViewport() {
 function renderScheduleSelect() {
   const sel = els.scheduleSelect;
   if (!sel) return;
-  const cur = Number(state.currentScheduleId);
+  const curSched = state.currentScheduleId != null ? Number(state.currentScheduleId) : null;
+  const curView = state.currentScheduleViewId != null ? Number(state.currentScheduleViewId) : null;
   sel.innerHTML = '';
+  // Views at top
+  const views = (state.scheduleViews || []).slice().sort((a, b) => String(a.name||'').localeCompare(String(b.name||'')));
+  if (views.length) {
+    const group = document.createElement('optgroup');
+    group.label = 'Views';
+    for (const v of views) {
+      const opt = document.createElement('option');
+      opt.value = `view:${v.id}`;
+      opt.textContent = v.name || `View ${v.id}`;
+      if (curView != null && Number(v.id) === curView) opt.selected = true;
+      group.appendChild(opt);
+    }
+    sel.appendChild(group);
+  }
+  // All Schedules option
   const optAll = document.createElement('option');
   optAll.value = '';
   optAll.textContent = 'All Schedules';
-  if (state.currentScheduleId == null) optAll.selected = true;
+  if (curView == null && curSched == null) optAll.selected = true;
   sel.appendChild(optAll);
   for (const s of state.schedules || []) {
     const opt = document.createElement('option');
     opt.value = String(s.id);
     opt.textContent = s.name || `Schedule ${s.id}`;
-    if (Number(s.id) === cur) opt.selected = true;
+    if (curView == null && curSched != null && Number(s.id) === curSched) opt.selected = true;
     sel.appendChild(opt);
   }
 }

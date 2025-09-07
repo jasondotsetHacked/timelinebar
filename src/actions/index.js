@@ -369,15 +369,30 @@ const attachEvents = () => {
   try {
     els.scheduleSelect?.addEventListener('change', (e) => {
       const raw = String(e.target.value || '');
+      if (raw.startsWith('view:')) {
+        const id = Number(raw.slice(5));
+        if (!Number.isNaN(id)) {
+          state.currentScheduleViewId = id;
+          state.currentScheduleId = null;
+          try { localStorage.setItem('currentScheduleViewId', String(id)); } catch {}
+          try { localStorage.removeItem('currentScheduleId'); } catch {}
+          ui.renderAll();
+          return;
+        }
+      }
       if (raw === '') {
+        state.currentScheduleViewId = null;
         state.currentScheduleId = null;
+        try { localStorage.removeItem('currentScheduleViewId'); } catch {}
         try { localStorage.setItem('currentScheduleId', ''); } catch {}
         ui.renderAll();
         return;
       }
       const val = Number(raw);
       if (!Number.isNaN(val)) {
+        state.currentScheduleViewId = null;
         state.currentScheduleId = val;
+        try { localStorage.removeItem('currentScheduleViewId'); } catch {}
         try { localStorage.setItem('currentScheduleId', String(val)); } catch {}
         ui.renderAll();
       }

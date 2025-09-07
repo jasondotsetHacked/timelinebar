@@ -1,7 +1,9 @@
 export const state = {
   punches: [],
   schedules: [],
+  scheduleViews: [],
   currentScheduleId: null, // active schedule for main views
+  currentScheduleViewId: null, // active saved view (overrides currentScheduleId when set)
   // (Customizable dashboards removed)
   dragging: null,
   resizing: null,
