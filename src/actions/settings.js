@@ -259,6 +259,8 @@ function openSettings() {
 }
 function closeSettings() {
   if (els.settingsModal) els.settingsModal.style.display = 'none';
+  try { if (els.settingsSchedNameWrap) els.settingsSchedNameWrap.style.display = 'none'; } catch {}
+  try { if (els.settingsViewNameWrap) els.settingsViewNameWrap.style.display = 'none'; } catch {}
 }
 
 function attach() {
@@ -288,6 +290,20 @@ function attach() {
   els.themeSelect?.addEventListener('change', (e) => applyTheme(e.target.value));
 
   // --- Schedules UI in Settings ---
+  let schedRenameMode = false;
+  function toggleSchedRename(on = false) {
+    try {
+      schedRenameMode = !!on;
+      if (els.settingsSchedNameWrap) els.settingsSchedNameWrap.style.display = on ? '' : 'none';
+      if (on) {
+        const id = Number(els.settingsSchedList?.value || '');
+        const cur = (state.schedules || []).find((s) => Number(s.id) === id);
+        if (cur && els.settingsSchedName) { els.settingsSchedName.value = cur.name || ''; els.settingsSchedName.focus(); }
+      } else {
+        if (els.settingsSchedName) els.settingsSchedName.value = '';
+      }
+    } catch {}
+  }
   function populateScheduleSelect(el, allowAll = false) {
     if (!el) return;
     el.innerHTML = '';
@@ -369,8 +385,26 @@ function attach() {
     return (state.scheduleViews || []).some((v) => v && String(v.name) === name && (excludeId == null || Number(v.id) !== Number(excludeId)));
   }
   els.settingsViewList?.addEventListener('change', () => renderSettingsViews());
+  let viewAddMode = false;
+  let viewRenameMode = false;
+  function toggleViewName(on = false, initial = '') {
+    try {
+      if (els.settingsViewNameWrap) els.settingsViewNameWrap.style.display = on ? '' : 'none';
+      if (on) {
+        if (els.settingsViewName) { els.settingsViewName.value = initial || ''; els.settingsViewName.focus(); }
+      } else {
+        if (els.settingsViewName) els.settingsViewName.value = '';
+      }
+    } catch {}
+  }
   els.settingsAddView?.addEventListener('click', async () => {
     setViewMsg('');
+    if (!viewAddMode) {
+      viewAddMode = true; viewRenameMode = false;
+      toggleViewName(true, '');
+      setViewMsg('Enter a view name, then press Add again.');
+      return;
+    }
     const name = String(els.settingsViewName?.value || '').trim();
     const ids = readCheckedScheduleIds();
     if (!name) { setViewMsg('Enter a view name.'); return; }
@@ -383,6 +417,7 @@ function attach() {
       populateViewSelect();
       setViewMsg('Added view.');
       ui.renderScheduleSelect?.();
+      viewAddMode = false; toggleViewName(false);
     } catch (err) {
       console.error(err); setViewMsg('Could not add view.');
     }
@@ -392,6 +427,12 @@ function attach() {
     const id = Number(els.settingsViewList?.value || '');
     const cur = (state.scheduleViews || []).find((v) => Number(v.id) === id);
     if (!cur) { setViewMsg('Select a view to rename.'); return; }
+    if (!viewRenameMode) {
+      viewRenameMode = true; viewAddMode = false;
+      toggleViewName(true, cur.name || '');
+      setViewMsg('Enter a new name, then press Rename again.');
+      return;
+    }
     const name = String(els.settingsViewName?.value || '').trim();
     if (!name) { setViewMsg('Enter a new name.'); return; }
     if (viewNameExists(name, id)) { setViewMsg('Name already exists.'); return; }
@@ -400,10 +441,10 @@ function attach() {
       await scheduleViewsDb.putScheduleView({ ...cur, name });
       state.scheduleViews = await (scheduleViewsDb.allScheduleViews?.() || Promise.resolve([]));
       populateViewSelect();
-      // Keep selection on renamed id
       if (els.settingsViewList) els.settingsViewList.value = String(id);
       setViewMsg('Renamed view.');
       ui.renderScheduleSelect?.();
+      viewRenameMode = false; toggleViewName(false);
     } catch (err) {
       console.error(err); setViewMsg('Could not rename view.');
     }
@@ -460,46 +501,16 @@ function attach() {
     return (state.schedules || []).some((s) => s && String(s.name) === name && (excludeId == null || Number(s.id) !== Number(excludeId)));
   }
 
-  els.settingsAddSched?.addEventListener('click', async () => {
-    hideDeleteConfirm();
-    const raw = String(els.settingsSchedName?.value || '').trim();
-    if (!raw) { showMsg('Enter a name to add a schedule.'); return; }
-    try {
-      assertSchedule({ name: raw });
-    } catch (err) {
-      console.error(err);
-      showMsg('Invalid name. Please enter 1–200 characters.');
-      return;
-    }
-    if (nameExists(raw)) {
-      const err = new Error('ConstraintError: schedule name must be unique');
-      err.name = 'ConstraintError';
-      console.error(err);
-      showMsg('Name already exists. Choose a different name.');
-      return;
-    }
-    try {
-      await schedulesDb.addSchedule({ name: raw });
-    } catch (err) {
-      // Surface DB-like errors (e.g., if a unique constraint is added later)
-      console.error(err);
-      showMsg('Could not add schedule: ' + (err?.message || 'Database error'));
-      return;
-    }
-    state.schedules = await schedulesDb.allSchedules();
-    state.currentScheduleId = state.schedules[state.schedules.length - 1]?.id ?? state.currentScheduleId;
-    try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId ?? '')); } catch {}
-    ui.renderScheduleSelect?.();
-    renderSettingsSchedules();
-    ui.renderAll();
-    try { if (els.settingsSchedName) els.settingsSchedName.value = ''; } catch {}
-    showMsg('Added schedule.');
-  });
   els.settingsRenameSched?.addEventListener('click', async () => {
     hideDeleteConfirm();
     const id = Number(els.settingsSchedList?.value || '');
     const cur = (state.schedules || []).find((s) => Number(s.id) === id);
     if (!cur) { showMsg('Select a schedule to rename.'); return; }
+    if (!schedRenameMode) {
+      toggleSchedRename(true);
+      showMsg('Enter a new name, then press Rename again.');
+      return;
+    }
     const raw = String(els.settingsSchedName?.value || '').trim();
     if (!raw) { showMsg('Enter a new name to rename.'); return; }
     try {
@@ -527,6 +538,7 @@ function attach() {
     ui.renderScheduleSelect?.();
     renderSettingsSchedules();
     showMsg('Renamed schedule.');
+    toggleSchedRename(false);
   });
   els.settingsDeleteSched?.addEventListener('click', async () => {
     hideDeleteConfirm();

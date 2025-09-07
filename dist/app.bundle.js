@@ -6597,9 +6597,9 @@
     lblRestore: byId("lblRestore"),
     // Settings: schedules (dashboard customization and move-between-schedules removed)
     settingsSchedList: byId("settingsSchedList"),
-    settingsAddSched: byId("settingsAddSched"),
     settingsRenameSched: byId("settingsRenameSched"),
     settingsDeleteSched: byId("settingsDeleteSched"),
+    settingsSchedNameWrap: byId("settingsSchedNameWrap"),
     settingsSchedName: byId("settingsSchedName"),
     settingsSchedMsg: byId("settingsSchedMsg"),
     settingsDeleteConfirm: byId("settingsDeleteConfirm"),
@@ -6608,6 +6608,7 @@
     settingsDeleteNo: byId("settingsDeleteNo"),
     // Settings: schedule views
     settingsViewList: byId("settingsViewList"),
+    settingsViewNameWrap: byId("settingsViewNameWrap"),
     settingsViewName: byId("settingsViewName"),
     settingsViewSchedChecks: byId("settingsViewSchedChecks"),
     settingsAddView: byId("settingsAddView"),
@@ -8211,6 +8212,141 @@
     renderScheduleSelect
   };
 
+  // src/validate.js
+  var import_ajv = __toESM(require_ajv());
+
+  // src/schema.js
+  var scheduleSchema = {
+    $id: "Schedule",
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      id: { anyOf: [{ type: "integer" }, { type: "null" }] },
+      name: { type: "string", minLength: 1, maxLength: 200 }
+    },
+    required: ["name"]
+  };
+  var scheduleViewSchema = {
+    $id: "ScheduleView",
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      id: { anyOf: [{ type: "integer" }, { type: "null" }] },
+      name: { type: "string", minLength: 1, maxLength: 200 },
+      scheduleIds: {
+        type: "array",
+        items: { type: "integer" }
+      }
+    },
+    required: ["name", "scheduleIds"]
+  };
+  var punchSchema = {
+    $id: "Punch",
+    type: "object",
+    additionalProperties: true,
+    properties: {
+      id: { anyOf: [{ type: "integer" }, { type: "null" }] },
+      start: { type: "integer", minimum: 0, maximum: 1440 },
+      end: { type: "integer", minimum: 0, maximum: 1440 },
+      bucket: { type: "string" },
+      note: { type: "string" },
+      date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
+      scheduleId: { anyOf: [{ type: "integer" }, { type: "null" }] }
+    },
+    required: ["start", "end", "date"]
+  };
+  var backupSchema = {
+    $id: "Backup",
+    type: "object",
+    additionalProperties: true,
+    properties: {
+      app: { type: "string" },
+      kind: { type: "string" },
+      version: { type: "integer", minimum: 2 },
+      exportedAt: { type: "string" },
+      count: { type: "integer" },
+      punches: {
+        type: "array",
+        items: punchSchema
+      },
+      buckets: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: true,
+          properties: {
+            name: { type: "string" },
+            note: { type: "string" }
+          }
+        }
+      },
+      schedules: {
+        type: "array",
+        items: scheduleSchema
+      },
+      scheduleViews: {
+        type: "array",
+        items: scheduleViewSchema
+      }
+    },
+    required: ["punches"]
+  };
+
+  // src/validate.js
+  var ajv = new import_ajv.default({ allErrors: true, strict: false });
+  ajv.addSchema(scheduleSchema).addSchema(scheduleViewSchema).addSchema(punchSchema).addSchema(backupSchema);
+  var vSchedule = ajv.getSchema("Schedule") || ajv.compile(scheduleSchema);
+  var vScheduleView = ajv.getSchema("ScheduleView") || ajv.compile(scheduleViewSchema);
+  var vPunch = ajv.getSchema("Punch") || ajv.compile(punchSchema);
+  var vBackup = ajv.getSchema("Backup") || ajv.compile(backupSchema);
+  function formatErrors(errors) {
+    try {
+      return (errors || []).map((e) => `${e.instancePath || e.schemaPath}: ${e.message}`).join("; ");
+    } catch (e) {
+      return "Validation failed";
+    }
+  }
+  function validateSchedule(obj) {
+    var _a;
+    const data = { ...obj, name: String((_a = obj == null ? void 0 : obj.name) != null ? _a : "").trim() };
+    const ok = vSchedule(data);
+    return { valid: !!ok, errors: ok ? null : vSchedule.errors };
+  }
+  function assertSchedule(obj) {
+    const { valid, errors } = validateSchedule(obj);
+    if (!valid) {
+      const msg = formatErrors(errors);
+      const err = new Error(`ValidationError: Schedule invalid \u2013 ${msg}`);
+      err.name = "ValidationError";
+      err.details = errors;
+      throw err;
+    }
+  }
+  function validateScheduleView(obj) {
+    var _a;
+    const data = { ...obj, name: String((_a = obj == null ? void 0 : obj.name) != null ? _a : "").trim(), scheduleIds: Array.isArray(obj == null ? void 0 : obj.scheduleIds) ? obj.scheduleIds.map(Number) : [] };
+    const ok = vScheduleView(data);
+    return { valid: !!ok, errors: ok ? null : vScheduleView.errors };
+  }
+  function assertScheduleView(obj) {
+    const { valid, errors } = validateScheduleView(obj);
+    if (!valid) {
+      const msg = formatErrors(errors);
+      const err = new Error(`ValidationError: ScheduleView invalid \u2013 ${msg}`);
+      err.name = "ValidationError";
+      err.details = errors;
+      throw err;
+    }
+  }
+  function validateBackup(obj) {
+    try {
+      const ok = vBackup(obj);
+      return { valid: !!ok, errors: ok ? null : vBackup.errors };
+    } catch (err) {
+      return { valid: false, errors: [{ message: (err == null ? void 0 : err.message) || "Backup validation error" }] };
+    }
+  }
+
   // src/recur.js
   function addDays(d, days) {
     const nd = new Date(d.getTime());
@@ -8714,141 +8850,6 @@
     }
   };
 
-  // src/validate.js
-  var import_ajv = __toESM(require_ajv());
-
-  // src/schema.js
-  var scheduleSchema = {
-    $id: "Schedule",
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      id: { anyOf: [{ type: "integer" }, { type: "null" }] },
-      name: { type: "string", minLength: 1, maxLength: 200 }
-    },
-    required: ["name"]
-  };
-  var scheduleViewSchema = {
-    $id: "ScheduleView",
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      id: { anyOf: [{ type: "integer" }, { type: "null" }] },
-      name: { type: "string", minLength: 1, maxLength: 200 },
-      scheduleIds: {
-        type: "array",
-        items: { type: "integer" }
-      }
-    },
-    required: ["name", "scheduleIds"]
-  };
-  var punchSchema = {
-    $id: "Punch",
-    type: "object",
-    additionalProperties: true,
-    properties: {
-      id: { anyOf: [{ type: "integer" }, { type: "null" }] },
-      start: { type: "integer", minimum: 0, maximum: 1440 },
-      end: { type: "integer", minimum: 0, maximum: 1440 },
-      bucket: { type: "string" },
-      note: { type: "string" },
-      date: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$" },
-      scheduleId: { anyOf: [{ type: "integer" }, { type: "null" }] }
-    },
-    required: ["start", "end", "date"]
-  };
-  var backupSchema = {
-    $id: "Backup",
-    type: "object",
-    additionalProperties: true,
-    properties: {
-      app: { type: "string" },
-      kind: { type: "string" },
-      version: { type: "integer", minimum: 2 },
-      exportedAt: { type: "string" },
-      count: { type: "integer" },
-      punches: {
-        type: "array",
-        items: punchSchema
-      },
-      buckets: {
-        type: "array",
-        items: {
-          type: "object",
-          additionalProperties: true,
-          properties: {
-            name: { type: "string" },
-            note: { type: "string" }
-          }
-        }
-      },
-      schedules: {
-        type: "array",
-        items: scheduleSchema
-      },
-      scheduleViews: {
-        type: "array",
-        items: scheduleViewSchema
-      }
-    },
-    required: ["punches"]
-  };
-
-  // src/validate.js
-  var ajv = new import_ajv.default({ allErrors: true, strict: false });
-  ajv.addSchema(scheduleSchema).addSchema(scheduleViewSchema).addSchema(punchSchema).addSchema(backupSchema);
-  var vSchedule = ajv.getSchema("Schedule") || ajv.compile(scheduleSchema);
-  var vScheduleView = ajv.getSchema("ScheduleView") || ajv.compile(scheduleViewSchema);
-  var vPunch = ajv.getSchema("Punch") || ajv.compile(punchSchema);
-  var vBackup = ajv.getSchema("Backup") || ajv.compile(backupSchema);
-  function formatErrors(errors) {
-    try {
-      return (errors || []).map((e) => `${e.instancePath || e.schemaPath}: ${e.message}`).join("; ");
-    } catch (e) {
-      return "Validation failed";
-    }
-  }
-  function validateSchedule(obj) {
-    var _a;
-    const data = { ...obj, name: String((_a = obj == null ? void 0 : obj.name) != null ? _a : "").trim() };
-    const ok = vSchedule(data);
-    return { valid: !!ok, errors: ok ? null : vSchedule.errors };
-  }
-  function assertSchedule(obj) {
-    const { valid, errors } = validateSchedule(obj);
-    if (!valid) {
-      const msg = formatErrors(errors);
-      const err = new Error(`ValidationError: Schedule invalid \u2013 ${msg}`);
-      err.name = "ValidationError";
-      err.details = errors;
-      throw err;
-    }
-  }
-  function validateScheduleView(obj) {
-    var _a;
-    const data = { ...obj, name: String((_a = obj == null ? void 0 : obj.name) != null ? _a : "").trim(), scheduleIds: Array.isArray(obj == null ? void 0 : obj.scheduleIds) ? obj.scheduleIds.map(Number) : [] };
-    const ok = vScheduleView(data);
-    return { valid: !!ok, errors: ok ? null : vScheduleView.errors };
-  }
-  function assertScheduleView(obj) {
-    const { valid, errors } = validateScheduleView(obj);
-    if (!valid) {
-      const msg = formatErrors(errors);
-      const err = new Error(`ValidationError: ScheduleView invalid \u2013 ${msg}`);
-      err.name = "ValidationError";
-      err.details = errors;
-      throw err;
-    }
-  }
-  function validateBackup(obj) {
-    try {
-      const ok = vBackup(obj);
-      return { valid: !!ok, errors: ok ? null : vBackup.errors };
-    } catch (err) {
-      return { valid: false, errors: [{ message: (err == null ? void 0 : err.message) || "Backup validation error" }] };
-    }
-  }
-
   // src/actions/settings.js
   function applyTheme(theme) {
     const t = theme === "light" ? "light" : "neon";
@@ -9109,9 +9110,17 @@
   }
   function closeSettings() {
     if (els.settingsModal) els.settingsModal.style.display = "none";
+    try {
+      if (els.settingsSchedNameWrap) els.settingsSchedNameWrap.style.display = "none";
+    } catch (e) {
+    }
+    try {
+      if (els.settingsViewNameWrap) els.settingsViewNameWrap.style.display = "none";
+    } catch (e) {
+    }
   }
   function attach() {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r, _s;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, _r;
     try {
       const saved = localStorage.getItem("tt.theme") || "neon";
       applyTheme(saved);
@@ -9150,6 +9159,25 @@
     });
     (_j = els.btnEraseAll) == null ? void 0 : _j.addEventListener("click", eraseAll);
     (_k = els.themeSelect) == null ? void 0 : _k.addEventListener("change", (e) => applyTheme(e.target.value));
+    let schedRenameMode = false;
+    function toggleSchedRename(on = false) {
+      var _a2;
+      try {
+        schedRenameMode = !!on;
+        if (els.settingsSchedNameWrap) els.settingsSchedNameWrap.style.display = on ? "" : "none";
+        if (on) {
+          const id = Number(((_a2 = els.settingsSchedList) == null ? void 0 : _a2.value) || "");
+          const cur = (state.schedules || []).find((s) => Number(s.id) === id);
+          if (cur && els.settingsSchedName) {
+            els.settingsSchedName.value = cur.name || "";
+            els.settingsSchedName.focus();
+          }
+        } else {
+          if (els.settingsSchedName) els.settingsSchedName.value = "";
+        }
+      } catch (e) {
+      }
+    }
     function populateScheduleSelect(el, allowAll = false) {
       if (!el) return;
       el.innerHTML = "";
@@ -9241,9 +9269,32 @@
       return (state.scheduleViews || []).some((v) => v && String(v.name) === name && (excludeId == null || Number(v.id) !== Number(excludeId)));
     }
     (_l = els.settingsViewList) == null ? void 0 : _l.addEventListener("change", () => renderSettingsViews());
+    let viewAddMode = false;
+    let viewRenameMode = false;
+    function toggleViewName(on = false, initial = "") {
+      try {
+        if (els.settingsViewNameWrap) els.settingsViewNameWrap.style.display = on ? "" : "none";
+        if (on) {
+          if (els.settingsViewName) {
+            els.settingsViewName.value = initial || "";
+            els.settingsViewName.focus();
+          }
+        } else {
+          if (els.settingsViewName) els.settingsViewName.value = "";
+        }
+      } catch (e) {
+      }
+    }
     (_m = els.settingsAddView) == null ? void 0 : _m.addEventListener("click", async () => {
       var _a2, _b2, _c2, _d2, _e2;
       setViewMsg("");
+      if (!viewAddMode) {
+        viewAddMode = true;
+        viewRenameMode = false;
+        toggleViewName(true, "");
+        setViewMsg("Enter a view name, then press Add again.");
+        return;
+      }
       const name = String(((_a2 = els.settingsViewName) == null ? void 0 : _a2.value) || "").trim();
       const ids = readCheckedScheduleIds();
       if (!name) {
@@ -9271,6 +9322,8 @@
         populateViewSelect();
         setViewMsg("Added view.");
         (_e2 = (_d2 = ui).renderScheduleSelect) == null ? void 0 : _e2.call(_d2);
+        viewAddMode = false;
+        toggleViewName(false);
       } catch (err) {
         console.error(err);
         setViewMsg("Could not add view.");
@@ -9283,6 +9336,13 @@
       const cur = (state.scheduleViews || []).find((v) => Number(v.id) === id);
       if (!cur) {
         setViewMsg("Select a view to rename.");
+        return;
+      }
+      if (!viewRenameMode) {
+        viewRenameMode = true;
+        viewAddMode = false;
+        toggleViewName(true, cur.name || "");
+        setViewMsg("Enter a new name, then press Rename again.");
         return;
       }
       const name = String(((_b2 = els.settingsViewName) == null ? void 0 : _b2.value) || "").trim();
@@ -9308,6 +9368,8 @@
         if (els.settingsViewList) els.settingsViewList.value = String(id);
         setViewMsg("Renamed view.");
         (_f2 = (_e2 = ui).renderScheduleSelect) == null ? void 0 : _f2.call(_e2);
+        viewRenameMode = false;
+        toggleViewName(false);
       } catch (err) {
         console.error(err);
         setViewMsg("Could not rename view.");
@@ -9404,57 +9466,18 @@
       const name = String(raw || "").trim();
       return (state.schedules || []).some((s) => s && String(s.name) === name && (excludeId == null || Number(s.id) !== Number(excludeId)));
     }
-    (_q = els.settingsAddSched) == null ? void 0 : _q.addEventListener("click", async () => {
-      var _a2, _b2, _c2, _d2, _e2, _f2;
-      hideDeleteConfirm();
-      const raw = String(((_a2 = els.settingsSchedName) == null ? void 0 : _a2.value) || "").trim();
-      if (!raw) {
-        showMsg("Enter a name to add a schedule.");
-        return;
-      }
-      try {
-        assertSchedule({ name: raw });
-      } catch (err) {
-        console.error(err);
-        showMsg("Invalid name. Please enter 1\u2013200 characters.");
-        return;
-      }
-      if (nameExists(raw)) {
-        const err = new Error("ConstraintError: schedule name must be unique");
-        err.name = "ConstraintError";
-        console.error(err);
-        showMsg("Name already exists. Choose a different name.");
-        return;
-      }
-      try {
-        await schedulesDb.addSchedule({ name: raw });
-      } catch (err) {
-        console.error(err);
-        showMsg("Could not add schedule: " + ((err == null ? void 0 : err.message) || "Database error"));
-        return;
-      }
-      state.schedules = await schedulesDb.allSchedules();
-      state.currentScheduleId = (_c2 = (_b2 = state.schedules[state.schedules.length - 1]) == null ? void 0 : _b2.id) != null ? _c2 : state.currentScheduleId;
-      try {
-        localStorage.setItem("currentScheduleId", String((_d2 = state.currentScheduleId) != null ? _d2 : ""));
-      } catch (e) {
-      }
-      (_f2 = (_e2 = ui).renderScheduleSelect) == null ? void 0 : _f2.call(_e2);
-      renderSettingsSchedules();
-      ui.renderAll();
-      try {
-        if (els.settingsSchedName) els.settingsSchedName.value = "";
-      } catch (e) {
-      }
-      showMsg("Added schedule.");
-    });
-    (_r = els.settingsRenameSched) == null ? void 0 : _r.addEventListener("click", async () => {
+    (_q = els.settingsRenameSched) == null ? void 0 : _q.addEventListener("click", async () => {
       var _a2, _b2, _c2, _d2;
       hideDeleteConfirm();
       const id = Number(((_a2 = els.settingsSchedList) == null ? void 0 : _a2.value) || "");
       const cur = (state.schedules || []).find((s) => Number(s.id) === id);
       if (!cur) {
         showMsg("Select a schedule to rename.");
+        return;
+      }
+      if (!schedRenameMode) {
+        toggleSchedRename(true);
+        showMsg("Enter a new name, then press Rename again.");
         return;
       }
       const raw = String(((_b2 = els.settingsSchedName) == null ? void 0 : _b2.value) || "").trim();
@@ -9487,8 +9510,9 @@
       (_d2 = (_c2 = ui).renderScheduleSelect) == null ? void 0 : _d2.call(_c2);
       renderSettingsSchedules();
       showMsg("Renamed schedule.");
+      toggleSchedRename(false);
     });
-    (_s = els.settingsDeleteSched) == null ? void 0 : _s.addEventListener("click", async () => {
+    (_r = els.settingsDeleteSched) == null ? void 0 : _r.addEventListener("click", async () => {
       var _a2, _b2, _c2;
       hideDeleteConfirm();
       const id = Number(((_a2 = els.settingsSchedList) == null ? void 0 : _a2.value) || "");
@@ -10252,14 +10276,33 @@
           ui.renderAll();
         }
       });
-      (_b = els.btnAddSchedule) == null ? void 0 : _b.addEventListener("click", () => {
-        var _a2, _b2;
+      (_b = els.btnAddSchedule) == null ? void 0 : _b.addEventListener("click", async () => {
+        var _a2, _b2, _c2, _d2, _e2;
         try {
-          (_a2 = els.btnSettings) == null ? void 0 : _a2.click();
-        } catch (e) {
-        }
-        try {
-          (_b2 = els.settingsSchedName) == null ? void 0 : _b2.focus();
+          const raw = prompt("New schedule name");
+          const name = String(raw || "").trim();
+          if (!name) return;
+          try {
+            assertSchedule({ name });
+          } catch (err) {
+            ui.toast("Invalid name (1\u2013200 chars)");
+            return;
+          }
+          const exists = (state.schedules || []).some((s) => String((s == null ? void 0 : s.name) || "") === name);
+          if (exists) {
+            ui.toast("Name already exists");
+            return;
+          }
+          await schedulesDb.addSchedule({ name });
+          state.schedules = await schedulesDb.allSchedules();
+          state.currentScheduleId = (_b2 = (_a2 = state.schedules[state.schedules.length - 1]) == null ? void 0 : _a2.id) != null ? _b2 : state.currentScheduleId;
+          try {
+            localStorage.setItem("currentScheduleId", String((_c2 = state.currentScheduleId) != null ? _c2 : ""));
+          } catch (e) {
+          }
+          (_e2 = (_d2 = ui).renderScheduleSelect) == null ? void 0 : _e2.call(_d2);
+          ui.renderAll();
+          ui.toast("Added schedule");
         } catch (e) {
         }
       });
@@ -10273,10 +10316,6 @@
           const curId = state.currentScheduleId;
           const cur = (state.schedules || []).find((s) => Number(s.id) === Number(curId));
           if (cur && els.settingsSchedList) els.settingsSchedList.value = String(cur.id);
-          if (cur && els.settingsSchedName) {
-            els.settingsSchedName.value = cur.name || "";
-            els.settingsSchedName.focus();
-          }
         } catch (e) {
         }
       });

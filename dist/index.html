@@ -351,12 +351,11 @@
             <div style="display:grid; gap:10px;">
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <select id="settingsSchedList" title="Schedules" style="min-width:220px;"></select>
-                <button id="settingsAddSched" class="btn" title="Add a new schedule with the name below">Add</button>
-                <button id="settingsRenameSched" class="btn ghost" title="Rename the selected schedule to the name below">Rename</button>
+                <button id="settingsRenameSched" class="btn ghost" title="Rename the selected schedule">Rename</button>
                 <button id="settingsDeleteSched" class="btn danger" title="Delete the selected schedule">Delete</button>
               </div>
               <div style="display:grid; grid-template-columns: 1fr; gap:8px;">
-                <div>
+                <div id="settingsSchedNameWrap" style="display:none;">
                   <label>Name</label>
                   <input id="settingsSchedName" type="text" placeholder="Schedule name" />
                 </div>
@@ -381,12 +380,12 @@
             <div style="display:grid; gap:10px;">
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <select id="settingsViewList" title="Views" style="min-width:220px;"></select>
-                <button id="settingsAddView" class="btn" title="Add a new view with the name below">Add</button>
-                <button id="settingsRenameView" class="btn ghost" title="Rename the selected view to the name below">Rename</button>
+                <button id="settingsAddView" class="btn" title="Add a new view">Add</button>
+                <button id="settingsRenameView" class="btn ghost" title="Rename the selected view">Rename</button>
                 <button id="settingsDeleteView" class="btn danger" title="Delete the selected view">Delete</button>
               </div>
               <div style="display:grid; grid-template-columns: 1fr; gap:8px;">
-                <div>
+                <div id="settingsViewNameWrap" style="display:none;">
                   <label>Name</label>
                   <input id="settingsViewName" type="text" placeholder="View name" />
                 </div>

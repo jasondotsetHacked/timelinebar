@@ -3,6 +3,7 @@ import { state } from '../state.js';
 import { time } from '../time.js';
 import { ui } from '../ui.js';
 import { idb, schedulesDb } from '../storage.js';
+import { assertSchedule } from '../validate.js';
 import { todayStr, parseDate, toDateStr } from '../dates.js';
 import { getPunchDate } from '../dates.js';
 import { expandDates } from '../recur.js';
@@ -397,10 +398,23 @@ const attachEvents = () => {
         ui.renderAll();
       }
     });
-    // Header quick actions: open Settings to Schedules section instead of using prompts
-    els.btnAddSchedule?.addEventListener('click', () => {
-      try { els.btnSettings?.click(); } catch {}
-      try { els.settingsSchedName?.focus(); } catch {}
+    // Header quick actions
+    els.btnAddSchedule?.addEventListener('click', async () => {
+      try {
+        const raw = prompt('New schedule name');
+        const name = String(raw || '').trim();
+        if (!name) return;
+        try { assertSchedule({ name }); } catch (err) { ui.toast('Invalid name (1–200 chars)'); return; }
+        const exists = (state.schedules || []).some((s) => String(s?.name || '') === name);
+        if (exists) { ui.toast('Name already exists'); return; }
+        await schedulesDb.addSchedule({ name });
+        state.schedules = await schedulesDb.allSchedules();
+        state.currentScheduleId = state.schedules[state.schedules.length - 1]?.id ?? state.currentScheduleId;
+        try { localStorage.setItem('currentScheduleId', String(state.currentScheduleId ?? '')); } catch {}
+        ui.renderScheduleSelect?.();
+        ui.renderAll();
+        ui.toast('Added schedule');
+      } catch {}
     });
     els.btnRenameSchedule?.addEventListener('click', () => {
       try { els.btnSettings?.click(); } catch {}
@@ -408,7 +422,7 @@ const attachEvents = () => {
         const curId = state.currentScheduleId;
         const cur = (state.schedules || []).find((s) => Number(s.id) === Number(curId));
         if (cur && els.settingsSchedList) els.settingsSchedList.value = String(cur.id);
-        if (cur && els.settingsSchedName) { els.settingsSchedName.value = cur.name || ''; els.settingsSchedName.focus(); }
+        // Input is shown by pressing Rename inside Settings (two-step flow)
       } catch {}
     });
     els.btnDeleteSchedule?.addEventListener('click', () => {

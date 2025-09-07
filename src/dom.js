@@ -127,9 +127,9 @@ export const els = {
   lblRestore: byId('lblRestore'),
   // Settings: schedules (dashboard customization and move-between-schedules removed)
   settingsSchedList: byId('settingsSchedList'),
-  settingsAddSched: byId('settingsAddSched'),
   settingsRenameSched: byId('settingsRenameSched'),
   settingsDeleteSched: byId('settingsDeleteSched'),
+  settingsSchedNameWrap: byId('settingsSchedNameWrap'),
   settingsSchedName: byId('settingsSchedName'),
   settingsSchedMsg: byId('settingsSchedMsg'),
   settingsDeleteConfirm: byId('settingsDeleteConfirm'),
@@ -138,6 +138,7 @@ export const els = {
   settingsDeleteNo: byId('settingsDeleteNo'),
   // Settings: schedule views
   settingsViewList: byId('settingsViewList'),
+  settingsViewNameWrap: byId('settingsViewNameWrap'),
   settingsViewName: byId('settingsViewName'),
   settingsViewSchedChecks: byId('settingsViewSchedChecks'),
   settingsAddView: byId('settingsAddView'),
