@@ -60,6 +60,13 @@ async function loadBucketNoteIntoEditor(name) {
         els.bucketNotePreview.innerHTML = mdToHtml(text);
       }
     } catch {}
+    // Remove loading indicator
+    try {
+      if (els.bucketNoteEditor) {
+        els.bucketNoteEditor.style.opacity = '1';
+        els.bucketNoteEditor.style.pointerEvents = 'auto';
+      }
+    } catch {}
   } catch {}
 }
 
@@ -382,7 +389,21 @@ function showDatePicker(anchor, inputEl) {
   document.addEventListener('keydown', onDateKey);
 }
 
-const closeModal = () => { hideDatePicker(); ui.closeModal(); };
+let bucketFieldDebounceTimer = null;
+
+const closeModal = () => { 
+  clearTimeout(bucketFieldDebounceTimer);
+  bucketFieldDebounceTimer = null;
+  // Reset loading indicator
+  try {
+    if (els.bucketNoteEditor) {
+      els.bucketNoteEditor.style.opacity = '1';
+      els.bucketNoteEditor.style.pointerEvents = 'auto';
+    }
+  } catch {}
+  hideDatePicker(); 
+  ui.closeModal(); 
+};
 
 const attachEvents = () => {
   dragActions.attach();
@@ -1360,12 +1381,18 @@ const attachEvents = () => {
     }
   });
 
-  // Update bucket note when bucket name changes
-  els.bucketField?.addEventListener('input', () => {
+// Update bucket note when bucket name changes
+els.bucketField?.addEventListener('input', () => {
+  clearTimeout(bucketFieldDebounceTimer);
+  // Add loading indicator
+  if (els.bucketNoteEditor) {
+    els.bucketNoteEditor.style.opacity = '0.5';
+    els.bucketNoteEditor.style.pointerEvents = 'none';
+  }
+  bucketFieldDebounceTimer = setTimeout(() => {
     try { loadBucketNoteIntoEditor(els.bucketField.value); } catch {}
-  });
-
-  // Note modal controls
+  }, 2000);
+});  // Note modal controls
   els.noteModalClose?.addEventListener('click', () => ui.closeNoteModal?.());
   els.noteCancel?.addEventListener('click', () => ui.closeNoteModal?.());
   els.noteEditToggle?.addEventListener('click', () => {

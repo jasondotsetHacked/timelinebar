@@ -9990,6 +9990,13 @@
         }
       } catch (e) {
       }
+      try {
+        if (els.bucketNoteEditor) {
+          els.bucketNoteEditor.style.opacity = "1";
+          els.bucketNoteEditor.style.pointerEvents = "auto";
+        }
+      } catch (e) {
+      }
     } catch (e) {
     }
   }
@@ -10360,7 +10367,17 @@
     window.addEventListener("scroll", hideDatePicker, true);
     document.addEventListener("keydown", onDateKey);
   }
+  var bucketFieldDebounceTimer = null;
   var closeModal2 = () => {
+    clearTimeout(bucketFieldDebounceTimer);
+    bucketFieldDebounceTimer = null;
+    try {
+      if (els.bucketNoteEditor) {
+        els.bucketNoteEditor.style.opacity = "1";
+        els.bucketNoteEditor.style.pointerEvents = "auto";
+      }
+    } catch (e) {
+    }
     hideDatePicker();
     ui.closeModal();
   };
@@ -11500,10 +11517,17 @@
       }
     });
     (_M = els.bucketField) == null ? void 0 : _M.addEventListener("input", () => {
-      try {
-        loadBucketNoteIntoEditor(els.bucketField.value);
-      } catch (e) {
+      clearTimeout(bucketFieldDebounceTimer);
+      if (els.bucketNoteEditor) {
+        els.bucketNoteEditor.style.opacity = "0.5";
+        els.bucketNoteEditor.style.pointerEvents = "none";
       }
+      bucketFieldDebounceTimer = setTimeout(() => {
+        try {
+          loadBucketNoteIntoEditor(els.bucketField.value);
+        } catch (e) {
+        }
+      }, 2e3);
     });
     (_N = els.noteModalClose) == null ? void 0 : _N.addEventListener("click", () => {
       var _a2, _b2;
