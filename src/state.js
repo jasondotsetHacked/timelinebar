@@ -15,6 +15,8 @@ export const state = {
   viewEndMin: 18 * 60,  // default 6:00pm
   // Hover flag used to route wheel events when over the track
   overTrack: false,
+  // Suppress click-to-open after drag/move
+  lastMoveAt: 0,
   // Date/calendar state
   currentDate: new Date().toISOString().slice(0, 10), // YYYY-MM-DD selected day
   viewMode: 'calendar', // 'day' | 'calendar' | 'bucket'

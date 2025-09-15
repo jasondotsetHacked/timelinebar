@@ -116,6 +116,8 @@ const endMove = async () => {
   window.removeEventListener('touchend', endMove);
   ui.hideTips();
   if (!moved) return; // treat as click; don't change
+  // Record that a move just happened to suppress subsequent click-open
+  state.lastMoveAt = Date.now();
   if (!preview || preview.invalid) {
     ui.renderTimeline();
     if (preview?.invalid) ui.toast('Move would overlap another block.');

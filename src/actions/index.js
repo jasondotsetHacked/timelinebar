@@ -1287,8 +1287,11 @@ const attachEvents = () => {
   els.btnCopyChartTop?.addEventListener('click', doCopy);
   els.btnCopyChartTable?.addEventListener('click', doCopy);
 
-  // track click: open note modal when appropriate
+  // track click: open note modal when appropriate (but not right after drag/move)
   els.track.addEventListener('click', (e) => {
+    // If a drag/move/resize is active or just ended, ignore this click
+    if (state.dragging || state.moving || state.resizing) return;
+    if (state.lastMoveAt && Date.now() - state.lastMoveAt < 400) return;
     if (e.shiftKey) {
       // Already handled by earlier listener
       return;

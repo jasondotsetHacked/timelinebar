@@ -6649,6 +6649,8 @@
     // default 6:00pm
     // Hover flag used to route wheel events when over the track
     overTrack: false,
+    // Suppress click-to-open after drag/move
+    lastMoveAt: 0,
     // Date/calendar state
     currentDate: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
     // YYYY-MM-DD selected day
@@ -8689,6 +8691,7 @@
     window.removeEventListener("touchend", endMove);
     ui.hideTips();
     if (!moved) return;
+    state.lastMoveAt = Date.now();
     if (!preview || preview.invalid) {
       ui.renderTimeline();
       if (preview == null ? void 0 : preview.invalid) ui.toast("Move would overlap another block.");
@@ -11429,6 +11432,8 @@
     (_G = els.btnCopyChartTable) == null ? void 0 : _G.addEventListener("click", doCopy);
     els.track.addEventListener("click", (e) => {
       var _a2, _b2, _c2, _d2;
+      if (state.dragging || state.moving || state.resizing) return;
+      if (state.lastMoveAt && Date.now() - state.lastMoveAt < 400) return;
       if (e.shiftKey) {
         return;
       }
