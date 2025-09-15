@@ -783,6 +783,11 @@ td.status-cell, th.status-cell { padding-left: 10px; padding-right: 10px; width:
 .status-option[data-value="purple-solid"] { background: #aa00ff; border-color: #aa00ff; }
 .status-option[data-value="default"] { background: rgba(0,255,102,0.1); }
 
+/* Always-visible horizontal status picker inside modal */
+.modal .status-btn { display: none; }
+.modal .status-menu { position: static; display: flex !important; grid-template-columns: none; gap: 8px; padding: 0; background: transparent; border: 0; box-shadow: none; }
+.status-option.selected { outline: 2px solid var(--brand-2); outline-offset: 2px; }
+
 /* Open state */
 .status-wrap.open .status-menu { display: grid; }
 /* Open upwards modifier when near bottom */

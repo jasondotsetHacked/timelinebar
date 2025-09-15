@@ -31,6 +31,18 @@ const mdToHtml = (text) => {
   return escapeHtml(t).replace(/\n/g, '<br>');
 };
 
+// Highlight the selected status option in the modal's inline picker
+function highlightModalStatus(val) {
+  try {
+    const menu = els.modalStatusMenu;
+    if (!menu) return;
+    const chosen = String(val || 'default');
+    menu.querySelectorAll('.status-option').forEach((o) => {
+      o.classList.toggle('selected', o.dataset.value === chosen);
+    });
+  } catch {}
+}
+
 async function loadBucketNoteIntoEditor(name) {
   try {
     const key = String(name || '').trim();
@@ -670,6 +682,7 @@ const attachEvents = () => {
         const st = p.status || 'default';
         els.modalStatusBtn.dataset.value = st;
         els.modalStatusBtn.className = `status-btn status-${st}`;
+        highlightModalStatus(st);
       }
       if (els.modalStatusWrap) els.modalStatusWrap.classList.remove('open');
       if (els.modalDelete) els.modalDelete.style.display = '';
@@ -756,6 +769,7 @@ const attachEvents = () => {
         const st = p.status || 'default';
         els.modalStatusBtn.dataset.value = st;
         els.modalStatusBtn.className = `status-btn status-${st}`;
+        highlightModalStatus(st);
       }
       if (els.modalStatusWrap) els.modalStatusWrap.classList.remove('open');
       if (els.modalDelete) els.modalDelete.style.display = '';
@@ -826,6 +840,7 @@ const attachEvents = () => {
         const st = p.status || 'default';
         els.modalStatusBtn.dataset.value = st;
         els.modalStatusBtn.className = `status-btn status-${st}`;
+        highlightModalStatus(st);
       }
       if (els.modalStatusWrap) els.modalStatusWrap.classList.remove('open');
       if (els.modalDelete) els.modalDelete.style.display = '';
@@ -873,6 +888,7 @@ const attachEvents = () => {
         const st = p.status || 'default';
         els.modalStatusBtn.dataset.value = st;
         els.modalStatusBtn.className = `status-btn status-${st}`;
+        highlightModalStatus(st);
       }
       if (els.modalStatusWrap) els.modalStatusWrap.classList.remove('open');
       if (els.modalDelete) els.modalDelete.style.display = '';
@@ -1034,9 +1050,7 @@ const attachEvents = () => {
     ui.renderAll();
     ui.toast(added ? `Added ${added} more` : 'No new dates to add');
   });
-  els.modalStatusBtn?.addEventListener('click', () => {
-    els.modalStatusWrap?.classList.toggle('open');
-  });
+  // In modal, status options are always visible; no toggle needed
   els.modalStatusMenu?.addEventListener('click', (e) => {
     const opt = e.target.closest('.status-option');
     if (!opt) return;
@@ -1046,7 +1060,7 @@ const attachEvents = () => {
       els.modalStatusBtn.dataset.value = val;
       els.modalStatusBtn.className = `status-btn status-${val}`;
     }
-    els.modalStatusWrap?.classList.remove('open');
+    highlightModalStatus(val);
   });
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
