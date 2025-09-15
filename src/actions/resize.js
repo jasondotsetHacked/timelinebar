@@ -26,7 +26,7 @@ const onResizeMove = (e) => {
   if (e.cancelable) e.preventDefault();
   const { id, edge, startStart, startEnd } = state.resizing;
   const raw = e.touches ? pxToMinutes(e.touches[0].clientX) : pxToMinutes(e.clientX);
-  const m = time.snap(raw);
+  const m = time.snap(raw, e.shiftKey ? 1 : undefined);
   const bounds = nearestBounds(id);
   let newStart = startStart;
   let newEnd = startEnd;
@@ -34,13 +34,13 @@ const onResizeMove = (e) => {
     const minL = bounds.leftLimitAt(startStart);
     const maxL = startEnd - 1;
     newStart = Math.min(maxL, Math.max(minL, m));
-    newStart = time.snap(newStart);
+    newStart = time.snap(newStart, e.shiftKey ? 1 : undefined);
   }
   if (edge === 'right') {
     const minR = startStart + 1;
     const maxR = bounds.rightLimitAt(startEnd);
     newEnd = Math.max(minR, Math.min(maxR, m));
-    newEnd = time.snap(newEnd);
+    newEnd = time.snap(newEnd, e.shiftKey ? 1 : undefined);
   }
   const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
   const el = els.track.querySelector(`.punch[data-id="${id}"]`);

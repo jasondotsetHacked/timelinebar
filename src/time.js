@@ -1,7 +1,11 @@
 import { DAY_MIN, SNAP_MIN } from './config.js';
 
 const clamp = (min) => Math.max(0, Math.min(DAY_MIN, Math.round(min)));
-const snap = (min) => Math.max(0, Math.min(DAY_MIN, Math.round(min / SNAP_MIN) * SNAP_MIN));
+// Snap to nearest interval (defaults to SNAP_MIN). Interval must be >= 1.
+const snap = (min, interval = SNAP_MIN) => {
+  const step = Math.max(1, Math.round(interval || SNAP_MIN));
+  return Math.max(0, Math.min(DAY_MIN, Math.round(min / step) * step));
+};
 
 const toLabel = (mins) => {
   const m = clamp(mins);

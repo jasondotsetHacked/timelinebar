@@ -6683,7 +6683,10 @@
 
   // src/time.js
   var clamp = (min) => Math.max(0, Math.min(DAY_MIN, Math.round(min)));
-  var snap = (min) => Math.max(0, Math.min(DAY_MIN, Math.round(min / SNAP_MIN) * SNAP_MIN));
+  var snap = (min, interval = SNAP_MIN) => {
+    const step = Math.max(1, Math.round(interval || SNAP_MIN));
+    return Math.max(0, Math.min(DAY_MIN, Math.round(min / step) * step));
+  };
   var toLabel = (mins) => {
     const m = clamp(mins);
     const h24 = Math.floor(m / 60) % 24;
@@ -8613,7 +8616,7 @@
     if (e.target.closest(".handle")) return;
     if (e.target.closest(".punch")) return;
     const raw = e.touches ? pxToMinutes(e.touches[0].clientX) : pxToMinutes(e.clientX);
-    const snapped = time.snap(raw);
+    const snapped = time.snap(raw, e.shiftKey ? 1 : void 0);
     state.dragging = { anchor: snapped, last: snapped };
     ui.showGhost(snapped, snapped);
     window.addEventListener("mousemove", onDragMove);
@@ -8625,7 +8628,7 @@
     if (!state.dragging) return;
     if (e.cancelable) e.preventDefault();
     const raw = e.touches ? pxToMinutes(e.touches[0].clientX) : pxToMinutes(e.clientX);
-    const snapped = time.snap(raw);
+    const snapped = time.snap(raw, e.shiftKey ? 1 : void 0);
     state.dragging.last = snapped;
     ui.showGhost(state.dragging.anchor, snapped);
   };
@@ -8691,8 +8694,8 @@
     const { id, items, offset, startClientX, anchorStart, groupIds } = state.moving;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     if (Math.abs(clientX - startClientX) > 3) state.moving.moved = true;
-    const m = time.snap(pxToMinutes(clientX));
-    let desiredStart = time.snap(m - offset);
+    const m = time.snap(pxToMinutes(clientX), e.shiftKey ? 1 : void 0);
+    let desiredStart = time.snap(m - offset, e.shiftKey ? 1 : void 0);
     if (Array.isArray(groupIds) && groupIds.length > 1) {
       const desiredDelta = desiredStart - anchorStart;
       let deltaMin = -Infinity;
@@ -8712,7 +8715,7 @@
       const view2 = getView3();
       const positions = [];
       for (const it2 of items) {
-        const ns = time.snap(it2.start + clampedDelta);
+        const ns = time.snap(it2.start + clampedDelta, e.shiftKey ? 1 : void 0);
         const ne = ns + it2.duration;
         const el2 = els.track.querySelector(`.punch[data-id="${it2.id}"]`);
         if (el2) {
@@ -8738,7 +8741,7 @@
     const minStart = leftLimit;
     const maxStart = rightLimit - duration;
     const clampedStart = Math.max(minStart, Math.min(maxStart, desiredStart));
-    const newStart = time.snap(clampedStart);
+    const newStart = time.snap(clampedStart, e.shiftKey ? 1 : void 0);
     const newEnd = newStart + duration;
     const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
     const el = els.track.querySelector(`.punch[data-id="${id}"]`);
@@ -8884,7 +8887,7 @@
     if (e.cancelable) e.preventDefault();
     const { id, edge, startStart, startEnd } = state.resizing;
     const raw = e.touches ? pxToMinutes(e.touches[0].clientX) : pxToMinutes(e.clientX);
-    const m = time.snap(raw);
+    const m = time.snap(raw, e.shiftKey ? 1 : void 0);
     const bounds = nearestBounds(id);
     let newStart = startStart;
     let newEnd = startEnd;
@@ -8892,13 +8895,13 @@
       const minL = bounds.leftLimitAt(startStart);
       const maxL = startEnd - 1;
       newStart = Math.min(maxL, Math.max(minL, m));
-      newStart = time.snap(newStart);
+      newStart = time.snap(newStart, e.shiftKey ? 1 : void 0);
     }
     if (edge === "right") {
       const minR = startStart + 1;
       const maxR = bounds.rightLimitAt(startEnd);
       newEnd = Math.max(minR, Math.min(maxR, m));
-      newEnd = time.snap(newEnd);
+      newEnd = time.snap(newEnd, e.shiftKey ? 1 : void 0);
     }
     const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
     const el = els.track.querySelector(`.punch[data-id="${id}"]`);

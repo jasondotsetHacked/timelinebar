@@ -1,4 +1,4 @@
-TimelineBar — Time Tracker (Guide)
+﻿TimelineBar — Time Tracker (Guide)
 
 Live App: https://jasondotsethacked.github.io/timelinebar/
 

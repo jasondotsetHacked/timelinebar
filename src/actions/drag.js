@@ -22,7 +22,7 @@ const startDrag = (e) => {
   if (e.target.closest('.handle')) return;
   if (e.target.closest('.punch')) return; // don't start new-range drag when interacting with an existing block
   const raw = e.touches ? pxToMinutes(e.touches[0].clientX) : pxToMinutes(e.clientX);
-  const snapped = time.snap(raw);
+  const snapped = time.snap(raw, e.shiftKey ? 1 : undefined);
   state.dragging = { anchor: snapped, last: snapped };
   ui.showGhost(snapped, snapped);
   window.addEventListener('mousemove', onDragMove);
@@ -35,7 +35,7 @@ const onDragMove = (e) => {
   if (!state.dragging) return;
   if (e.cancelable) e.preventDefault();
   const raw = e.touches ? pxToMinutes(e.touches[0].clientX) : pxToMinutes(e.clientX);
-  const snapped = time.snap(raw);
+  const snapped = time.snap(raw, e.shiftKey ? 1 : undefined);
   state.dragging.last = snapped;
   ui.showGhost(state.dragging.anchor, snapped);
 };
@@ -115,8 +115,8 @@ const onMoveMove = (e) => {
   const { id, items, offset, startClientX, anchorStart, groupIds } = state.moving;
   const clientX = e.touches ? e.touches[0].clientX : e.clientX;
   if (Math.abs(clientX - startClientX) > 3) state.moving.moved = true;
-  const m = time.snap(pxToMinutes(clientX));
-  let desiredStart = time.snap(m - offset);
+  const m = time.snap(pxToMinutes(clientX), e.shiftKey ? 1 : undefined);
+  let desiredStart = time.snap(m - offset, e.shiftKey ? 1 : undefined);
 
   // If group move (2+ ids), compute rigid delta with group-level clamping
   if (Array.isArray(groupIds) && groupIds.length > 1) {
@@ -139,7 +139,7 @@ const onMoveMove = (e) => {
     const view = getView();
     const positions = [];
     for (const it of items) {
-      const ns = time.snap(it.start + clampedDelta);
+      const ns = time.snap(it.start + clampedDelta, e.shiftKey ? 1 : undefined);
       const ne = ns + it.duration;
       const el = els.track.querySelector(`.punch[data-id="${it.id}"]`);
       if (el) {
@@ -168,7 +168,7 @@ const onMoveMove = (e) => {
   const minStart = leftLimit;
   const maxStart = rightLimit - duration;
   const clampedStart = Math.max(minStart, Math.min(maxStart, desiredStart));
-  const newStart = time.snap(clampedStart);
+  const newStart = time.snap(clampedStart, e.shiftKey ? 1 : undefined);
   const newEnd = newStart + duration;
   const invalid = overlapsAny(newStart, newEnd, id) || newEnd <= newStart;
   const el = els.track.querySelector(`.punch[data-id="${id}"]`);
