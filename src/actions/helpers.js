@@ -47,12 +47,13 @@ export const overlapsAny = (start, end, excludeId = null) => {
   );
 };
 
-export const nearestBounds = (forId) => {
+export const nearestBounds = (forId, extraExcludeIds = []) => {
   const day = state.currentDate || todayStr();
   const base = state.punches.find((x) => x.id === forId);
   const schedId = base && base.scheduleId != null ? Number(base.scheduleId) : null;
+  const excludeSet = new Set([forId, ...((extraExcludeIds || []).map(Number))]);
   const sorted = [...state.punches]
-    .filter((p) => p.id !== forId && getPunchDate(p) === day && (schedId == null || Number(p.scheduleId) === schedId))
+    .filter((p) => !excludeSet.has(p.id) && getPunchDate(p) === day && (schedId == null || Number(p.scheduleId) === schedId))
     .sort((a, b) => a.start - b.start);
   return {
     leftLimitAt: (start) => {

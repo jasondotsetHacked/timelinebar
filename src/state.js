@@ -8,6 +8,8 @@ export const state = {
   dragging: null,
   resizing: null,
   moving: null,
+  // Set of selected punch IDs for soft-selection/group actions
+  selectedIds: new Set(),
   pendingRange: null,
   editingId: null,
   // Timeline viewport (minutes from start of day)

@@ -6640,6 +6640,8 @@
     dragging: null,
     resizing: null,
     moving: null,
+    // Set of selected punch IDs for soft-selection/group actions
+    selectedIds: /* @__PURE__ */ new Set(),
     pendingRange: null,
     editingId: null,
     // Timeline viewport (minutes from start of day)
@@ -7646,6 +7648,16 @@
       el.dataset.id = p.id;
       const status = p.status || "default";
       el.classList.add(`status-${status}`);
+      try {
+        if (state.selectedIds instanceof Set && state.selectedIds.has(Number(p.id))) {
+          el.classList.add("selected");
+          el.setAttribute("aria-selected", "true");
+        } else {
+          el.classList.remove("selected");
+          el.removeAttribute("aria-selected");
+        }
+      } catch (e) {
+      }
       const leftHandle = document.createElement("div");
       leftHandle.className = "handle left";
       leftHandle.dataset.edge = "left";
@@ -8568,11 +8580,12 @@
       (p) => p.id !== excludeId && getPunchDate(p) === day && (schedId == null || Number(p.scheduleId) === schedId) && start < (p.end || 0) && end > (p.start || 0)
     );
   };
-  var nearestBounds = (forId) => {
+  var nearestBounds = (forId, extraExcludeIds = []) => {
     const day = state.currentDate || todayStr();
     const base = state.punches.find((x) => x.id === forId);
     const schedId = base && base.scheduleId != null ? Number(base.scheduleId) : null;
-    const sorted = [...state.punches].filter((p) => p.id !== forId && getPunchDate(p) === day && (schedId == null || Number(p.scheduleId) === schedId)).sort((a, b) => a.start - b.start);
+    const excludeSet = /* @__PURE__ */ new Set([forId, ...(extraExcludeIds || []).map(Number)]);
+    const sorted = [...state.punches].filter((p) => !excludeSet.has(p.id) && getPunchDate(p) === day && (schedId == null || Number(p.scheduleId) === schedId)).sort((a, b) => a.start - b.start);
     return {
       leftLimitAt: (start) => {
         const leftNeighbor = [...sorted].filter((p) => (p.end || 0) <= start).pop();
@@ -8586,6 +8599,16 @@
   };
 
   // src/actions/drag.js
+  var getActiveScheduleIds = () => {
+    const vid = state.currentScheduleViewId;
+    if (vid != null) {
+      const v = (state.scheduleViews || []).find((x) => Number(x.id) === Number(vid));
+      if (v && Array.isArray(v.scheduleIds) && v.scheduleIds.length) return v.scheduleIds.map(Number);
+      return null;
+    }
+    const id = state.currentScheduleId;
+    return id == null ? null : [Number(id)];
+  };
   var startDrag = (e) => {
     if (e.target.closest(".handle")) return;
     if (e.target.closest(".punch")) return;
@@ -8615,15 +8638,22 @@
     const startMin = Math.min(a, b);
     const endMin = Math.max(a, b);
     if (endMin - startMin < 1) return;
-    if (overlapsAny(startMin, endMin)) {
-      ui.toast("That range overlaps another block.");
-      return;
-    }
-    ui.openModal({ startMin, endMin });
     window.removeEventListener("mousemove", onDragMove);
     window.removeEventListener("touchmove", onDragMove);
     window.removeEventListener("mouseup", endDrag);
     window.removeEventListener("touchend", endDrag);
+    const day = state.currentDate || todayStr();
+    const schedIds = getActiveScheduleIds();
+    const schedSet = schedIds ? new Set(schedIds.map(Number)) : null;
+    const touched = (state.punches || []).filter(
+      (p) => getPunchDate(p) === day && (!schedSet || schedSet.has(Number(p.scheduleId))) && startMin < (p.end || 0) && endMin > (p.start || 0)
+    );
+    if (touched.length > 0) {
+      state.selectedIds = new Set(touched.map((p) => p.id));
+      ui.renderTimeline();
+      return;
+    }
+    ui.openModal({ startMin, endMin });
   };
   var startMove = (e) => {
     const handle = e.target.closest(".handle");
@@ -8635,14 +8665,18 @@
     if (!p) return;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const pointerMin = pxToMinutes(clientX);
-    const duration = p.end - p.start;
     const offset = pointerMin - p.start;
+    const sel = state.selectedIds instanceof Set ? state.selectedIds : /* @__PURE__ */ new Set();
+    const isGroup = sel.size > 0 && sel.has(id);
+    const day = state.currentDate || todayStr();
+    const items = isGroup ? (state.punches || []).filter((x) => sel.has(x.id) && getPunchDate(x) === day).map((x) => ({ id: x.id, start: x.start, end: x.end, duration: (x.end || 0) - (x.start || 0), rel: (x.start || 0) - p.start })) : [{ id, start: p.start, end: p.end, duration: (p.end || 0) - (p.start || 0), rel: 0 }];
     state.moving = {
       id,
-      duration,
+      // anchor id
+      groupIds: items.map((it) => it.id),
+      items,
+      anchorStart: p.start,
       offset,
-      startStart: p.start,
-      startEnd: p.end,
       startClientX: clientX,
       moved: false
     };
@@ -8654,12 +8688,49 @@
   var onMoveMove = (e) => {
     if (!state.moving) return;
     if (e.cancelable) e.preventDefault();
-    const { id, duration, offset, startClientX } = state.moving;
+    const { id, items, offset, startClientX, anchorStart, groupIds } = state.moving;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     if (Math.abs(clientX - startClientX) > 3) state.moving.moved = true;
     const m = time.snap(pxToMinutes(clientX));
-    let desiredStart = m - offset;
-    desiredStart = time.snap(desiredStart);
+    let desiredStart = time.snap(m - offset);
+    if (Array.isArray(groupIds) && groupIds.length > 1) {
+      const desiredDelta = desiredStart - anchorStart;
+      let deltaMin = -Infinity;
+      let deltaMax = Infinity;
+      for (const it2 of items) {
+        const desiredStartI = it2.start + desiredDelta;
+        const desiredEndI = desiredStartI + it2.duration;
+        const b = nearestBounds(it2.id, groupIds);
+        const leftLimit2 = b.leftLimitAt(desiredStartI);
+        const rightLimit2 = b.rightLimitAt(desiredEndI);
+        const minStartI = leftLimit2;
+        const maxStartI = rightLimit2 - it2.duration;
+        deltaMin = Math.max(deltaMin, minStartI - it2.start);
+        deltaMax = Math.min(deltaMax, maxStartI - it2.start);
+      }
+      const clampedDelta = Math.max(deltaMin, Math.min(deltaMax, desiredDelta));
+      const view2 = getView3();
+      const positions = [];
+      for (const it2 of items) {
+        const ns = time.snap(it2.start + clampedDelta);
+        const ne = ns + it2.duration;
+        const el2 = els.track.querySelector(`.punch[data-id="${it2.id}"]`);
+        if (el2) {
+          const leftPct2 = (Math.max(ns, view2.start) - view2.start) / view2.minutes * 100;
+          const widthPct2 = (Math.min(ne, view2.end) - Math.max(ns, view2.start)) / view2.minutes * 100;
+          el2.style.left = leftPct2 + "%";
+          el2.style.width = widthPct2 + "%";
+          el2.classList.remove("invalid");
+        }
+        positions.push({ id: it2.id, newStart: ns, newEnd: ne });
+      }
+      const anchorPos = positions.find((p) => p.id === id) || positions[0];
+      if (anchorPos) ui.showTips(anchorPos.newStart, anchorPos.newEnd);
+      state.moving.preview = { group: true, positions };
+      return;
+    }
+    const it = items[0];
+    const duration = it.duration;
     const desiredEnd = desiredStart + duration;
     const bounds = nearestBounds(id);
     const leftLimit = bounds.leftLimitAt(desiredStart);
@@ -8674,9 +8745,11 @@
     const view = getView3();
     const leftPct = (Math.max(newStart, view.start) - view.start) / view.minutes * 100;
     const widthPct = (Math.min(newEnd, view.end) - Math.max(newStart, view.start)) / view.minutes * 100;
-    el.style.left = leftPct + "%";
-    el.style.width = widthPct + "%";
-    el.classList.toggle("invalid", invalid);
+    if (el) {
+      el.style.left = leftPct + "%";
+      el.style.width = widthPct + "%";
+      el.classList.toggle("invalid", invalid);
+    }
     state.moving.preview = { newStart, newEnd, invalid };
     ui.showTips(newStart, newEnd);
   };
@@ -8692,15 +8765,33 @@
     ui.hideTips();
     if (!moved) return;
     state.lastMoveAt = Date.now();
-    if (!preview || preview.invalid) {
+    if (!preview) {
       ui.renderTimeline();
-      if (preview == null ? void 0 : preview.invalid) ui.toast("Move would overlap another block.");
       return;
     }
-    const idx = state.punches.findIndex((p) => p.id === id);
-    state.punches[idx] = { ...state.punches[idx], start: preview.newStart, end: preview.newEnd };
-    await idb.put(state.punches[idx]);
-    ui.renderAll();
+    if (preview.group && Array.isArray(preview.positions)) {
+      for (const pos of preview.positions) {
+        const idx = state.punches.findIndex((p) => p.id === pos.id);
+        if (idx === -1) continue;
+        const updated = { ...state.punches[idx], start: pos.newStart, end: pos.newEnd };
+        state.punches[idx] = updated;
+        await idb.put(updated);
+      }
+      ui.renderAll();
+      return;
+    }
+    if (preview.invalid) {
+      ui.renderTimeline();
+      return;
+    }
+    {
+      const idx = state.punches.findIndex((p) => p.id === id);
+      if (idx !== -1) {
+        state.punches[idx] = { ...state.punches[idx], start: preview.newStart, end: preview.newEnd };
+        await idb.put(state.punches[idx]);
+      }
+      ui.renderAll();
+    }
   };
   var onWheel = (e) => {
     if (!state.overTrack) return;
@@ -8756,6 +8847,19 @@
       els.track.addEventListener("mouseenter", () => state.overTrack = true);
       els.track.addEventListener("mouseleave", () => state.overTrack = false);
       window.addEventListener("wheel", onWheel, { passive: false });
+      const clearSelectionIfOutside = (e) => {
+        try {
+          if (!(state.selectedIds instanceof Set) || state.selectedIds.size === 0) return;
+          const insideSelected = !!e.target.closest(".punch.selected");
+          if (!insideSelected) {
+            state.selectedIds.clear();
+            ui.renderTimeline();
+          }
+        } catch (e2) {
+        }
+      };
+      document.addEventListener("mousedown", clearSelectionIfOutside, true);
+      document.addEventListener("touchstart", clearSelectionIfOutside, { passive: true, capture: true });
     }
   };
 

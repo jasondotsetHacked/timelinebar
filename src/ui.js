@@ -412,6 +412,15 @@ function renderTimeline() {
     el.dataset.id = p.id;
     const status = p.status || 'default';
     el.classList.add(`status-${status}`);
+    try {
+      if (state.selectedIds instanceof Set && state.selectedIds.has(Number(p.id))) {
+        el.classList.add('selected');
+        el.setAttribute('aria-selected', 'true');
+      } else {
+        el.classList.remove('selected');
+        el.removeAttribute('aria-selected');
+      }
+    } catch {}
 
     const leftHandle = document.createElement('div');
     leftHandle.className = 'handle left';
