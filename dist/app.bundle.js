@@ -7993,11 +7993,21 @@
       tr.dataset.id = p.id;
       const dur = Math.max(0, (p.end || 0) - (p.start || 0));
       tr.innerHTML = `
-      <td>${escapeHtml(p.date || "")}</td>
+      <td class="bucket-date">${escapeHtml(p.date || "")}</td>
       <td>${time.toLabel(p.start || 0)}</td>
       <td>${time.toLabel(p.end || 0)}</td>
       <td>${time.durationLabel(dur)}</td>
       <td class="note"><div class="note-html">${markdownToHtml(p.note || "")}</div></td>`;
+      const dateTd = tr.querySelector(".bucket-date");
+      if (dateTd) {
+        dateTd.style.cursor = "pointer";
+        dateTd.title = "Click to view this day";
+        dateTd.addEventListener("click", () => {
+          state.currentDate = p.date;
+          state.viewMode = "day";
+          updateViewMode();
+        });
+      }
       els.bucketViewBody.appendChild(tr);
     }
     if (els.bucketViewEmpty) els.bucketViewEmpty.style.display = items.length ? "none" : "block";
