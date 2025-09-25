@@ -2,7 +2,7 @@ import { els } from './dom.js';
 import { state } from './state.js';
 import { time } from './time.js';
 import { nowIndicator } from './nowIndicator.js';
-import { getPunchDate, todayStr, parseDate } from './dates.js';
+import { getPunchDate, todayStr, parseDate, toDateStr } from './dates.js';
 import { calendar } from './calendar.js';
 import { idb } from './storage.js';
 // Viewport is now dynamic and sourced from state
@@ -794,7 +794,7 @@ function renderDayLabel() {
   const day = currentDay();
   const d = parseDate(day) || new Date();
   const label = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  els.dayLabel.textContent = `Day: ${label}`;
+  els.dayLabel.innerHTML = `<button class="day-arrow prev" title="Previous day">&larr;</button> Day: ${label} <button class="day-arrow next" title="Next day">&rarr;</button>`;
 }
 
 function updateHelpText() {

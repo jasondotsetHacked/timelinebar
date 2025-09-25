@@ -2,6 +2,7 @@ import { els } from '../dom.js';
 import { state } from '../state.js';
 import { ui } from '../ui.js';
 import { calendar } from '../calendar.js';
+import { parseDate, toDateStr } from '../dates.js';
 
 const toggleCalendarView = () => {
   state.viewMode = state.viewMode === 'calendar' ? 'day' : 'calendar';
@@ -26,6 +27,17 @@ export const calendarActions = {
     }
     if (els.dayLabel) {
       els.dayLabel.addEventListener('click', (e) => {
+        if (e.target.classList.contains('day-arrow')) {
+          e.stopPropagation();
+          const dir = e.target.classList.contains('prev') ? -1 : 1;
+          const current = parseDate(state.currentDate);
+          if (current) {
+            current.setDate(current.getDate() + dir);
+            state.currentDate = toDateStr(current);
+            ui.renderAll();
+          }
+          return;
+        }
         e.preventDefault();
         if (state.viewMode !== 'calendar') toggleCalendarView();
       });

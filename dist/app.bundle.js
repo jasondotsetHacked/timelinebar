@@ -8020,7 +8020,7 @@
     const day = currentDay();
     const d = parseDate(day) || /* @__PURE__ */ new Date();
     const label = d.toLocaleDateString(void 0, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-    els.dayLabel.textContent = `Day: ${label}`;
+    els.dayLabel.innerHTML = `<button class="day-arrow prev" title="Previous day">&larr;</button> Day: ${label} <button class="day-arrow next" title="Next day">&rarr;</button>`;
   }
   function updateHelpText() {
     if (!els.viewHelp) return;
@@ -8967,6 +8967,17 @@
       }
       if (els.dayLabel) {
         els.dayLabel.addEventListener("click", (e) => {
+          if (e.target.classList.contains("day-arrow")) {
+            e.stopPropagation();
+            const dir = e.target.classList.contains("prev") ? -1 : 1;
+            const current = parseDate(state.currentDate);
+            if (current) {
+              current.setDate(current.getDate() + dir);
+              state.currentDate = toDateStr(current);
+              ui.renderAll();
+            }
+            return;
+          }
           e.preventDefault();
           if (state.viewMode !== "calendar") toggleCalendarView();
         });

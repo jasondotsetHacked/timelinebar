@@ -713,6 +713,21 @@ input[type="date"]::-webkit-datetime-edit-day-field { color: var(--text); backgr
 /* Header Back button size tweak */
 #btnBucketBackTop { padding: 6px 10px; font-size: 12px; }
 
+.day-arrow {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 1em;
+  margin: 0 4px;
+  padding: 0;
+  line-height: 1;
+}
+.day-arrow:hover {
+  color: var(--brand);
+}
+
 /* Mobile timeline controls (hidden on desktop by default) */
 .mobile-controls { display: none; gap: 10px; align-items: center; padding: 10px 12px 0; }
 .mobile-zoom { padding: 6px 10px; font-size: 14px; }
